@@ -5,4 +5,6 @@ This repository contains subplugins from the [Freak Fortress 2 sub-forum](https:
 
 Only few subplugins are owned by me, **all other subplugins are not owned by me, authors are in the sourcecode.**
 
-### I highly advice you to only install what your bosses need and if you want any non-ability subplugins
+***
+
+ 　 　**I highly advice you to only install what your bosses need and if you want any non-ability subplugins!**
