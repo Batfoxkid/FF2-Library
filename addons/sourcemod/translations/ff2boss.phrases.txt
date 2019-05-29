@@ -1,0 +1,45 @@
+﻿"Phrases"
+{
+	"ff2boss_title"
+	{
+		"en"		"Select Boss for YOUR Round! (/ff2boss)"
+		"ru"		"Выбери Босса для СВОЕГО Раунда! (/ff2boss)"
+	}
+	"ff2boss_random_option"
+	{
+		"en"		"Random Boss"
+		"ru"		"Рандом"
+	}
+	"ff2boss_randomboss"
+	{
+		"en"		"You will become a random boss."
+		"ru"		"Вы станете рандомным боссом."
+	}
+	"ff2boss_bossselected"
+	{
+		"#format"	"{1:s}"
+		"en"		"You have selected {1} as your boss!"
+		"ru"		"Вы выбрали босса {1}!"
+	}
+	"ff2boss_bossnotfound"
+	{
+		"en"		"Boss could not be found!"
+		"ru"		"Босс не найден!"
+	}
+	"ff2boss_confirm"
+	{
+		"#format"	"{1:s}"
+		"en"		"Select {1}"
+		"ru"		"Выбрать {1}"
+	}
+	"ff2boss_cancel"
+	{
+		"en"		"Cancel"
+		"ru"		"Отмена"
+	}
+	"ff2boss_nodesc"
+	{
+		"en"		"No Boss Description"
+		"ru"		"Нет описания босса"
+	}
+}

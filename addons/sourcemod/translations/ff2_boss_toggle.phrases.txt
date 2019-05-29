@@ -1,0 +1,44 @@
+"Phrases"
+{
+	"toggle_enabled"
+	{
+		"en"			"FF2 Bosses are enabled for you. You are in the Boss queue."
+	}
+	
+	"toggle_enabled_points"
+	{
+		"#format" 		"{1:i},{2:i}"
+		"en"			"FF2 Bosses are enabled for you. You are #{1} in Boss queue with {2} points."
+	}
+	
+	"toggle_disabled"
+	{
+		"en"			"FF2 Bosses are disabled for you. You won't be selected as a Boss."
+	}
+	
+	"set_preference"
+	{
+		"en"			"Please set your Boss spawn preference."
+	}
+	
+	"toggle_command"
+	{
+		"en"			"Use {olive}/ff2toggle{default} to toggle your Boss spawning preference."
+	}
+	
+	"toggle_menu_title"
+	{
+		"en"			"FF2 Boss Toggle"
+	}
+	
+	"toggle_on_menu_option"
+	{
+		"en"			"ON (Select me as a Boss)"
+	}
+	
+	"toggle_off_menu_option"
+	{
+		"en"			"OFF (Don't select me as a Boss)"
+	}
+}
+	

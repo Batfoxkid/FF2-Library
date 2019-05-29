@@ -1,0 +1,27 @@
+"Phrases"
+{
+	"salmon_status"
+	{
+		"#format" "{1:i}"
+		"en"	"Summoning is {1} percent ready. When at 100 percent look up and stand up."
+	}
+	"salmon_status_2"
+	{
+		"#format" "{1:i}"
+		"en"	"Summoning will be avaliable in {1} second(s)."
+	}
+	"super_duper_jump"
+	{
+		"en"	"Super Duper jump is ready!"
+	}
+	"jump_status"
+	{
+		"#format" "{1:i}"
+		"en"	"Jump charge is {1} percent. Look upwards and stand up for jump"
+	}
+	"jump_status_2"
+	{
+		"#format" "{1:i}"
+		"en"	"Super Jump will be avaliable in {1} second(s)."
+	}
+}

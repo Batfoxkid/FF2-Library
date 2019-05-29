@@ -1,0 +1,95 @@
+﻿"Phrases"
+{
+	"ff2boss_title"
+	{
+		"en"		"Select Boss for YOUR Round! (/ff2boss)"
+		"ru"		"Выбери Босса для СВОЕГО Раунда!"
+	}
+	"ff2boss_enabled"
+	{
+		"en"		"You currently have bosses enabled"
+	}
+	"ff2boss_disabled"
+	{
+		"en"		"You currently have bosses disabled"
+	}
+	"ff2boss_current_selection"
+	{
+		"#format"	"{1:s}"
+		"en"		"Your current selection is: {1}"
+	}
+	"ff2boss_random_option"
+	{
+		"en"		"Random Boss"
+		"ru"		"Рандом"
+	}
+	"ff2boss_randomboss"
+	{
+		"en"		"You will become a random boss."
+		"ru"		"Вы станете рандомным боссом."
+	}
+	"ff2boss_bossselected"
+	{
+		"#format"	"{1:s}"
+		"en"		"You have selected {1} as your boss!"
+		"ru"		"Вы выбрали босса {1}!"
+	}
+	"ff2boss_bossnotfound"
+	{
+		"en"		"Boss could not be found!"
+		"ru"		"Босс не найден!"
+	}
+	"ff2boss_selection_adminoverride"
+	{
+		"en"		"Your boss selection has been overridden by an admin!"
+	}
+	"toggle_enabled"
+	{
+		"en"		"Bosses are currently enabled for you. You are in the boss queue."
+	}
+	"toggle_enabled_points"
+	{
+		"#format" 	"{1:i},{2:i}"
+		"en"		"Bosses are enabled for you. You are #{1} in the boss queue with {2} points."
+	}
+	"toggle_disabled"
+	{
+		"en"		"Bosses are currently disabled for you. You won't be selected as a boss."
+	}
+	"set_preference"
+	{
+		"en"		"Please set your boss queue preferences."
+	}
+	"toggle_command"
+	{
+		"en"		"Type {olive}/ff2toggle{default} to toggle your boss spawning preferences!"
+	}
+	"toggle_menu_title"
+	{
+		"en"		"Boss queue preferences:"
+	}
+	"toggle_on_menu_option"
+	{
+		"en"		"Enable becoming a boss"
+	}
+	"toggle_off_menu_option"
+	{
+		"en"		"Never become a boss"
+	}
+	"ff2boss_confirm"
+	{
+		"#format"	"{1:s}"
+		"en"		"Select {1}"
+		"ru"		"Выбрать {1}"
+	}
+	"ff2boss_cancel"
+	{
+		"en"		"Cancel"
+		"ru"		"Отмена"
+	}
+	"ff2boss_nodesc"
+	{
+		"en"		"No Boss Description"
+		"ru"		"Нет описания босса"
+	}
+}

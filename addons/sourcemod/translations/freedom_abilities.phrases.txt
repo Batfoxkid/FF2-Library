@@ -1,0 +1,22 @@
+"Phrases"
+{
+	"Faster Rage"
+	{
+		"#format"		"{1:i}"
+		"en"			"You can rage after {1} damage taken."
+	}
+	"Dash Ready"
+	{
+		"en"			"Your dash has cooldowned and is ready to use."
+	}
+	"True Power Charge"
+	{
+		"#format"		"{1:i}"
+		"en"			"Your TRUE POWER's charge is {1}!"
+	}
+	"True Power Cooldown"
+	{
+		"#format"		"{1:i}"
+		"en"			"Your TRUE POWER will be ready in {1} seconds."
+	}
+}

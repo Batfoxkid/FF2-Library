@@ -1,0 +1,172 @@
+﻿"Phrases"
+{
+	"Prefix"
+	{
+		"en"		"{olive}[FF2]{default} "
+	}
+	"ca"
+	{
+		"en"		"Could not find any matching results"
+	}
+	"cb"
+	{
+		"en"		"You have enabled killstreaks"
+	}
+	"cc"
+	{
+		"en"		"You have disabled killstreaks"
+	}
+	"cd"
+	{
+		"en"		"You have turned off killstreak preferences"
+	}
+	"ce"
+	{
+		"en"		"You have choosen Team Shine as a Sheen"
+	}
+	"cf"
+	{
+		"en"		"You have choosen Deadly Daffodil as a Sheen"
+	}
+	"cg"
+	{
+		"en"		"You have choosen Manndarin as a Sheen"
+	}
+	"ch"
+	{
+		"en"		"You have choosen Mean Green as a Sheen"
+	}
+	"ci"
+	{
+		"en"		"You have choosen Agonizing Emerald as a Sheen"
+	}
+	"cj"
+	{
+		"en"		"You have choosen Villainous Violet as a Sheen"
+	}
+	"ck"
+	{
+		"en"		"You have choosen Hot Rod as a Sheen"
+	}
+	"cl"
+	{
+		"en"		"You have disabled Sheens"
+	}
+	"cm"
+	{
+		"en"		"You have turned off Sheen preferences"
+	}
+	"cn"
+	{
+		"en"		"You have choosen Fire Horns as a Killstreaker"
+	}
+	"co"
+	{
+		"en"		"You have choosen Cerebral Discharge as a Killstreaker"
+	}
+	"cp"
+	{
+		"en"		"You have choosen Tornado as a Killstreaker"
+	}
+	"cq"
+	{
+		"en"		"You have choosen Flames as a Killstreaker"
+	}
+	"cr"
+	{
+		"en"		"You have choosen Singularity as a Killstreaker"
+	}
+	"cs"
+	{
+		"en"		"You have choosen Incinerator as a Killstreaker"
+	}
+	"ct"
+	{
+		"en"		"You have choosen Hypno-Beam as a Killstreaker"
+	}
+	"cu"
+	{
+		"en"		"You have disabled Killstreakers"
+	}
+	"cv"
+	{
+		"en"		"You have turned off Killstreaker preferences"
+	}
+
+	"ma"
+	{
+		"en"		"Killstreak Prefences"
+	}
+	"mb"
+	{
+		"en"		"Toggle"
+	}
+	"mc"
+	{
+		"en"		"Sheens"
+	}
+	"md"
+	{
+		"en"		"Killstreakers"
+	}
+	"me"
+	{
+		"en"		"Team Shine"
+	}
+	"mf"
+	{
+		"en"		"Deadly Daffodil"
+	}
+	"mg"
+	{
+		"en"		"Manndarin"
+	}
+	"mh"
+	{
+		"en"		"Mean Green"
+	}
+	"mi"
+	{
+		"en"		"Agonizing Emerald"
+	}
+	"mj"
+	{
+		"en"		"Villainous Violet"
+	}
+	"mk"
+	{
+		"en"		"Hot Rod"
+	}
+	"ml"
+	{
+		"en"		"Fire Horns"
+	}
+	"mm"
+	{
+		"en"		"Cerebral Discharge"
+	}
+	"mn"
+	{
+		"en"		"Tornado"
+	}
+	"mo"
+	{
+		"en"		"Flames"
+	}
+	"mp"
+	{
+		"en"		"Singularity"
+	}
+	"mq"
+	{
+		"en"		"Incinerator"
+	}
+	"mr"
+	{
+		"en"		"Hypno-Beam"
+	}
+	"ms"
+	{
+		"en"		"None"
+	}
+}

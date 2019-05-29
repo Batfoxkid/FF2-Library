@@ -1,0 +1,26 @@
+"Phrases"
+{
+	"time_to_kaboom"
+	{
+		"#format" "{1:s}"
+		"en"	"{1} is about to explode! Get out of their range!"
+	}
+	"life_regeneration"
+	{
+		"#format" "{1:i}"
+		"en"	"Extra Life in: {1} sec."
+	}
+	"delay_info"
+	{	
+		"#format" "{1:i},{2:s}"
+		"en"	"Defeat {2} in {1} secs before a life regenerates!"
+	}
+	"regenerated_life"
+	{
+		"en"    "An extra life has been regenerated."
+	}
+	"reimu_clone_disable"
+	{
+		"en"    "You cannot spawn another clone until the clone dies"
+	}
+}

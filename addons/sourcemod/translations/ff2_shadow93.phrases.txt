@@ -1,0 +1,42 @@
+"Phrases"
+{
+	"summon_status"
+	{
+		"#format" "{1:i}"
+		"en"	"Summoning is {1} percent ready. When at 100 percent look up and stand up."
+	}
+	"summon_status_2"
+	{
+		"#format" "{1:i}"
+		"en"	"Summoning will be avaliable in {1} second(s)."
+	}
+	"super_duper_jump"
+	{
+		"en"	"Super Duper jump is ready!"
+	}
+	"summon_ready"
+	{
+		"en"	"Summoning is ready! Press Alt-fire or RELOAD button to summon!"
+	}
+	"minion_summoned"
+	{
+		"#format"	"{1:s}"
+		"en"    "You are now a minion of {1}!"
+	}
+	"minion_summoner"
+	{
+		"en"    "Your minions have spawned"
+	}
+	"build_notification"
+	{
+		"en"    "You can now construct buildings!"
+	}
+	"sap_notification"
+	{
+		"en"    "You can now sap buildings!"
+	}
+	"boss_saved"
+	{
+		"en"    "Be careful around hazardous locations!"
+	}
+}

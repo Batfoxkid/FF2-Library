@@ -1,0 +1,18 @@
+"Phrases"
+{
+	"ff2stats"
+	{
+		
+		"en"	"Your Boss stats are:"
+	}
+	
+	"on"
+	{
+		"en"	"on"
+	}
+	
+	"off"
+	{
+		"en"	"off"
+	}
+}
