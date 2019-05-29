@@ -1,9 +1,9 @@
 "Phrases"
 {
-	"time_to_kaboom"
-	{
-		"#format" "{1:s}"
-		"en"	"{1} is about to explode! Get out of their range!"
+	"time_to_kaboom"
+	{
+		"#format" "{1:s}"
+		"en"	"{1} is about to explode! Get out of their range!"
 	}
 	"life_regeneration"
 	{
