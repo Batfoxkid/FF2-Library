@@ -450,6 +450,22 @@ native void FF2_RemoveClientShield(int client);
 native void FF2_LogError(const char[] message, any ...);
 
 /**
+ * Retrieves the number of alive players left (not including bosses)
+ *
+ * @return			Number of non-boss players left alive
+ */
+#pragma deprecated Use FF2_OnAlivePlayersChanged
+native int FF2_GetAlivePlayers();
+
+/**
+ * Retrieves the number of boss players left (including minions)
+ *
+ * @return			Number of boss players left alive
+ */
+#pragma deprecated Use FF2_OnAlivePlayersChanged
+native int FF2_GetBossPlayers();
+
+/**
  * Returns whether or not debug is enabled
  *
  * @return		True if enabled, false otherwise
@@ -713,6 +729,22 @@ stock void FReplyToCommand(int client, const char[] message, any ...)
 	}
 }
 
+// These exist for compatibility reasons (<1.10.1)
+#pragma deprecated Use TF2_RemoveWeaponSlot
+stock void TF2_RemoveWeaponSlot2(int client, int slot)
+{
+	TF2_RemoveWeaponSlot(int client, int slot);
+}
+
+#pragma deprecated Use TF2_RemoveAllWeapons
+stock void TF2_RemoveAllWeapons2(int client)
+{
+	for(int slot=0; slot<=5; slot++)
+	{
+		TF2_RemoveWeaponSlot(int client, int slot);
+	}
+}
+
 public SharedPlugin __pl_FF2 =
 {
 	name = "freak_fortress_2",
@@ -768,4 +800,4 @@ public void __pl_FF2_SetNTVOptional()
 }
 #endif
 
-#file "Freak Fortress 2 Include"
+#file "Mixed Freak Fortress 2 Include"
