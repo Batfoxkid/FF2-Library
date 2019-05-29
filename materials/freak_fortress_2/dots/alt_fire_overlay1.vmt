@@ -1,0 +1,7 @@
+"UnlitGeneric"
+{
+	"$baseTexture" "freak_fortress_2\dots\alt_fire_overlay1"
+	"$translucent" 1
+	"$ignorez"     "1"
+	"$no_fullbright" "1"	
+}
