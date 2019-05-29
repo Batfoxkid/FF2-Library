@@ -1,0 +1,50 @@
+"Phrases"
+{
+    "FF2Boss InGame Only"
+    {
+        "en"    "In-game only"
+    }
+
+    "FF2Boss Can't change while playing boss."
+    {
+        "en"    "You can not change boss while playing boss."
+    }
+
+    "FF2Boss Dont Play Boss"
+    {
+        "en"    "leaved queue. (Queue point saved.)"
+    }
+
+    "FF2Boss Saved QueuePoints"
+    {
+        "#format"   "{1:d}"
+        "en"    "Saved Queue points: {1}"
+    }
+
+    "FF2Boss Menu Title"
+    {
+        "#format"   "{1:s}"
+        "en"    "Current Boss: {1}"
+    }
+
+    "FF2Boss Menu Random"
+    {
+        "en"    "Random"
+    }
+
+    "FF2Boss Menu None"
+    {
+        "en"    "I don't wanna play Boss."
+    }
+
+    "FF2Boss Selected"
+    {
+        "#format"   "{1:s}"
+        "en"    "Selected: {orange}{1}{default}"
+    }
+
+    "FF2Boss Cant Chosse This Map"
+    {
+        "en"    "Banned for this map!"
+    }
+}

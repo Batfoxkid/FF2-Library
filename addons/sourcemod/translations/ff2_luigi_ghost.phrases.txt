@@ -1,0 +1,11 @@
+"Phrases"
+{
+	"charge_case2"
+	{
+		"en"    "Invisibility: During your invisibility you can't attack"		
+	}
+	"charge_ready_invisible"
+	{
+		"en"	"Invisibility: Press the reload button for be invisible!"
+	}	
+}
