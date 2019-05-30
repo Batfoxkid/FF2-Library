@@ -456,7 +456,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	{
 		if(IsPlayerAlive(client))
 		{
-			int weapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+			weapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
 			if(FF2_GetBossIndex(client)>-1)
 			{
 				int boss = FF2_GetBossIndex(client);
@@ -954,7 +954,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, c
 	return entity;
 }
 
-stock bool IsValidClient(client, bool replaycheck=true)
+stock bool IsValidClient(int client, bool replaycheck=true)
 {
 	if(client<=0 || client>MaxClients)
 	{
