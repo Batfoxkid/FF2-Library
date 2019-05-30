@@ -1,0 +1,50 @@
+# Use the new container-based infrastructure
+sudo: false
+
+# Install some apt packages needed for spcomp
+addons:
+    apt_packages:
+        - lib32stdc++6
+
+# Set the build environment
+env:
+    - SMVERSION=1.7  # Legacy
+    - SMVERSION=1.8  # Legacy
+    - SMVERSION=1.9  # Stable
+    - SMVERSION=1.10 # Unstable
+
+# Allow 1.10 to fail
+jobs:
+    allow_failures:
+        - env: SMVERSION=1.7
+        - env: SMVERSION=1.8
+        - env: SMVERSION=1.10
+
+# And compile!
+install:
+    - wget --input-file=http://sourcemod.net/smdrop/$SMVERSION/sourcemod-latest-linux
+    - tar -xzf $(cat sourcemod-latest-linux)
+before_script:
+    - cd addons/sourcemod/scripting/
+    - wget "https://raw.githubusercontent.com/asherkin/TF2Items/master/pawn/tf2items.inc" -O include/tf2items.inc
+    - wget "https://forums.alliedmods.net/attachment.php?attachmentid=79000&d=1292171445" -O include/colors.inc
+    - wget "http://www.doctormckay.com/download/scripting/include/morecolors.inc" -O include/morecolors.inc
+    - wget "https://raw.githubusercontent.com/asherkin/SteamTools/master/plugin/steamtools.inc" -O include/steamtools.inc
+    - wget "https://raw.githubusercontent.com/Flyflo/SM-Goomba-Stomp/master/addons/sourcemod/scripting/include/goomba.inc" -O include/goomba.inc
+    - wget "https://forums.alliedmods.net/attachment.php?attachmentid=115795&d=1360508618" -O include/rtd.inc
+    - wget "https://raw.githubusercontent.com/Phil25/RTD/master/scripting/include/rtd2.inc" -O include/rtd2.inc
+    - wget "https://raw.githubusercontent.com/Silenci0/SMAC/master/addons/sourcemod/scripting/include/smac.inc" -O include/smac.inc
+    - wget "https://raw.githubusercontent.com/Silenci0/SMAC/master/addons/sourcemod/scripting/include/smac_stocks.inc" -O include/smac_stocks.inc
+    - wget "https://forums.alliedmods.net/attachment.php?attachmentid=116849&d=1377667508" -O include/tf2attributes.inc
+    - wget "https://forums.alliedmods.net/attachment.php?attachmentid=175386&d=1556998847" -O include/freak_fortress_2_kstreak.inc
+
+    # RTD is particularly annoying since it doesn't handle optional plugin dependencies correctly
+    - sed -i'' 's/required = 1/#if defined REQUIRE_PLUGIN\nrequired = 1\n\#else\nrequired = 0/' include/rtd.inc
+
+    - chmod +x spcomp
+    - mkdir compiled compiled/freaks
+script: ./compile.sh *.sp freaks/*.sp
+
+# Notifications
+notifications:
+    email: false
