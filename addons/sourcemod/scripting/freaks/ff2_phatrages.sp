@@ -9,107 +9,109 @@
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma newdecls required
+
 //Miscs
 #define FFADE_OUT	0x0002        // Fade out 
 #define MAX_PLAYERS 33
-new gSmoke1;
-new gGlow1;
-new gHalo1;
-new gExplosive1;
-new gLaser1;
-new gAfterburn;
-new gExplosion;
-new fov_offset;
-new zoom_offset;
+int gSmoke1;
+int gGlow1;
+int gHalo1;
+int gExplosive1;
+int gLaser1;
+int gAfterburn;
+int gExplosion;
+int fov_offset;
+int zoom_offset;
 #define INACTIVE 100000000.0
 
 //Ion Cannon
 #define IONCANNON "rage_ioncannon"
 #define IONCANNONALIAS "IOC"
-new bool:IonCannon_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new distance;
-new IOCDist;
-new IOCdamage;
-new aimmode;
+bool IonCannon_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+int distance;
+int IOCDist;
+int IOCdamage;
+int aimmode;
 
 //Delirium
 #define DELIRIUM "rage_delirium"
 #define DELIRIUMALIAS "DEL"
-new bool:Delirium_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new DeliriumDistance;
-new Float:DeliriumDuration;
-new Float:g_DrugAngles[56] = {0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0, 39.0, 36.0, 33.0, 30.0, 27.0, 24.0, 21.0, 18.0, 15.0, 12.0, 9.0, 6.0, 3.0, 0.0, -3.0, -6.0, -9.0, -12.0, -15.0, -18.0, -21.0, -24.0, -27.0, -30.0, -33.0, -36.0, -39.0, -42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0, -15.0, -12.0, -9.0, -6.0, -3.0 };
-new Handle:specialDrugTimers[ MAX_PLAYERS+1 ];
+bool Delirium_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+int DeliriumDistance;
+float DeliriumDuration;
+float g_DrugAngles[56] = {0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0, 39.0, 36.0, 33.0, 30.0, 27.0, 24.0, 21.0, 18.0, 15.0, 12.0, 9.0, 6.0, 3.0, 0.0, -3.0, -6.0, -9.0, -12.0, -15.0, -18.0, -21.0, -24.0, -27.0, -30.0, -33.0, -36.0, -39.0, -42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0, -15.0, -12.0, -9.0, -6.0, -3.0 };
+Handle specialDrugTimers[ MAX_PLAYERS+1 ];
 
 //Hellfire
 #define HELLFIRE "rage_hellfire"
 #define HELLFIREALIAS "HLF"
 #define PYROGAS_SND 	"misc/flame_engulf.wav"
-new bool:HellFire_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new hellsound;
-new rageDamage;
-new rageDistance;
-new afterBurnDamage;
-new afterBurnDuration;
+bool HellFire_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+int hellsound;
+int rageDamage;
+int rageDistance;
+int afterBurnDamage;
+int afterBurnDuration;
 
 // Scaling
-new Float:oldScale[MAXPLAYERS+1]=1.0;
+float oldScale[MAXPLAYERS+1]=1.0;
 //Scale Boss
 #define SCALEBOSS "rage_scaleboss"
 #define SCALEBOSSALIAS "SCB"
-new bool:BossScale_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new Float:BossScale;
-new Float:BossDuration;
+bool BossScale_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float BossScale;
+float BossDuration;
 
 //Scale Players
 #define SCALEPLAYER "rage_scaleplayers"
 #define SCALEPLAYERALIAS "SCP"
-new bool:PlayerScale_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new Float:PlayerScale;
-new Float:PlayerDuration;
-new Float:PlayerDistance;
+bool PlayerScale_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float PlayerScale;
+float PlayerDuration;
+float PlayerDistance;
 
 //Explosions
 #define EXPLOSION "rage_explosion"
 #define EXPLOSIONALIAS "EXP"
-new bool:Explosion_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-//new ExplosionDamage;
-//new Float:ExplosionDistance;
+bool Explosion_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+//int ExplosionDamage;
+//float ExplosionDistance;
 
 //Drown
 #define DROWN "rage_drown"
 #define DROWNALIAS "RDR"
-new bool:Drown_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new Float:DrownDuration;
-new Float:DrownDistance;
+bool Drown_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float DrownDuration;
+float DrownDistance;
 
 //Visualeffects
 #define EFFECT "rage_visualeffect"
 #define EFFECTALIAS "VIS"
-new bool:Visual_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new VisualEffect;
-new Float:EffectDuration;
-new Float:EffectDistance;
+bool Visual_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+int VisualEffect;
+float EffectDuration;
+float EffectDistance;
 
 // Hitboxes
-new bool:isHitBoxAvailable=false;
+bool isHitBoxAvailable=false;
 
-public Plugin:myinfo = {
-	name = "Freak Fortress 2: Phat Rages",
+public Plugin myinfo = {
+	name = "Freak Fortress 2: Phat Rages*",
 	author = "frog,Kemsan,Peace Maker,LeGone,RainBolt Dash, SHADoW NiNE TR3S, M76030",
-	version = "0.9.7",
+	version = "0.9.8",
 };
 	
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	fov_offset = FindSendPropOffs("CBasePlayer", "m_iFOV");
-	zoom_offset = FindSendPropOffs("CBasePlayer", "m_iDefaultFOV");
+	fov_offset = FindSendPropInfo("CBasePlayer", "m_iFOV");
+	zoom_offset = FindSendPropInfo("CBasePlayer", "m_iDefaultFOV");
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	isHitBoxAvailable=((FindSendPropOffs("CBasePlayer", "m_vecSpecifiedSurroundingMins") != -1) && FindSendPropOffs("CBasePlayer", "m_vecSpecifiedSurroundingMaxs") != -1);
+	isHitBoxAvailable=((FindSendPropInfo("CBasePlayer", "m_vecSpecifiedSurroundingMins") != -1) && FindSendPropInfo("CBasePlayer", "m_vecSpecifiedSurroundingMaxs") != -1);
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	gLaser1 = PrecacheModel("materials/sprites/laser.vmt");
 	gSmoke1 = PrecacheModel("materials/effects/fire_cloud1.vmt");
@@ -128,9 +130,9 @@ public OnMapStart()
 	}
 }
 
-public Action:Event_RoundEnd(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundEnd(Handle event,const char[] name,bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -172,14 +174,14 @@ public Action:Event_RoundEnd(Handle:event,const String:name[],bool:dontBroadcast
 	CreateTimer(0.4, ResetCaber);
 }
 
-public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundStart(Handle event,const char[] name,bool dontBroadcast)
 {
 	HookAbilities();
 }
 
-public HookAbilities()
+public void HookAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if(!IsValidClient(client))
 			continue;
@@ -215,10 +217,10 @@ public HookAbilities()
 		Visual_TriggerAMS[client]=false;
 		EffectDuration = INACTIVE;
 		
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			new BossMeleeweapon = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee);
+			int BossMeleeweapon = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee);
 			if (BossMeleeweapon != -1)
 			{
 				if (GetEntProp(BossMeleeweapon, Prop_Send, "m_iItemDefinitionIndex") == 307)	
@@ -228,7 +230,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, IONCANNON))
 			{
-				IonCannon_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, IONCANNON, 5);
+				IonCannon_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, IONCANNON, 5);
 				if(IonCannon_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, IONCANNON, IONCANNONALIAS);
@@ -236,7 +238,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, DELIRIUM))
 			{
-				Delirium_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, DELIRIUM, 3);
+				Delirium_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, DELIRIUM, 3);
 				if(Delirium_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, DELIRIUM, DELIRIUMALIAS);
@@ -244,7 +246,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, HELLFIRE))
 			{
-				HellFire_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, HELLFIRE, 6);
+				HellFire_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, HELLFIRE, 6);
 				if(HellFire_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, HELLFIRE, HELLFIREALIAS);
@@ -252,7 +254,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, SCALEBOSS))
 			{
-				BossScale_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, SCALEBOSS, 3);
+				BossScale_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, SCALEBOSS, 3);
 				if(BossScale_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, SCALEBOSS, SCALEBOSSALIAS);
@@ -260,7 +262,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, SCALEPLAYER))
 			{
-				PlayerScale_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, SCALEPLAYER, 4);
+				PlayerScale_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, SCALEPLAYER, 4);
 				if(PlayerScale_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, SCALEPLAYER, SCALEPLAYERALIAS);
@@ -268,7 +270,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, EXPLOSION))
 			{
-				Explosion_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, EXPLOSION, 3);
+				Explosion_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, EXPLOSION, 3);
 				if(Explosion_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, EXPLOSION, EXPLOSIONALIAS);
@@ -276,7 +278,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, DROWN))
 			{
-				Drown_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, DROWN, 3);
+				Drown_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, DROWN, 3);
 				if(Drown_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, DROWN, DROWNALIAS);
@@ -284,7 +286,7 @@ public HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, EFFECT))
 			{
-				Visual_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, EFFECT, 4);
+				Visual_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, EFFECT, 4);
 				if(Visual_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, EFFECT, EFFECTALIAS);
@@ -294,21 +296,20 @@ public HookAbilities()
 	}
 }
 
-public CaberReset(client)
+public void CaberReset(int client)
 {
-	new stickbomb = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee); 
+	int stickbomb = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee); 
 	if (stickbomb <= MaxClients || !IsValidEdict(stickbomb)) 
 	{ 
-	    return; 
+		return; 
 	}
 	SetEntProp(stickbomb, Prop_Send, "m_iDetonated", 0); 
 	SetEntProp(stickbomb, Prop_Send, "m_bBroken", 0); 
 }
 
-public Action:ResetCaber(Handle:timer)
+public Action ResetCaber(Handle timer)
 {
-	decl i;
-	for( i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i))
 		{
@@ -318,20 +319,20 @@ public Action:ResetCaber(Handle:timer)
 	return Plugin_Stop;
 }
 
-public PlayerSpawnEvent(Handle:event, const String:name[], bool:dontBroadcast)
+public PlayerSpawnEvent(Handle event, const char[] name, bool dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	SetEntData(client, fov_offset, 90, 4, true);
 	SetEntData(client, zoom_offset, 90, 4, true);
 	ClientCommand(client, "r_screenoverlay 0");
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(boss,const char[] plugin_name[],const char[] ability_name[],action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 		
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if (!strcmp(ability_name,IONCANNON))			//Ion Cannon by Peace Maker & LeGone
 		Rage_IonCannon(client);
 	else if (!strcmp(ability_name,DELIRIUM))			//Based on original Polish Nurse Rage by Kemsan
@@ -358,29 +359,29 @@ Rage_VisualEffect(client)
 	VIS_Invoke(client);
 }
 
-public bool:VIS_CanInvoke(client)
+public bool VIS_CanInvoke(client)
 {
 	return true;
 }
 
 public VIS_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	VisualEffect=FF2_GetAbilityArgument(boss,this_plugin_name,EFFECT, 1);	        	//effect
 	EffectDuration=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss,this_plugin_name,EFFECT, 2); //duration
 	EffectDistance=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,EFFECT, 3);	        //range
 	
-	decl Float:pos[3];
-	decl Float:pos2[3];
+	float pos[3];
+	float pos2[3];
 	
 	if(Visual_TriggerAMS[client])
 	{
-		new String:VisualSound[PLATFORM_MAX_PATH];
+		char VisualSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, EFFECT, 5, VisualSound, sizeof(VisualSound)); // SOUND
 	
 		if(VisualSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", VisualSound);
 			if(FileExists(sndPath, true))
 			{
@@ -395,7 +396,7 @@ public VIS_Invoke(client)
 	}
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	for(new i=1;i<=MaxClients;i++)
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -455,12 +456,12 @@ public Visual_Prethink(client)
 	EffectTick(client, GetEngineTime());
 }
 
-public EffectTick(client, Float:gameTime)
+public EffectTick(client, float gameTime)
 {
 	if(gameTime>=EffectDuration)
 	{
 		EffectDuration=INACTIVE;
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i))
 			{
@@ -479,28 +480,28 @@ Rage_Drown(client)
 	RDR_Invoke(client);
 }
 
-public bool:RDR_CanInvoke(client)
+public bool RDR_CanInvoke(client)
 {
 	return true;
 }
 
 public RDR_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	DrownDuration=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss,this_plugin_name,DROWN, 1); //duration
 	DrownDistance=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,DROWN, 2);	        //range
 	
-	decl Float:pos[3];
-	decl Float:pos2[3];
+	float pos[3];
+	float pos2[3];
 	
 	if(Drown_TriggerAMS[client])
 	{
-		new String:DrownSound[PLATFORM_MAX_PATH];
+		char DrownSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DROWN, 4, DrownSound, sizeof(DrownSound)); // SOUND
 	
 		if(DrownSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", DrownSound);
 			if(FileExists(sndPath, true))
 			{
@@ -515,7 +516,7 @@ public RDR_Invoke(client)
 	}
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	for(new i=1;i<=MaxClients;i++)
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -533,12 +534,12 @@ public DrownEvent(client)
 	DrownTick(client, GetEngineTime());
 }
 
-public DrownTick(client, Float:gameTime)
+public DrownTick(client, float gameTime)
 {
 	if(gameTime>=DrownDuration)
 	{
 		DrownDuration=INACTIVE;
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i))
 			{
@@ -548,9 +549,9 @@ public DrownTick(client, Float:gameTime)
 	}
 }
 
-public Action:EndDrowning(Handle:timer)
+public Action EndDrowning(Handle timer)
 {
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
 		{
@@ -567,25 +568,25 @@ Rage_Explosion(client)
 	EXP_Invoke(client);
 }
 
-public bool:EXP_CanInvoke(client)
+public bool EXP_CanInvoke(client)
 {
 	return true;
 }
 
 public EXP_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
-	new damage=FF2_GetAbilityArgument(boss,this_plugin_name,EXPLOSION, 1);	        //damage 
-	new range=FF2_GetAbilityArgument(boss,this_plugin_name,EXPLOSION, 2);	        //damage radius
+	int boss=FF2_GetBossIndex(client);
+	int damage=FF2_GetAbilityArgument(boss,this_plugin_name,EXPLOSION, 1);	        //damage 
+	int range=FF2_GetAbilityArgument(boss,this_plugin_name,EXPLOSION, 2);	        //damage radius
 
-	new String:ExplosionSound[PLATFORM_MAX_PATH];
+	char ExplosionSound[PLATFORM_MAX_PATH];
 	if(Explosion_TriggerAMS[client])
 	{
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, EXPLOSION, 4, ExplosionSound, sizeof(ExplosionSound)); // SOUND
 	
 		if(ExplosionSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", ExplosionSound);
 			if(FileExists(sndPath, true))
 			{
@@ -599,13 +600,13 @@ public EXP_Invoke(client)
 		}
 	}
 
-	decl Float:vOrigin[3];
+	float vOrigin[3];
 	
 	gExplosion = 0;
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", vOrigin);
 
-	new Handle:data = CreateDataPack();
+	Handle data = CreateDataPack();
 	CreateDataTimer(0.12, SetExplosion, data, TIMER_REPEAT);
 	WritePackFloat(data, vOrigin[0]);
 	WritePackFloat(data, vOrigin[1]);
@@ -618,17 +619,17 @@ public EXP_Invoke(client)
 	env_shake(vOrigin, 120.0, 10000.0, 4.0, 50.0);
 }
 
-public Action:SetExplosion(Handle:timer, Handle:data)
+public Action SetExplosion(Handle timer, Handle data)
 {
 	ResetPack(data);
-	new Float:vOrigin[3];
+	float vOrigin[3];
 	vOrigin[0] = ReadPackFloat(data);
 	vOrigin[1] = ReadPackFloat(data);
 	vOrigin[2] = ReadPackFloat(data);
-	new range = ReadPackCell(data);
-	new damage = ReadPackCell(data);
-	new client = ReadPackCell(data);
-	decl String:s[512];
+	int range = ReadPackCell(data);
+	int damage = ReadPackCell(data);
+	int client = ReadPackCell(data);
+	char s[512];
     	ReadPackString(data, s, 512);
 	gExplosion++;
 	
@@ -640,7 +641,7 @@ public Action:SetExplosion(Handle:timer, Handle:data)
 
 	//SetExplodeAtClient(client, afterBurnDamage, rageDistance, DMG_BURN );
 	
-	for(new i=0;i<5;i++)
+	for(int i=0;i<5;i++)
 	{
 		decl proj;
 		proj = CreateEntityByName("env_explosion");   
@@ -658,7 +659,7 @@ public Action:SetExplosion(Handle:timer, Handle:data)
 		if (strlen(s))
 		{
 			EmitSoundToAll(s,client, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, vOrigin, NULL_VECTOR, true, 0.0);
-			for (new i=1; i<=MaxClients; i++)
+			for (int i=1; i<=MaxClients; i++)
 				if (IsClientInGame(i) && (i!=client))
 				{
 					EmitSoundToClient(i,s, client, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, vOrigin, NULL_VECTOR, true, 0.0);
@@ -676,25 +677,25 @@ Rage_ScaleBoss(client)
 	SCB_Invoke(client);
 }
 
-public bool:SCB_CanInvoke(client)
+public bool SCB_CanInvoke(client)
 {
 	return true;
 }
 
 public SCB_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	oldScale[client]=GetEntPropFloat(client, Prop_Send, "m_flModelScale");
 	BossScale=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEBOSS, 1);	        //scale
 	
 	if(BossScale_TriggerAMS[client])
 	{
-		new String:ScaleBossSound[PLATFORM_MAX_PATH];
+		char ScaleBossSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, SCALEBOSS, 4, ScaleBossSound, sizeof(ScaleBossSound)); // SOUND
 	
 		if(ScaleBossSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", ScaleBossSound);
 			if(FileExists(sndPath, true))
 			{
@@ -713,7 +714,7 @@ public SCB_Invoke(client)
 	
 		if(BossScale>oldScale[client])
 		{
-			new Float:curpos[3];
+			float curpos[3];
 			GetEntPropVector(client, Prop_Data, "m_vecOrigin", curpos);
 			if(!IsSpotSafe(client, curpos, BossScale))
 			{
@@ -744,14 +745,14 @@ Rage_ScalePlayers(client)
 	SCP_Invoke(client);
 }
 
-public bool:SCP_CanInvoke(client)
+public bool SCP_CanInvoke(client)
 {
 	return true;
 }
 
 public SCP_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	PlayerScale=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEPLAYER, 1);	//scale
 	if(PlayerDuration!=INACTIVE)
 		PlayerDuration+=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEPLAYER, 2);	        //duration
@@ -759,17 +760,17 @@ public SCP_Invoke(client)
 		PlayerDuration=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEPLAYER, 2);	        //duration
 	PlayerDistance=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEPLAYER, 3);	        //range
 	
-	decl Float:pos[3];
-	decl Float:pos2[3];
+	float pos[3];
+	float pos2[3];
 	
 	if(PlayerScale_TriggerAMS[client])
 	{
-		new String:ScalePlayerSound[PLATFORM_MAX_PATH];
+		char ScalePlayerSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, SCALEPLAYER, 5, ScalePlayerSound, sizeof(ScalePlayerSound)); // SOUND
 	
 		if(ScalePlayerSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", ScalePlayerSound);
 			if(FileExists(sndPath, true))
 			{
@@ -783,7 +784,7 @@ public SCP_Invoke(client)
 		}
 	}
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	for(new i=1;i<=MaxClients;i++)
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -796,7 +797,7 @@ public SCP_Invoke(client)
 					
 					if(PlayerScale>oldScale[i])
 					{
-						new Float:curpos[3];
+						float curpos[3];
 						GetEntPropVector(i, Prop_Data, "m_vecOrigin", curpos);
 						if(!IsSpotSafe(i, curpos, PlayerScale))
 						{
@@ -824,12 +825,12 @@ public Scale_Prethink(client)
 	ScaleTick(client, GetEngineTime());
 }
 
-public ScaleTick(client, Float:gameTime)
+public ScaleTick(client, float gameTime)
 {
 	if(gameTime>=PlayerDuration)
 	{
 		PlayerDuration=INACTIVE;
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i))
 			{
@@ -837,7 +838,7 @@ public ScaleTick(client, Float:gameTime)
 				
 				if(oldScale[client]>PlayerScale)
 				{
-					new Float:curpos[3];
+					float curpos[3];
 					GetEntPropVector(i, Prop_Data, "m_vecOrigin", curpos);
 					if(!IsSpotSafe(i, curpos, oldScale[i]))
 					{
@@ -862,7 +863,7 @@ public ScaleTick(client, Float:gameTime)
 		
 		if(oldScale[client]>BossScale)
 		{
-			new Float:curpos[3];
+			float curpos[3];
 			GetEntPropVector(client, Prop_Data, "m_vecOrigin", curpos);
 			if(!IsSpotSafe(client, curpos, oldScale[client]))
 			{
@@ -880,9 +881,9 @@ public ScaleTick(client, Float:gameTime)
 	}
 }
 
-public Action:ResetScale(Handle:timer)
+public Action ResetScale(Handle timer)
 {
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i))
 		{
@@ -899,9 +900,9 @@ public Action:ResetScale(Handle:timer)
 	sarysa's safe resizing code
 */
 
-new bool:ResizeTraceFailed;
-new ResizeMyTeam;
-public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
+bool ResizeTraceFailed;
+int ResizeMyTeam;
+public bool Resize_TracePlayersAndBuildings(entity, contentsMask)
 {
 	if (IsValidClient(entity,true))
 	{
@@ -912,7 +913,7 @@ public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
 	}
 	else if (IsValidEntity(entity))
 	{
-		static String:classname[64];
+		static char[] classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if ((strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0)
 			|| (strcmp(classname, "prop_dynamic") == 0) || (strcmp(classname, "func_physbox") == 0) || (strcmp(classname, "func_breakable") == 0))
@@ -924,9 +925,9 @@ public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
 	return false;
 }
 
-bool:Resize_OneTrace(const Float:startPos[3], const Float:endPos[3])
+bool Resize_OneTrace(const float startPos[3], const float endPos[3])
 {
-	static Float:result[3];
+	static float result[3];
 	TR_TraceRayFilter(startPos, endPos, MASK_PLAYERSOLID, RayType_EndPoint, Resize_TracePlayersAndBuildings);
 	if (ResizeTraceFailed)
 	{
@@ -942,13 +943,13 @@ bool:Resize_OneTrace(const Float:startPos[3], const Float:endPos[3])
 }
 
 // the purpose of this method is to first trace outward, upward, and then back in.
-bool:Resize_TestResizeOffset(const Float:bossOrigin[3], Float:xOffset, Float:yOffset, Float:zOffset)
+bool Resize_TestResizeOffset(const float bossOrigin[3], float xOffset, float yOffset, float zOffset)
 {
-	static Float:tmpOrigin[3];
+	static float tmpOrigin[3];
 	tmpOrigin[0] = bossOrigin[0];
 	tmpOrigin[1] = bossOrigin[1];
 	tmpOrigin[2] = bossOrigin[2];
-	static Float:targetOrigin[3];
+	static float targetOrigin[3];
 	targetOrigin[0] = bossOrigin[0] + xOffset;
 	targetOrigin[1] = bossOrigin[1] + yOffset;
 	targetOrigin[2] = bossOrigin[2];
@@ -975,11 +976,11 @@ bool:Resize_TestResizeOffset(const Float:bossOrigin[3], Float:xOffset, Float:yOf
 	return true;
 }
 
-bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:ymin, Float:ymax, Float:zOffset)
+bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float ymin, float ymax, float zOffset)
 {
-	static Float:pointA[3];
-	static Float:pointB[3];
-	for (new phase = 0; phase <= 7; phase++)
+	static float pointA[3];
+	static float pointB[3];
+	for (int phase = 0; phase <= 7; phase++)
 	{
 		// going counterclockwise
 		if (phase == 0)
@@ -1039,7 +1040,7 @@ bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:
 			pointB[1] = bossOrigin[1] + ymax;
 		}
 
-		for (new shouldZ = 0; shouldZ <= 1; shouldZ++)
+		for (int shouldZ = 0; shouldZ <= 1; shouldZ++)
 		{
 			pointA[2] = pointB[2] = shouldZ == 0 ? bossOrigin[2] : (bossOrigin[2] + zOffset);
 			if (!Resize_OneTrace(pointA, pointB))
@@ -1050,12 +1051,12 @@ bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:
 	return true;
 }
 
-public bool:IsSpotSafe(clientIdx, Float:playerPos[3], Float:sizeMultiplier)
+public bool IsSpotSafe(clientIdx, float playerPos[3], float sizeMultiplier)
 {
 	ResizeTraceFailed = false;
 	ResizeMyTeam = GetClientTeam(clientIdx);
-	static Float:mins[3];
-	static Float:maxs[3];
+	static float mins[3];
+	static float maxs[3];
 	mins[0] = -24.0 * sizeMultiplier;
 	mins[1] = -24.0 * sizeMultiplier;
 	mins[2] = 0.0;
@@ -1096,9 +1097,9 @@ public bool:IsSpotSafe(clientIdx, Float:playerPos[3], Float:sizeMultiplier)
 /*
 	Hitbox scaling
 */
-stock UpdatePlayerHitbox(const client, Float:scale)
+stock UpdatePlayerHitbox(const client, float scale)
 {
-	new Float:vecScaledPlayerMin[3] = { -24.5, -24.5, 0.0 }, Float:vecScaledPlayerMax[3] = { 24.5,  24.5, 83.0 };
+	float vecScaledPlayerMin[3] = { -24.5, -24.5, 0.0 }, float vecScaledPlayerMax[3] = { 24.5,  24.5, 83.0 };
 	ScaleVector(vecScaledPlayerMin, scale);
 	ScaleVector(vecScaledPlayerMax, scale);
 	SetEntPropVector(client, Prop_Send, "m_vecSpecifiedSurroundingMins", vecScaledPlayerMin);
@@ -1114,14 +1115,14 @@ Rage_Hellfire(client)
 	HLF_Invoke(client);
 }
 
-public bool:HLF_CanInvoke(client)
+public bool HLF_CanInvoke(client)
 {
 	return true;
 }
 
 public HLF_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	hellsound=FF2_GetAbilityArgument(boss,this_plugin_name,HELLFIRE, 1);	        //sound
 	rageDamage=FF2_GetAbilityArgument(boss,this_plugin_name,HELLFIRE, 2);	        //damage
 	rageDistance=FF2_GetAbilityArgument(boss,this_plugin_name,HELLFIRE, 3);	//distance (range)
@@ -1130,12 +1131,12 @@ public HLF_Invoke(client)
 	
 	if(HellFire_TriggerAMS[client])
 	{
-		new String:HellFireSound[PLATFORM_MAX_PATH];
+		char HellFireSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, HELLFIRE, 7, HellFireSound, sizeof(HellFireSound)); // SOUND
 	
 		if(HellFireSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", HellFireSound);
 			if(FileExists(sndPath, true))
 			{
@@ -1149,17 +1150,17 @@ public HLF_Invoke(client)
 		}
 	}
 	
-	new Float:vel[3];
+	float vel[3];
 	vel[2] = 20.0;
 	TeleportEntity(client,  NULL_VECTOR, NULL_VECTOR, vel );
 	SetExplodeAtClient( client, rageDamage, rageDistance, DMG_BURN );
 	
-	decl Float:pos[3];
-	decl Float:pos2[3];
-	decl Float:distancedistance;
+	float pos[3];
+	float pos2[3];
+	float distancedistance;
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	for (new i = 1; i <= MaxClients; i++ ) {
+	for (int i = 1; i <= MaxClients; i++ ) {
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
 			GetEntPropVector( i, Prop_Send, "m_vecOrigin", pos2 );
@@ -1176,7 +1177,7 @@ public HLF_Invoke(client)
 		EmitSoundToAll(PYROGAS_SND);
 		EmitSoundToAll(PYROGAS_SND);
 	}
-	new Handle:pack = CreateDataPack();
+	Handle pack = CreateDataPack();
 	gAfterburn = 0;
 	CreateDataTimer(1.0, AfterBurn, pack, TIMER_REPEAT);
 	WritePackCell(pack, client);
@@ -1186,13 +1187,13 @@ public HLF_Invoke(client)
 	ResetPack(pack);
 }
  
-public Action:AfterBurn(Handle:timer, Handle:pack)
+public Action AfterBurn(Handle timer, Handle pack)
 {
 	ResetPack(pack);
-	new client = ReadPackCell(pack);
-	new packafterBurnDamage = ReadPackCell(pack);
-	new packafterBurnDuration = ReadPackCell(pack);
-	new packDistance = ReadPackCell(pack);
+	int client = ReadPackCell(pack);
+	int packafterBurnDamage = ReadPackCell(pack);
+	int packafterBurnDuration = ReadPackCell(pack);
+	int packDistance = ReadPackCell(pack);
 	
 	if (gAfterburn >= packafterBurnDuration)
 	{
@@ -1217,9 +1218,9 @@ SetExplodeAtClient( client, damage, radius, dmgtype )
 {
 	if(IsClientInGame(client) && IsPlayerAlive(client))
 	{
-		decl Float:pos[3];
+		float pos[3];
 		GetEntPropVector( client, Prop_Send, "m_vecOrigin", pos );
-		new particle = CreateEntityByName( "info_particle_system" );
+		int particle = CreateEntityByName( "info_particle_system" );
 		if ( IsValidEdict( particle ) )
 		{
 			TeleportEntity( particle, pos, NULL_VECTOR, NULL_VECTOR );
@@ -1227,7 +1228,7 @@ SetExplodeAtClient( client, damage, radius, dmgtype )
 			ActivateEntity( particle );
 			AcceptEntityInput (particle, "start" );
 			
-			decl String:strAddOutput[64];
+			char strAddOutput[64];
 			Format( strAddOutput, sizeof( strAddOutput ), "OnUser1 !self:kill::%f:1", 0.5 );
 			SetVariantString( strAddOutput);
 			AcceptEntityInput( particle, "AddOutput" );	
@@ -1238,16 +1239,16 @@ SetExplodeAtClient( client, damage, radius, dmgtype )
 	}
 }
 
-SetDamageRadial( attacker, dmg,  Float:pos[3], Radiusradius, dmgtype )
+SetDamageRadial( attacker, dmg,  float pos[3], Radiusradius, dmgtype )
 {
-	new i;
-	new Float:dist;
+	int i;
+	float dist;
 	
 	for  ( i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
-			decl Float:pos2[3];
+			float pos2[3];
 			GetEntPropVector( i, Prop_Send, "m_vecOrigin", pos2 );
 			dist = GetVectorDistance( pos2, pos );
 			
@@ -1272,14 +1273,14 @@ Rage_IonCannon(client)
 	IOC_Invoke(client);
 }
 
-public bool:IOC_CanInvoke(client)
+public bool IOC_CanInvoke(client)
 {
 	return true;
 }
 
 public IOC_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	distance=FF2_GetAbilityArgument(boss,this_plugin_name,IONCANNON, 1);	        //blast speed seconds
 	IOCDist=FF2_GetAbilityArgument(boss,this_plugin_name,IONCANNON, 2);	        //damage radius
 	IOCdamage=FF2_GetAbilityArgument(boss,this_plugin_name,IONCANNON, 3);	        //damage
@@ -1287,18 +1288,18 @@ public IOC_Invoke(client)
 	
 	distance = distance * 29;
 	
-	decl Float:vAngles[3];
-	decl Float:vOrigin[3];
-	decl Float:vStart[3];
+	float vAngles[3];
+	float vOrigin[3];
+	float vStart[3];
 	
 	if(IonCannon_TriggerAMS[client])
 	{
-		new String:IonCannonSound[PLATFORM_MAX_PATH];
+		char IonCannonSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, IONCANNON, 6, IonCannonSound, sizeof(IonCannonSound)); // SOUND
 	
 		if(IonCannonSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", IonCannonSound);
 			if(FileExists(sndPath, true))
 			{
@@ -1317,7 +1318,7 @@ public IOC_Invoke(client)
 	
 	if (aimmode==0) {
 
-		new Handle:data = CreateDataPack();
+		Handle data = CreateDataPack();
 		WritePackFloat(data, vOrigin[0]);
 		WritePackFloat(data, vOrigin[1]);
 		WritePackFloat(data, vOrigin[2]);
@@ -1330,7 +1331,7 @@ public IOC_Invoke(client)
 	
 	} else {
 	
-		new Handle:trace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TraceEntityFilterPlayer);
+		Handle trace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TraceEntityFilterPlayer);
     	
 		if(TR_DidHit(trace))
 		{   	 
@@ -1338,7 +1339,7 @@ public IOC_Invoke(client)
 	
 			CloseHandle(trace);
 	
-			new Handle:data = CreateDataPack();
+			Handle data = CreateDataPack();
 			WritePackFloat(data, vStart[0]);
 			WritePackFloat(data, vStart[1]);
 			WritePackFloat(data, vStart[2]);
@@ -1357,9 +1358,9 @@ public IOC_Invoke(client)
 	}
 }
 
-public DrawIonBeam(Float:startPosition[3])
+public DrawIonBeam(float startPosition[3])
 {
-	decl Float:position[3];
+	float position[3];
 	position[0] = startPosition[0];
 	position[1] = startPosition[1];
 	position[2] = startPosition[2] + 1500.0;	
@@ -1373,25 +1374,25 @@ public DrawIonBeam(Float:startPosition[3])
 	TE_SendToAll();
 }
 
-public IonAttack(Handle:data)
+public IonAttack(Handle data)
 {
-	new Float:startPosition[3];
-	new Float:position[3];
+	float startPosition[3];
+	float position[3];
 	startPosition[0] = ReadPackFloat(data);
 	startPosition[1] = ReadPackFloat(data);
 	startPosition[2] = ReadPackFloat(data);
-	new Iondistance = ReadPackCell(data);
-	new Float:nphi = ReadPackFloat(data);
-	new Ionrange = ReadPackCell(data);
-	new Iondamage = ReadPackCell(data);
+	int Iondistance = ReadPackCell(data);
+	float nphi = ReadPackFloat(data);
+	int Ionrange = ReadPackCell(data);
+	int Iondamage = ReadPackCell(data);
 	
 	if (Iondistance > 0)
 	{
 		EmitSoundToAll("ambient/energy/weld1.wav", 0, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, SNDVOL_NORMAL, SNDPITCH_NORMAL, -1, startPosition);
 		
 		// Stage 1
-		new Float:s=Sine(nphi/360*6.28)*Iondistance;
-		new Float:c=Cosine(nphi/360*6.28)*Iondistance;
+		float s=Sine(nphi/360*6.28)*Iondistance;
+		float c=Cosine(nphi/360*6.28)*Iondistance;
 		
 		position[0] = startPosition[0];
 		position[1] = startPosition[1];
@@ -1462,7 +1463,7 @@ public IonAttack(Handle:data)
 	}
 	Iondistance -= 5;
 	
-	new Handle:nData = CreateDataPack();
+	Handle nData = CreateDataPack();
 	WritePackFloat(nData, startPosition[0]);
 	WritePackFloat(nData, startPosition[1]);
 	WritePackFloat(nData, startPosition[2]);
@@ -1496,7 +1497,7 @@ public IonAttack(Handle:data)
 		makeexplosion(0, -1, startPosition, "", Iondamage, Ionrange);
 
 		position[2] = startPosition[2] + 50.0;
-		new Float:fDirection[3] = {-90.0,0.0,0.0};
+		float fDirection[3] = {-90.0,0.0,0.0};
 		env_shooter(fDirection, 25.0, 0.1, fDirection, 800.0, 120.0, 120.0, position, "models/props_wasteland/rockgranite03b.mdl");
 
 		env_shake(startPosition, 120.0, 10000.0, 15.0, 250.0);
@@ -1514,7 +1515,7 @@ public IonAttack(Handle:data)
 		TE_SendToAll();
 
 		// Light
-		new ent = CreateEntityByName("light_dynamic");
+		int ent = CreateEntityByName("light_dynamic");
 
 		DispatchKeyValue(ent, "_light", "255 255 255 255");
 		DispatchKeyValue(ent, "brightness", "5");
@@ -1527,7 +1528,7 @@ public IonAttack(Handle:data)
 	
 		TeleportEntity(ent, position, NULL_VECTOR, NULL_VECTOR);
 		
-		RemoveEntity(ent, 3.0);
+		RemoveEntity2(ent, 3.0);
 		
 		// Sound
 		EmitSoundToAll("ambient/explosions/citadel_end_explosion1.wav", 0, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, SNDVOL_NORMAL, SNDPITCH_NORMAL, -1, startPosition);
@@ -1537,8 +1538,8 @@ public IonAttack(Handle:data)
 		sendfademsg(0, 10, 200, FFADE_OUT, 255, 255, 255, 150);
 		
 		// Knockback
-		new Float:vReturn[3], Float:vClientPosition[3], Float:dist;
-		for (new i = 1; i <= MaxClients; i++)
+		float vReturn[3], float vClientPosition[3], float dist;
+		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsClientConnected(i) && IsClientInGame(i) && IsPlayerAlive(i))
 			{	
@@ -1558,27 +1559,27 @@ public IonAttack(Handle:data)
 	}
 }
 
-public Action:DrawIon(Handle:Timer, any:data)
+public Action DrawIon(Handle Timer, any data)
 {
 	IonAttack(data);
 	
 	return (Plugin_Stop);
 }
 
-public bool:TraceEntityFilterPlayer(entity, contentsMask)
+public bool TraceEntityFilterPlayer(entity, contentsMask)
 {
 	return (entity > GetMaxClients() || !entity);
 }
 
-stock bool:makeexplosion(attacker = 0, inflictor = -1, const Float:attackposition[3], const String:weaponname[] = "", magnitude = 100, radiusoverride = 0, Float:damageforce = 0.0, flags = 0){
+stock bool makeexplosion(attacker = 0, inflictor = -1, const float attackposition[3], const char[] weaponname[] = "", magnitude = 100, radiusoverride = 0, float damageforce = 0.0, flags = 0){
 	
-	new explosion = CreateEntityByName("env_explosion");
+	int explosion = CreateEntityByName("env_explosion");
 	
 	if(explosion != -1)
 	{
 		DispatchKeyValueVector(explosion, "Origin", attackposition);
 		
-		decl String:intbuffer[64];
+		char intbuffer[64];
 		IntToString(magnitude, intbuffer, 64);
 		DispatchKeyValue(explosion,"iMagnitude", intbuffer);
 		if(radiusoverride > 0)
@@ -1616,12 +1617,12 @@ stock bool:makeexplosion(attacker = 0, inflictor = -1, const Float:attackpositio
 }
 
 // Thanks to V0gelz
-stock env_shooter(Float:Angles[3], Float:iGibs, Float:Delay, Float:GibAngles[3], Float:Velocity, Float:Variance, Float:Giblife, Float:Location[3], String:ModelType[] )
+stock env_shooter(float Angles[3], float iGibs, float Delay, float GibAngles[3], float Velocity, float Variance, float Giblife, float Location[3], char[] ModelType[] )
 {
 	//decl Ent;
 
 	//Initialize:
-	new Ent = CreateEntityByName("env_shooter");
+	int Ent = CreateEntityByName("env_shooter");
 		
 	//Spawn:
 
@@ -1684,11 +1685,11 @@ stock env_shooter(Float:Angles[3], Float:iGibs, Float:Delay, Float:GibAngles[3],
 
 		//Delete:
 		//AcceptEntityInput(Ent, "kill");
-		RemoveEntity(Ent, 1.0);
+		RemoveEntity2(Ent, 1.0);
 	}
 }
 
-stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:Frequency)
+stock env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
 	decl Ent;
 
@@ -1714,17 +1715,17 @@ stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, 
 		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
 
 		//Delete:
-		RemoveEntity(Ent, 30.0);
+		RemoveEntity2(Ent, 30.0);
 	}
 }
 
-stock RemoveEntity(entity, Float:time = 0.0)
+stock RemoveEntity2(entity, float time = 0.0)
 {
 	if (time == 0.0)
 	{
 		if(IsValidEntity(entity))
 		{
-			new String:edictname[32];
+			char edictname[32];
 			GetEdictClassname(entity, edictname, 32);
 
 			if (StrEqual(edictname, "player"))
@@ -1739,7 +1740,7 @@ stock RemoveEntity(entity, Float:time = 0.0)
 	}
 }
 
-public Action:RemoveEntityTimer(Handle:Timer, any:entity)
+public Action RemoveEntityTimer(Handle Timer, any entity)
 {
 	if(IsValidEntity(entity))
 		AcceptEntityInput(entity, "kill"); // RemoveEdict(entity);
@@ -1747,7 +1748,7 @@ public Action:RemoveEntityTimer(Handle:Timer, any:entity)
 	return (Plugin_Stop);
 }
 
-stock bool:IsClientConnectedIngame(client)
+stock bool IsClientConnectedIngame(client)
 {
 	if(client > 0 && client <= MaxClients)
 		if(IsClientInGame(client))
@@ -1758,7 +1759,7 @@ stock bool:IsClientConnectedIngame(client)
 
 stock sendfademsg(client, duration, holdtime, fadeflag, r, g, b, a)
 {
-	new Handle:fademsg;
+	Handle fademsg;
 	
 	if (client == 0)
 		fademsg = StartMessageAll("Fade");
@@ -1783,28 +1784,28 @@ Rage_Delirium(client)
 	DEL_Invoke(client);
 }
 
-public bool:DEL_CanInvoke(client)
+public bool DEL_CanInvoke(client)
 {
 	return true;
 }
 
 public DEL_Invoke(client)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	DeliriumDistance=FF2_GetAbilityArgument(boss,this_plugin_name,DELIRIUM, 1);	//rage distance
 	
-	decl Float:pos[3];
-	decl Float:pos2[3];
-	decl Float:Delidistance;
+	float pos[3];
+	float pos2[3];
+	float Delidistance;
 	
 	if(Delirium_TriggerAMS[client])
 	{
-		new String:DeliriumSound[PLATFORM_MAX_PATH];
+		char DeliriumSound[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DELIRIUM, 4, DeliriumSound, sizeof(DeliriumSound)); // SOUND
 	
 		if(DeliriumSound[0]!='\0')
 		{
-			new String:sndPath[PLATFORM_MAX_PATH];
+			char sndPath[PLATFORM_MAX_PATH];
 			Format(sndPath, sizeof(sndPath), "sound/%s", DeliriumSound);
 			if(FileExists(sndPath, true))
 			{
@@ -1820,13 +1821,13 @@ public DEL_Invoke(client)
 	
 	TF2_RemoveCondition( client, TFCond_Taunting );
 		
-	new Float:vel[3];
+	float vel[3];
 	vel[2]=20.0;
 		
 	TeleportEntity( client,  NULL_VECTOR, NULL_VECTOR, vel );
 	GetEntPropVector( client, Prop_Send, "m_vecOrigin", pos );
 		
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -1844,7 +1845,7 @@ public DEL_Invoke(client)
 	
 	GetEntPropVector( client, Prop_Send, "m_vecOrigin", pos );
 		
-	new Float:vec[3];
+	float vec[3];
 	GetClientAbsOrigin( client, vec );
 	vec[2] += 10;
 			
@@ -1869,12 +1870,12 @@ public Delirium_Prethink(client)
 	DrunkTick(client, GetEngineTime());
 }
 
-public DrunkTick(client, Float:gameTime)
+public DrunkTick(client, float gameTime)
 {
 	if(gameTime>=DeliriumDuration)
 	{
 		DeliriumDuration=INACTIVE;
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i))
 			{
@@ -1885,9 +1886,9 @@ public DrunkTick(client, Float:gameTime)
 	}
 }
 
-public Action:EndSickness(Handle:timer)
+public Action EndSickness(Handle timer)
 {
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
 		{
@@ -1916,7 +1917,7 @@ stock fxDrug_Kill(client)
 	{
 		specialDrugTimers[ client ] = INVALID_HANDLE;	
 		
-		new Float:angs[3];
+		float angs[3];
 		GetClientEyeAngles(client, angs);
 			
 		angs[2] = 0.0;
@@ -1933,7 +1934,7 @@ stock fxDrug_Kill(client)
 /*
 * Kill drug on client after X seconds
 */
-public Action:fxDrug_KillTimer(Handle:timer,any:client)
+public Action fxDrug_KillTimer(Handle timer,any client)
 {
 	if( client > 0 )
 		if ( IsClientInGame( client ) && IsClientConnected( client ) )
@@ -1943,7 +1944,7 @@ public Action:fxDrug_KillTimer(Handle:timer,any:client)
 /*
 * Run drug timer
 */
-public Action:fxDrug_Timer(Handle:timer, any:client)
+public Action fxDrug_Timer(Handle timer, any client)
 {
 	static Repeat = 0;
 	
@@ -1968,7 +1969,7 @@ public Action:fxDrug_Timer(Handle:timer, any:client)
 	SetVariantInt(0);
 	AcceptEntityInput(client, "SetForcedTauntCam");
 	
-	new Float:angs[3];
+	float angs[3];
 	GetClientEyeAngles(client, angs);
 
 	angs[2] = g_DrugAngles[Repeat % 56];
@@ -1990,7 +1991,7 @@ public Action:fxDrug_Timer(Handle:timer, any:client)
 	
 	Repeat++;
 	
-	new clients[2];
+	int clients[2];
 	clients[0] = client;	
 	
 	sendfademsg(client, 255, 255, FFADE_OUT, GetRandomInt(0,255), GetRandomInt(0,255), GetRandomInt(0,255), 150);
@@ -2001,29 +2002,29 @@ public Action:fxDrug_Timer(Handle:timer, any:client)
 
 stock SetAmmo(client, slot, ammo)
 {
-	new weapon = GetPlayerWeaponSlot(client, slot);
+	int weapon = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon))
 	{
-		new iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		new iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+		int iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
+stock SpawnWeapon(client,char[] name[],index,level,qual,char[] att[])
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, " ; ", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, " ; ", atts, 32, 32);
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 			TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 			i2++;
@@ -2033,13 +2034,13 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 		return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
 	CloseHandle(hWeapon);
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
 
-stock bool:IsValidClient(client, bool:checkifAlive=false, bool:replayCheck=false)
+stock bool IsValidClient(client, bool checkifAlive=false, bool replayCheck=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(checkifAlive) return IsClientInGame(client) && IsPlayerAlive(client);
@@ -2048,12 +2049,12 @@ stock bool:IsValidClient(client, bool:checkifAlive=false, bool:replayCheck=false
 }
 
 
-stock Handle:FindPlugin(String: pluginName[])
+stock Handle FindPlugin(char[]  pluginName[])
 {
-	new String: buffer[256];
-	new String: path[PLATFORM_MAX_PATH];
-	new Handle: iter = GetPluginIterator();
-	new Handle: pl = INVALID_HANDLE;
+	char  buffer[256];
+	char  path[PLATFORM_MAX_PATH];
+	Handle  iter = GetPluginIterator();
+	Handle  pl = INVALID_HANDLE;
 	
 	while (MorePlugins(iter))
 	{
@@ -2071,12 +2072,12 @@ stock Handle:FindPlugin(String: pluginName[])
 	return pl;
 }
 
-stock AMS_InitSubability(bossIdx, clientIdx, const String: pluginName[], const String: abilityName[], const String: prefix[])
+stock AMS_InitSubability(bossIdx, clientIdx, const char[]  pluginName[], const char[]  abilityName[], const char[]  prefix[])
 {
-	new Handle:plugin = FindPlugin("ff2_sarysapub3");
+	Handle plugin = FindPlugin("ff2_sarysapub3");
 	if (plugin != INVALID_HANDLE)
 	{
-		new Function:func = GetFunctionByName(plugin, "AMS_InitSubability");
+		int Function:func = GetFunctionByName(plugin, "AMS_InitSubability");
 		if (func != INVALID_FUNCTION)
 		{
 			Call_StartFunction(plugin, func);
@@ -2093,3 +2094,5 @@ stock AMS_InitSubability(bossIdx, clientIdx, const String: pluginName[], const S
 	else
 		LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
 }
+
+#file "FF2 Subplugin: Phat Rages"
