@@ -66,7 +66,7 @@ float OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 int RoundInProgress = false;
 
 public Plugin myinfo = {
-	name = "Freak Fortress 2: Dynamic Defaults",
+	name = "Freak Fortress 2: Dynamic Defaults*",
 	author = "sarysa, with a small amount of code by RainBolt Dash",
 	version = "1.3.3",
 }
@@ -918,7 +918,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 				}
 
 				TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
-				static char[] sound[PLATFORM_MAX_PATH];
+				static char sound[PLATFORM_MAX_PATH];
 				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, position, NULL_VECTOR, true, 0.0);
@@ -1169,7 +1169,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 					DT_EmergencyReady[clientIdx] = false;
 					
 					// attach the particle...which I had no idea existed since it's broken in 1.9.2. lol
-					static char[] particleName[MAX_EFFECT_NAME_LENGTH];
+					static char particleName[MAX_EFFECT_NAME_LENGTH];
 					FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DT_STRING, 3, particleName, MAX_EFFECT_NAME_LENGTH);
 					if (strlen(particleName) > 0)
 					{
@@ -1185,7 +1185,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 				}
 				
 				// play the sound
-				static char[] sound[PLATFORM_MAX_PATH];
+				static char sound[PLATFORM_MAX_PATH];
 				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, bossOrigin, NULL_VECTOR, true, 0.0);
@@ -1624,8 +1624,8 @@ public void DMM_ResetWeapon(int clientIdx) // also an exposed interface
 	if (bossIdx < 0)
 		return;
 
-	static char[] weaponName[MAX_WEAPON_NAME_LENGTH];
-	static char[] weaponArgs[MAX_WEAPON_ARG_LENGTH];
+	static char weaponName[MAX_WEAPON_NAME_LENGTH];
+	static char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DMM_STRING, 1, weaponName, MAX_WEAPON_NAME_LENGTH);
 	int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DMM_STRING, 2);
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DMM_STRING, 3, weaponArgs, MAX_WEAPON_ARG_LENGTH);
@@ -1659,8 +1659,8 @@ public void DP_SetTempWeapon(int clientIdx, bool shouldRemove)
 	}
 	else
 	{
-		static char[] weaponName[MAX_WEAPON_NAME_LENGTH];
-		static char[] weaponArgs[MAX_WEAPON_ARG_LENGTH];
+		static char weaponName[MAX_WEAPON_NAME_LENGTH];
+		static char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DP_STRING, 22, weaponName, MAX_WEAPON_NAME_LENGTH);
 		int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DP_STRING, 23);
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DP_STRING, 24, weaponArgs, MAX_WEAPON_ARG_LENGTH);
@@ -2089,7 +2089,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 	{
 		if (!(FF2_GetFF2flags(clientIdx) & FF2FLAG_HUDDISABLED) || DD_BypassHUDRestrictions[clientIdx])
 		{
-			static char[] hudMessage[MAX_CENTER_TEXT_LENGTH];
+			static char hudMessage[MAX_CENTER_TEXT_LENGTH];
 			bool isError = DP_GetHUDStateString(clientIdx, hudMessage, MAX_CENTER_TEXT_LENGTH);
 			SetHudTextParams(-1.0, HUD_Y, HUD_INTERVAL + HUD_LINGER, isError ? HUD_R_ERROR : HUD_R_OK, isError ? HUD_G_ERROR : HUD_G_OK, isError ? HUD_B_ERROR : HUD_B_OK, HUD_ALPHA);
 			ShowSyncHudText(clientIdx, DD_HUDHandle, hudMessage);
@@ -3180,7 +3180,7 @@ public bool Resize_TracePlayersAndBuildings(int entity, int contentsMask)
 	}
 	else if (IsValidEntity(entity))
 	{
-		static char[] classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if ((strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0)
 			|| (strcmp(classname, "prop_dynamic") == 0) || (strcmp(classname, "func_physbox") == 0) || (strcmp(classname, "func_breakable") == 0))
