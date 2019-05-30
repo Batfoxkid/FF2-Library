@@ -385,7 +385,7 @@ void UseRocket(int clientIdx)
 	velocity[1]=Cosine(DegToRad(rot[0]))*Sine(DegToRad(rot[1]))*speed;
 	velocity[2]=Sine(DegToRad(rot[0]))*speed;
 	velocity[2]*=-1;
-	SetEntDataFloat(proj, FindSendPropOffs("CTFProjectile_Rocket", "m_iDeflected") + 4, FF2_GetAbilityArgumentFloat(bossIdx,this_plugin_name,SKILLSTEAL,8,40.0), true);
+	SetEntDataFloat(proj, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, FF2_GetAbilityArgumentFloat(bossIdx,this_plugin_name,SKILLSTEAL,8,40.0), true);
 	DispatchSpawn(proj);
 	TeleportEntity(proj, position, rot,velocity);
 	SetEntProp(proj, Prop_Send, "m_bCritical", 1);
@@ -395,7 +395,7 @@ void UseRocket(int clientIdx)
 		SetEntityModel(proj,s);
 	FF2_GetAbilityArgumentString(bossIdx,this_plugin_name,SKILLSTEAL,7,s,PLATFORM_MAX_PATH);
 	if(strlen(s)>2)
-		CreateTimer(15.0, RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s,_,true)));
+		CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s,_,true)));
 }
 
 public void event_player_hurt(Handle hEvent, const char[] strEventName, bool bDontBroadcast)
@@ -520,7 +520,7 @@ stock AttachParticle(entity, char[] particleType, float offset[]={0.0,0.0,0.0}, 
 	return particle;
 }
 
-public Action RemoveEntity(Handle timer, any entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity=EntRefToEntIndex(entid);
 	if(IsValidEdict(entity) && entity>MaxClients)
