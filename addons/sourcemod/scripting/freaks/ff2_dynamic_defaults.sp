@@ -1077,11 +1077,11 @@ public bool DD_PerformTeleport(int clientIdx, float stunDuration, bool tryAbove,
 		if (mayNeedToDuck)
 		{
 			// credit to FF2 base for this "force ducking" code
-			SetEntPropVector(clientIdx, Prop_Send, "m_vecMaxs", float {24.0, 24.0, 62.0});
+			SetEntPropVector(clientIdx, Prop_Send, "m_vecMaxs", view_as<float>({24.0, 24.0, 62.0}));
 			SetEntProp(clientIdx, Prop_Send, "m_bDucked", 1);
 			SetEntityFlags(clientIdx, GetEntityFlags(clientIdx) | FL_DUCKING);
 		}
-		TeleportEntity(clientIdx, teleportCoords, NULL_VECTOR, float {0.0, 0.0, 0.0});
+		TeleportEntity(clientIdx, teleportCoords, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 		
 		DT_GoombaBlockedUntil[clientIdx] = GetEngineTime() + 2.0;
 		return true;
@@ -1157,7 +1157,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 				
 				// perform teleport has been made its own thing now...
 				float stunDuration = DT_StunDuration[clientIdx] * (DT_EmergencyReady[clientIdx] ? 2.0 : 1.0);
-				if (DD_PerformTeleport(clientIdx, float stunDuration, DT_TryTeleportAbove[clientIdx], DT_TryTeleportSide[clientIdx], DT_SameTeam[clientIdx], DT_IsReverseTeleport[clientIdx]))
+				if (DD_PerformTeleport(clientIdx, view_as<float>(stunDuration), DT_TryTeleportAbove[clientIdx], DT_TryTeleportSide[clientIdx], DT_SameTeam[clientIdx], DT_IsReverseTeleport[clientIdx]))
 				{
 					// unlike the original, I'm managing cooldown myself. so lets do it now.
 					DT_OnCooldownUntil[clientIdx] = curTime + DT_Cooldown[clientIdx];
@@ -2312,7 +2312,7 @@ public bool DPT_TryTeleport(int clientIdx)
 	if (DPT_PreserveMomentum[clientIdx])
 		TeleportEntity(clientIdx, testPos, NULL_VECTOR, NULL_VECTOR);
 	else
-		TeleportEntity(clientIdx, testPos, NULL_VECTOR, float {0.0, 0.0, 0.0});
+		TeleportEntity(clientIdx, testPos, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 		
 	// particles and sound
 	if (strlen(DPT_UseSound) > 3)
@@ -2410,7 +2410,7 @@ public void DST_Tick(int clientIdx)
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 			TF2_RemoveCondition(clientIdx, TFCond_Taunting);
 		if (!DST_DoNotStopMotion[clientIdx])
-			TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, float {0.0, 0.0, 200.0}); // it's what stock does. shrug.
+			TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0, 0.0, 200.0})); // it's what stock does. shrug.
 	}
 }
 
@@ -3082,7 +3082,7 @@ stock bool CheckGroundClearance(int clientIdx, float minClearance, bool failInWa
 	static float origin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", origin);
 	
-	Handle trace = TR_TraceRayFilterEx(origin, float {90.0,0.0,0.0}, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+	Handle trace = TR_TraceRayFilterEx(origin, view_as<float>({90.0,0.0,0.0}), (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 	static float endPos[3];
 	TR_GetEndPosition(endPos, trace);
 	CloseHandle(trace);
