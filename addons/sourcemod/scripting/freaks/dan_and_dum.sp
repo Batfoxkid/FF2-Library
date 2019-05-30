@@ -90,7 +90,7 @@ public void HookAbilities()
 	}
 }
 
-public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -444,7 +444,7 @@ void CreateFireball(int client)
 	CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, PROJECTILE_PARTICLE,_,true)));
 }
 
-stock int AttachParticle(int entity, char[] particleType, float[] offset={0.0,0.0,0.0}, bool attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset[]={0.0,0.0,0.0}, bool attach=true)
 {
 	int particle=CreateEntityByName("info_particle_system");
 
