@@ -85,7 +85,7 @@ public void OnPluginStart()
 	OnMapStart(); // in case this plugin is somehow loaded late
 }
 
-public void TS_ReadInt(Handle kv, const char[] structName, const char[] keyName, int defaultValue)
+public int TS_ReadInt(Handle kv, const char[] structName, const char[] keyName, int defaultValue)
 {
 	KvRewind(kv);
 	if (!KvJumpToKey(kv, structName))
@@ -380,7 +380,7 @@ public void OnGameFrame()
 					static char cheater[128];
 					GetClientName(clientIdx, cheater, sizeof(cheater));
 					static char cheaterId[128];
-					GetClientAuthString(clientIdx, cheaterId, sizeof(cheaterId));
+					GetClientAuthId(clientIdx, AuthId_Steam3, cheaterId, sizeof(cheaterId));
 					PrintToChatAll(TS_SlayGlobalMessage, cheater, cheaterId);
 					continue;
 				}
@@ -414,7 +414,7 @@ public void OnGameFrame()
 							// if it's an engineer, drain metal
 							if (TF2_GetPlayerClass(clientIdx) == TFClass_Engineer)
 							{
-								int metalOffset = FindDataMapOffs(clientIdx, "m_iAmmo") + (3 * 4);
+								int metalOffset = FindDataMapInfo(clientIdx, "m_iAmmo") + (3 * 4);
 								SetEntData(clientIdx, metalOffset, RoundFloat(GetEntData(clientIdx, metalOffset, 4) * ammoDrain), 4);
 							}
 						}
@@ -466,7 +466,7 @@ public void OnGameFrame()
 	}
 }
 
-stock void FindRandomPlayer(bool isBossTeam)
+stock int FindRandomPlayer(bool isBossTeam)
 {
 	int player = -1;
 
@@ -525,7 +525,7 @@ stock int GetR(int c) { return abs((c>>16)&0xff); }
 stock int GetG(int c) { return abs((c>>8 )&0xff); }
 stock int GetB(int c) { return abs((c    )&0xff); }
 
-stock ColorToDecimalString(char buffer[COLOR_BUFFER_SIZE], int rgb)
+stock void ColorToDecimalString(char buffer[COLOR_BUFFER_SIZE], int rgb)
 {
 	Format(buffer, COLOR_BUFFER_SIZE, "%d %d %d", GetR(rgb), GetG(rgb), GetB(rgb));
 }
