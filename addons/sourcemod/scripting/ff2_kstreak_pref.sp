@@ -12,7 +12,7 @@
 
 #define MAJOR_REVISION "1"
 #define MINOR_REVISION "1"
-#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION
+#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION..."*"
 
 ConVar cvarEnable;
 ConVar cvarMinion;
@@ -965,35 +965,6 @@ stock bool IsValidClient(int client, bool replaycheck=true)
 			return false;
 	}
 	return true;
-}
-
-stock void FReplyToCommand(int client, const char[] message, any ...)
-{
-	char buffer[MAX_BUFFER_LENGTH];
-	SetGlobalTransTarget(client);
-	VFormat(buffer, sizeof(buffer), message, 3);
-	if(GetCmdReplySource() == SM_REPLY_TO_CONSOLE)
-	{
-		CRemoveTags(buffer, sizeof(buffer));
-		PrintToConsole(client, "[FF2] %s", buffer);
-	}
-	else
-	{
-		CCheckTrie();
-		if(client<=0 || client>MaxClients)
-		{
-			ThrowError("Invalid client index %i", client);
-		}
-		if(!IsClientInGame(client))
-		{
-			ThrowError("Client %i is not in game", client);
-		}
-		char buffer2[MAX_BUFFER_LENGTH], buffer3[MAX_BUFFER_LENGTH];
-		Format(buffer2, sizeof(buffer2), "\x01%t%s", "Prefix", message);
-		VFormat(buffer3, sizeof(buffer3), buffer2, 3);
-		CReplaceColorCodes(buffer3);
-		CSendMessage(client, buffer3);
-	}
 }
 
 public int Native_GetCookies(Handle plugin, int numParams)
