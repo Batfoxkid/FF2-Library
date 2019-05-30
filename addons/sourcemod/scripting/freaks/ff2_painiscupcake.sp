@@ -54,6 +54,10 @@ public void OnPluginStart2()
 	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_Post);
 }
 
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
+{
+}
+
 public Action OnRoundEnd(Handle event, const char[] name, bool dont)
 {
 	for(int target=1; target<=MaxClients; target++)
