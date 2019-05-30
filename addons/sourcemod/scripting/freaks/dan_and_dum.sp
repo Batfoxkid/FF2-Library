@@ -1,3 +1,5 @@
+#pragma semicolon 1
+
 #include <sourcemod>
 #include <sdktools>
 #include <freak_fortress_2>
@@ -6,37 +8,38 @@
 #include <sdkhooks>
 #include <tf2items>
 #include <ff2_ams>
-#pragma semicolon 1
+
+#pragma newdecls required
 
 #define DAN_REFRESH "dan_remove_statuseffects"
 #define DAN_STRENGTH "dan_give_strength"
 #define DAN_UBERCHARGE "dan_give_invincibility"
 
 #define MAGICATTACK "special_dan_spells"
-new Float:dan_spelldamage;
-new Float:dan_spellspeed;
+float dan_spelldamage;
+float dan_spellspeed;
 
-new dan_spellbook = INVALID_ENT_REFERENCE;
+int dan_spellbook = INVALID_ENT_REFERENCE;
 
 #define MODEL_COMBINEBALL				"models/effects/combineball.mdl"
 #define PROJECTILE_PARTICLE				"unusual_nether_blue"
 
-new dan_boss;
+int dan_boss;
 
 #define DUM_INSANITY "dum_insanity"
 #define INACTIVE 100000000.0
-new Float:DumSpeed[MAXPLAYERS+1];
-new Float:DumSpeedDuration[MAXPLAYERS+1];
+float DumSpeed[MAXPLAYERS+1];
+float DumSpeedDuration[MAXPLAYERS+1];
 
-public Plugin:myinfo = 
+public Plugin myinfo = 
 {
 	name = "Freak Fortress 2: Mr. Dan and Dr. Dum",
 	author = "M76030",
 	description = "Abilities for Mr. Dan and Dr. Dum",
-	version = "1.0",
+	version = "1.1",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
 	
@@ -87,7 +90,7 @@ public void HookAbilities()
 	}
 }
 
-public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -104,7 +107,7 @@ public void DRSE_Invoke(int clientIdx)
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
 	
-	new String:sound[PLATFORM_MAX_PATH];
+	char sound[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_dan_refreshments", sound, sizeof(sound), bossIdx))
 	{
 		EmitSoundToAll(sound, clientIdx);
@@ -143,8 +146,8 @@ public void DRSE_Invoke(int clientIdx)
 					TF2_RemoveCondition(boss, TFCond_Taunting);
 				}
 			}
-			new health = FF2_GetBossHealth(bossIndex);
-			new maxhealth = FF2_GetBossMaxHealth(bossIndex);
+			int health = FF2_GetBossHealth(bossIndex);
+			int maxhealth = FF2_GetBossMaxHealth(bossIndex);
 			
 			health = RoundToCeil(health + (maxhealth * 0.10));
 			
@@ -168,7 +171,7 @@ public void DGS_Invoke(int clientIdx)
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
 	
-	new String:sound[PLATFORM_MAX_PATH];
+	char sound[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_dan_give_strength", sound, sizeof(sound), bossIdx))
 	{
 		EmitSoundToAll(sound, clientIdx);
@@ -204,7 +207,7 @@ public void DGU_Invoke(int clientIdx)
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
 	
-	new String:sound[PLATFORM_MAX_PATH];
+	char sound[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_dan_give_ubercharge", sound, sizeof(sound), bossIdx))
 	{
 		EmitSoundToAll(sound, clientIdx);
@@ -239,7 +242,7 @@ public void DGU_Invoke(int clientIdx)
 	}
 }
 
-public Action:StopUber(Handle:timer, any:boss)
+public Action StopUber(Handle timer, any boss)
 {
 	SetEntProp(GetClientOfUserId(FF2_GetBossUserId(boss)), Prop_Data, "m_takedamage", 2);
 	TF2_AddCondition(GetClientOfUserId(FF2_GetBossUserId(boss)), TFCond_UberchargeFading, 3.0);
@@ -247,21 +250,21 @@ public Action:StopUber(Handle:timer, any:boss)
 }
 
 
-public bool:DUIN_CanInvoke(client)
+public bool DUIN_CanInvoke(int client)
 {
 	return true;
 }
 
-public DUIN_Invoke(client)
+public void DUIN_Invoke(int client)
 {
-	new boss=FF2_GetBossIndex(client);
-	decl String:DumNewSpeed[10], String:DumDuration[10]; // Foolproof way so that args always return floats instead of ints
+	int boss=FF2_GetBossIndex(client);
+	char DumNewSpeed[10], DumDuration[10]; // Foolproof way so that args always return floats instead of ints
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DUM_INSANITY, 1, DumNewSpeed, sizeof(DumNewSpeed));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DUM_INSANITY, 2, DumDuration, sizeof(DumDuration));
 	
-	new Float:duration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, DUM_INSANITY, 3, 15.0);
+	float duration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, DUM_INSANITY, 3, 15.0);
 	
-	new String:snd[PLATFORM_MAX_PATH];
+	char snd[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_dum_insanity_start", snd, sizeof(snd), boss))
 	{
 		EmitSoundToAll(snd, client);
@@ -286,21 +289,21 @@ public DUIN_Invoke(client)
 	TF2_AddCondition(client, TFCond_RegenBuffed, duration);
 }
 
-public Dum_Prethink(client)
+public void Dum_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", DumSpeed[client]);
 	DumInsanity(client, GetEngineTime());
 }
 
-public DumInsanity(client, Float:gameTime)
+public void DumInsanity(int client, float gameTime)
 {
 	// Move Speed
 	if(gameTime>=DumSpeedDuration[client])
 	{
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			new String:snd[PLATFORM_MAX_PATH];
+			char snd[PLATFORM_MAX_PATH];
 			if(FF2_RandomSound("sound_dum_insanity_end", snd, sizeof(snd), boss))
 			{
 				EmitSoundToAll(snd, client);
@@ -314,14 +317,14 @@ public DumInsanity(client, Float:gameTime)
 	}
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Handle event, const char[] name, bool dontBroadcast)
 {
 	dan_boss = 0;
 
 	if(FF2_HasAbility( 0, this_plugin_name, MAGICATTACK ))
 	{
-		new userid = FF2_GetBossUserId(0);
-		new client = GetClientOfUserId(userid);
+		int userid = FF2_GetBossUserId(0);
+		int client = GetClientOfUserId(userid);
 		if(client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			dan_boss = client;
@@ -334,12 +337,12 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:Timer_DanSpellsBook(Handle:timer, any:userid)					// Updates boss rage stuffs
+public Action Timer_DanSpellsBook(Handle timer, any userid)					// Updates boss rage stuffs
 {
-	new boss = GetClientOfUserId(userid);
+	int boss = GetClientOfUserId(userid);
 	if(boss && boss == dan_boss && IsClientInGame(boss) && FF2_GetBossIndex(boss) != -1)
 	{
-		new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+		Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 		if (hWeapon != INVALID_HANDLE)
 		{
 			TF2Items_SetClassname(hWeapon, "tf_weapon_spellbook");
@@ -353,7 +356,7 @@ public Action:Timer_DanSpellsBook(Handle:timer, any:userid)					// Updates boss 
 			TF2Items_SetAttribute(hWeapon, 4, 326, 1.75);
 			TF2Items_SetNumAttributes(hWeapon, 5);
 
-			new weapon = TF2Items_GiveNamedItem(boss, hWeapon);
+			int weapon = TF2Items_GiveNamedItem(boss, hWeapon);
 			CloseHandle(hWeapon);
 			
 			if(IsValidEntity(weapon))
@@ -372,9 +375,9 @@ public Action:Timer_DanSpellsBook(Handle:timer, any:userid)					// Updates boss 
 	}
 }
 
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Handle event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -386,14 +389,14 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	
 	dan_boss = 0;
 	
-	new weapon = EntRefToEntIndex(dan_spellbook);
+	int weapon = EntRefToEntIndex(dan_spellbook);
 	if(weapon != INVALID_ENT_REFERENCE)
 	{
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + 30.0);
 	}
 }
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	if(StrEqual(classname, "tf_projectile_spellfireball"))
 	{
@@ -401,7 +404,7 @@ public OnEntityCreated(entity, const String:classname[])
 	}
 }
 
-public Action:CheckSpellSpawn(entity)
+public Action CheckSpellSpawn(int entity)
 {
 	if(dan_boss == GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity") && dan_boss > 0 && IsClientInGame(dan_boss))
 	{
@@ -415,16 +418,16 @@ public Action:CheckSpellSpawn(entity)
 
 /////////////////////////////////////////////////////
 
-CreateFireball(client)
+void CreateFireball(int client)
 {
-	decl Float:position[3];
-	decl Float:rot[3];
-	decl Float:velocity[3];
+	float position[3];
+	float rot[3];
+	float velocity[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
 	GetClientEyeAngles(client,rot);
 	position[2]+=63;
 				
-	new proj=CreateEntityByName("tf_projectile_rocket");
+	int proj=CreateEntityByName("tf_projectile_rocket");
 	SetVariantInt(FF2_GetBossTeam());
 	AcceptEntityInput(proj, "TeamNum", -1, -1, 0);
 	SetVariantInt(FF2_GetBossTeam());
@@ -435,18 +438,18 @@ CreateFireball(client)
 	velocity[2]=Sine(DegToRad(rot[0]))*dan_spellspeed;
 	velocity[2]*=-1;
 	TeleportEntity(proj, position, rot,velocity);
-	SetEntDataFloat(proj, FindSendPropOffs("CTFProjectile_Rocket", "m_iDeflected") + 4, dan_spelldamage, true);
+	SetEntDataFloat(proj, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, dan_spelldamage, true);
 	DispatchSpawn(proj);
 	SetEntityModel(proj,MODEL_COMBINEBALL);
-	CreateTimer(15.0, RemoveEntity, EntIndexToEntRef(AttachParticle(proj, PROJECTILE_PARTICLE,_,true)));
+	CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, PROJECTILE_PARTICLE,_,true)));
 }
 
-stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float[] offset={0.0,0.0,0.0}, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	char targetName[128];
+	float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[0]+=offset[0];
 	position[1]+=offset[1];
@@ -471,9 +474,9 @@ stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity=EntRefToEntIndex(entid);
+	int entity=EntRefToEntIndex(entid);
 	if(IsValidEdict(entity) && entity>MaxClients)
 	{
 		AcceptEntityInput(entity, "Kill");
@@ -498,3 +501,5 @@ stock bool IsValidClient(int iClient, bool bAlive = false, bool bTeam = false)
 
 	return true;
 }
+
+#file "FF2 Subplugin: Mr. Dan and Dr. Dum"
