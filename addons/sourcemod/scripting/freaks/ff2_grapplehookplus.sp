@@ -4,12 +4,13 @@
 #include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2>
 #include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-#define PLUGIN_VERSION "1.0.3"
+#pragma newdecls required
+
+#define PLUGIN_VERSION "1.0.4"
 
 #define IN_ATTACK		(1 << 0)
 #define IN_JUMP			(1 << 1)
@@ -39,44 +40,36 @@
 #define IN_ATTACK3		(1 << 25)
 #define MAX_BUTTONS 26
 
-new Handle:OnHaleRage=INVALID_HANDLE;
+int HookRef[MAXPLAYERS+1];
+float HookDelaySwing[MAXPLAYERS+1];
+bool WasUsingHook[MAXPLAYERS+1];
+bool HookAbilityActive[MAXPLAYERS+1];
+float GrappleTimer[MAXPLAYERS+1];
+float CoolTimer[MAXPLAYERS+1];
+float CoolMarker[MAXPLAYERS+1];
 
-new HookRef[MAXPLAYERS+1];
-new Float:HookDelaySwing[MAXPLAYERS+1];
-new bool:WasUsingHook[MAXPLAYERS+1];
-new bool:HookAbilityActive[MAXPLAYERS+1];
-new Float:GrappleTimer[MAXPLAYERS+1];
-new Float:CoolTimer[MAXPLAYERS+1];
-new Float:CoolMarker[MAXPLAYERS+1];
+bool ActiveRound=false;
 
-new bool:ActiveRound=false;
+Handle AbilityHUD;
 
-new Handle:AbilityHUD;
-
-public Plugin:myinfo=
+public Plugin myinfo=
 {
-	name="Freak Fortress 2: Grapple Hook Plus",
+	name="Freak Fortress 2: Grapple Hook Plus*",
 	author="kking117",
 	description="Just some stuff to help balance grapple hook bosses.",
 	version=PLUGIN_VERSION,
 };
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
-{
-	OnHaleRage=CreateGlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
-	return APLRes_Success;
-}
-
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
 	AbilityHUD=CreateHudSynchronizer();
-	for(new client=1; client<=MaxClients; client++)
+	for(int client=1; client<=MaxClients; client++)
 	{
-	    if(IsValidClient(client))
+		if(IsValidClient(client))
 		{
-		    SDKUnhook(client, SDKHook_WeaponCanSwitchTo, Hook_WeaponCanSwitch); 
+			SDKUnhook(client, SDKHook_WeaponCanSwitchTo, Hook_WeaponCanSwitch); 
 			SDKHook(client, SDKHook_WeaponCanSwitchTo, Hook_WeaponCanSwitch); 
 			SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 			SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
@@ -84,59 +77,59 @@ public OnPluginStart2()
 	}
 }
 
-public OnClientPutInServer(client) 
+public void OnClientPutInServer(int client) 
 { 
-    SDKHook(client, SDKHook_WeaponCanSwitchTo, Hook_WeaponCanSwitch);
+	SDKHook(client, SDKHook_WeaponCanSwitchTo, Hook_WeaponCanSwitch);
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
-public Action:ClientTimer(Handle:timer)
+public Action ClientTimer(Handle timer)
 {
-    if(!ActiveRound)
+	if(!ActiveRound)
 	{
-	    return Plugin_Stop;
+		return Plugin_Stop;
 	}
 	else
 	{
-		for(new client=1; client<=MaxClients; client++)
+		for(int client=1; client<=MaxClients; client++)
 		{
 			if(IsValidClient(client))
 			{
 				if(IsPlayerAlive(client))
 				{
-				    if(FF2_GetBossIndex(client)>-1)
+					if(FF2_GetBossIndex(client)>-1)
 					{
-					    new boss = FF2_GetBossIndex(client);
+						int boss = FF2_GetBossIndex(client);
 						if(FF2_HasAbility(boss, this_plugin_name, "hook_ability"))
 						{
-						    new Float:vert = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hook_ability", 11, 0.0);
-							new Float:cooltime = CoolTimer[client]+0.1;
-							new String:HudMsg[255];
+							float vert = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hook_ability", 11, 0.0);
+							float cooltime = CoolTimer[client]+0.1;
+							char HudMsg[255];
 							if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 10, 0) == 1)
 							{
-							    cooltime = ((GetGameTime()-CoolMarker[client])/(cooltime-CoolMarker[client]))*100.0;
+								cooltime = ((GetGameTime()-CoolMarker[client])/(cooltime-CoolMarker[client]))*100.0;
 							}
 							else
 							{
-							    cooltime -= GetGameTime();
+								cooltime -= GetGameTime();
 							}
 							if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
 							{
 								if(!HasEquipmentByClassName(client, "tf_weapon_grapplinghook"))
 								{
-								    UnloadHook(client);
+									UnloadHook(client);
 								}
 							}
 							if(CoolTimer[client]<=GetGameTime() && CoolTimer[client]>=0.0)
 							{
-							    FF2_GetAbilityArgumentString(boss, this_plugin_name, "hook_ability", 13, HudMsg, 255);
+								FF2_GetAbilityArgumentString(boss, this_plugin_name, "hook_ability", 13, HudMsg, 255);
 								ReplaceString(HudMsg, 255, "\\n", "\n");
 								SetHudTextParams(-1.0, vert, 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
 								ShowSyncHudText(client, AbilityHUD, HudMsg);
 							}
 							else
 							{
-							    FF2_GetAbilityArgumentString(boss, this_plugin_name, "hook_ability", 12, HudMsg, 255);
+								FF2_GetAbilityArgumentString(boss, this_plugin_name, "hook_ability", 12, HudMsg, 255);
 								ReplaceString(HudMsg, 255, "\\n", "\n");
 								if(CoolTimer[client]==-1.0)
 								{
@@ -158,19 +151,19 @@ public Action:ClientTimer(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
-    for(new client=1; client<=MaxClients; client++)
+	for(int client=1; client<=MaxClients; client++)
 	{
-	    if(IsValidClient(client))
+		if(IsValidClient(client))
 		{
-		    HookDelaySwing[client]=0.0;
+			HookDelaySwing[client]=0.0;
 			WasUsingHook[client]=false;
-		    UnloadHook(client);
+			UnloadHook(client);
 			if(FF2_GetBossIndex(client)>-1)
 			{
-			    new boss = FF2_GetBossIndex(client);
-			    if(FF2_HasAbility(boss, this_plugin_name, "hook_ability"))
+				int boss = FF2_GetBossIndex(client);
+				if(FF2_HasAbility(boss, this_plugin_name, "hook_ability"))
 				{
 					CoolTimer[client]=GetGameTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hook_ability", 2, 1.0);
 					CoolMarker[client]=GetGameTime();
@@ -178,34 +171,29 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 			}
 		}
 	}
-    ActiveRound=true;
+	ActiveRound=true;
 	CreateTimer(0.2, ClientTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
-    ActiveRound=false;
-	for(new client=1; client<=MaxClients; client++)
+	ActiveRound=false;
+	for(int client=1; client<=MaxClients; client++)
 	{
-	    if(IsValidClient(client))
+		if(IsValidClient(client))
 		{
-		    UnloadHook(client);
+			UnloadHook(client);
 		}
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
-	new slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
-	if(!strcmp(ability_name, "hookstyle"))
-	{
-	}
 }
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
-    if(FF2_IsFF2Enabled())
+	if(FF2_IsFF2Enabled())
 	{
 		if(StrEqual("tf_projectile_grapplinghook", classname))
 		{
@@ -215,22 +203,22 @@ public OnEntityCreated(entity, const String:classname[])
 	}
 }
 
-public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if(IsValidClient(attacker) && attacker!=client && FF2_GetBossIndex(attacker)>-1)
 	{
-	    if(IsValidEntity(weapon))
+		if(IsValidEntity(weapon))
 		{
-			new String:WeaponName[64];
+			char WeaponName[64];
 			GetEntityClassname(weapon, WeaponName, sizeof(WeaponName)); 
 			if(StrEqual("tf_weapon_grapplinghook", WeaponName))
 			{
-				new boss = FF2_GetBossIndex(attacker);
+				int boss = FF2_GetBossIndex(attacker);
 				if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 				{
 					if(FF2_GetAbilityArgument(boss, this_plugin_name, "hookstyle", 2, 0) == 0) //we don't need to unhook if it doesn't even latch onto the player
 					{
-						new Float:killhooktime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 7, 0.0);
+						float killhooktime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 7, 0.0);
 						if(killhooktime>0.0)
 						{
 							CreateTimer(killhooktime, KillHook, HookRef[attacker]);
@@ -247,16 +235,16 @@ public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damage
 	return Plugin_Continue;
 }
 
-public Action:CheckProjectile(Handle:timer, any:entity1)
+public Action CheckProjectile(Handle timer, any entity1)
 {
-    new entity = EntRefToEntIndex(entity1);
+	int entity = EntRefToEntIndex(entity1);
 	if(IsValidEntity(entity))
 	{
-	    new bool:DoneHere = false;
-		new howner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
-		new curlauncher = GetEntPropEnt(entity, Prop_Send, "m_hLauncher");
-		new hownerclient;
-		new curlauncherclient;
+		bool DoneHere = false;
+		int howner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+		int curlauncher = GetEntPropEnt(entity, Prop_Send, "m_hLauncher");
+		int hownerclient;
+		int curlauncherclient;
 		if(IsValidEntity(howner) && !IsValidClient(howner))
 		{
 			hownerclient = GetEntPropEnt(howner, Prop_Send, "m_hOwnerEntity");
@@ -277,26 +265,26 @@ public Action:CheckProjectile(Handle:timer, any:entity1)
 	}
 }
 
-public Action:OnStartTouchHooks(entity, other)
+public Action OnStartTouchHooks(int entity, int other)
 {
-    if(IsValidEntity(entity))
+	if(IsValidEntity(entity))
 	{
-		new projowner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+		int projowner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 		if(IsValidEntity(projowner) && !IsValidClient(projowner)) //is actually the launcher or some other entity
 		{
 			projowner = GetEntPropEnt(projowner, Prop_Send, "m_hOwnerEntity"); //the actual owner
 		}
-		new attacker = projowner;
+		int attacker = projowner;
 		if(IsValidClient(attacker) && FF2_GetBossIndex(attacker)>-1)
 		{
-		    new boss = FF2_GetBossIndex(attacker);
+			int boss = FF2_GetBossIndex(attacker);
 			if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 			{
 				if(IsValidClient(other) && GetClientTeam(other)!=GetEntProp(entity, Prop_Send, "m_iTeamNum"))
 				{
 					if(FF2_GetAbilityArgument(boss, this_plugin_name, "hookstyle", 2, 0) != 1)
 					{
-						new Float:killhooktime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 7, 0.0);
+						float killhooktime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 7, 0.0);
 						if(killhooktime>0.0)
 						{
 							CreateTimer(killhooktime, KillHook, HookRef[attacker]);
@@ -304,14 +292,14 @@ public Action:OnStartTouchHooks(entity, other)
 					}
 					else
 					{
-						new client = other;
-						new dmgtype;
+						int client = other;
+						int dmgtype;
 						dmgtype = DMG_SLASH;
 						if(GetEntProp(entity, Prop_Send, "m_bCritical")==1)
 						{
 							dmgtype |= DMG_ACID;
 						}
-						new Float:dmg = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 4, 0.0);
+						float dmg = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 4, 0.0);
 						if(dmg<=160.0 && FF2_GetAbilityArgument(boss, this_plugin_name, "hookstyle", 8, 0) != 0)
 						{
 							dmg=dmg/3.0;
@@ -322,13 +310,13 @@ public Action:OnStartTouchHooks(entity, other)
 				}
 				else if(IsValidEntity(other))
 				{
-				    CreateTimer(0.12, CheckHook, attacker);
+					CreateTimer(0.12, CheckHook, attacker);
 					if(FF2_GetAbilityArgument(boss, this_plugin_name, "hookstyle", 3, 0) == 1)
 					{
-						new String:classname[32];
+						char classname[32];
 						//buildings
 						GetEdictClassname(other, classname, sizeof(classname));
-						new bool:HurtableEnt=false;
+						bool HurtableEnt=false;
 						if(StrContains(classname, "obj_", false) != -1)
 						{
 							HurtableEnt=true;
@@ -347,13 +335,13 @@ public Action:OnStartTouchHooks(entity, other)
 						}
 						if(HurtableEnt)
 						{
-							new dmgtype;
+							int dmgtype;
 							dmgtype = DMG_SLASH;
 							if(GetEntProp(entity, Prop_Send, "m_bCritical")==1)
 							{
 								dmgtype |= DMG_ACID;
 							}
-							new Float:dmg = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 5, 0.0);
+							float dmg = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 5, 0.0);
 							DamageEntity(other, attacker, dmg, dmgtype, "");
 							SDKHook(entity, SDKHook_Touch, OnTouch);
 						}
@@ -364,19 +352,19 @@ public Action:OnStartTouchHooks(entity, other)
 	}
 }
 
-public Action:OnTouch(entity, other)
+public Action OnTouch(int entity, int other)
 {
 	SDKUnhook(entity, SDKHook_Touch, OnTouch);
 	AcceptEntityInput(entity, "Kill");
 	return Plugin_Handled;
 }
 
-public Action:KillHook(Handle:Timer, entityref)
+public Action KillHook(Handle Timer, int entityref)
 {
-	new entity = EntRefToEntIndex(entityref);
+	int entity = EntRefToEntIndex(entityref);
 	if(IsValidEntity(entity))
 	{
-	    new String:classname[64];
+		char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if(StrEqual(classname, "tf_projectile_grapplinghook", false))
 		{
@@ -386,47 +374,47 @@ public Action:KillHook(Handle:Timer, entityref)
 	return Plugin_Continue;
 }
 
-public Action:CheckHook(Handle:Timer, client)
+public Action CheckHook(Handle Timer, int client)
 {
 	if(IsValidClient(client))
 	{
-	    if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
+		if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
 		{
-			new activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
-			new String:entname[50];
+			int activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+			char entname[50];
 			GetEntityClassname(activewep, entname, sizeof(entname));
 			if(!StrEqual(entname, "tf_weapon_grapplinghook", false))
 			{
-			    UnloadHook(client);
+				UnloadHook(client);
 			}
 		}
 	}
 	return Plugin_Continue;
 }
 
-public Action:Hook_WeaponCanSwitch(client, weapon) 
+public Action Hook_WeaponCanSwitch(int client, int weapon) 
 {
-    if(IsValidEntity(weapon))
+	if(IsValidEntity(weapon))
 	{
-	    if(FF2_GetBossIndex(client)>-1)
+		if(FF2_GetBossIndex(client)>-1)
 		{
-		    new boss = FF2_GetBossIndex(client);
-			new String:WeaponName[64];
+			int boss = FF2_GetBossIndex(client);
+			char WeaponName[64];
 			GetEntityClassname(weapon, WeaponName, sizeof(WeaponName));
 			if(!StrEqual("tf_weapon_grapplinghook", WeaponName))
 			{
 				if(FF2_HasAbility(boss, this_plugin_name, "hook_ability") && HookAbilityActive[client])
 				{
-				    if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 5, 0) != 1)
+					if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 5, 0) != 1)
 					{
-					    return Plugin_Stop;
+						return Plugin_Stop;
 					}
 				}
 				if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 				{
-				    if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
+					if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
 					{
-						new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+						float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 						if(delaytime>0.0)
 						{
 							HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -438,7 +426,7 @@ public Action:Hook_WeaponCanSwitch(client, weapon)
 						}
 						if(FF2_GetAbilityArgument(boss, this_plugin_name, "hookstyle", 1, 0)==1)
 						{
-						    UnloadHook(client);
+							UnloadHook(client);
 						}
 					}
 					if(HookDelaySwing[client]>GetGameTime())
@@ -453,25 +441,25 @@ public Action:Hook_WeaponCanSwitch(client, weapon)
 				{
 					if(GrappleTimer[client]-0.25<=GetGameTime())
 					{
-					    return Plugin_Stop;
+						return Plugin_Stop;
 					}
 				}
 			}
 		}
 	}
-    return Plugin_Continue;
+	return Plugin_Continue;
 }
 
-public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
 		if(IsPlayerAlive(client))
 		{
-		    new weapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
-		    if(FF2_GetBossIndex(client)>-1)
+			int weapon = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+			if(FF2_GetBossIndex(client)>-1)
 			{
-			    new boss = FF2_GetBossIndex(client);
+				int boss = FF2_GetBossIndex(client);
 				if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 				{
 					if(TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) || TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
@@ -482,7 +470,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 					{
 						if(WasUsingHook[client])
 						{
-							new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+							float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 							if(delaytime>0.0)
 							{
 								HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -516,23 +504,23 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 						}
 						else if(HookAbilityActive[client])
 						{
-						    new bool:keepattacking = true;
-						    if(GrappleTimer[client]-0.25<=GetGameTime())
+							bool keepattacking = true;
+							if(GrappleTimer[client]-0.25<=GetGameTime())
 							{
 								if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 4, 0)==1 && TF2_IsPlayerInCondition(client, TFCond_GrapplingHook) && TF2_IsPlayerInCondition(client, TFCond_GrapplingHookLatched))
 								{
 								}
 								else
 								{
-								    keepattacking=false;
+									keepattacking=false;
 									EndHookAbility1(client);
 								}
 							}
 							if(IsValidEntity(weapon) && keepattacking)
 							{
-							    if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 8, 0) == 1)
+								if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 8, 0) == 1)
 								{
-									new String:classname[64];
+									char classname[64];
 									GetEntityClassname(weapon, classname, sizeof(classname));
 									if(StrEqual(classname, "tf_weapon_grapplinghook", false))
 									{
@@ -549,14 +537,14 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 	return Plugin_Changed;
 }
 
-InitiateHookAbility(client)
+void InitiateHookAbility(int client)
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    if(FF2_GetBossIndex(client)>-1)
+		if(FF2_GetBossIndex(client)>-1)
 		{
-			new boss = FF2_GetBossIndex(client);
-			new String:attribs[255];
+			int boss = FF2_GetBossIndex(client);
+			char attribs[255];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, "hook_ability", 7, attribs, 255);
 			SpawnWeapon(client, "tf_weapon_grapplinghook", 1152, 1, 6, attribs);
 			HookAbilityActive[client]=true;
@@ -576,23 +564,23 @@ InitiateHookAbility(client)
 	}
 }
 
-EndHookAbility1(client)
+void EndHookAbility1(int client)
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    if(FF2_GetBossIndex(client)>-1)
+		if(FF2_GetBossIndex(client)>-1)
 		{
-		    new boss = FF2_GetBossIndex(client);
-		    new activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+			int boss = FF2_GetBossIndex(client);
+			int activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
 			if(IsValidEntity(activewep))
 			{
-				new String:entname[50];
+				char entname[50];
 				GetEntityClassname(activewep, entname, sizeof(entname));
 				if(StrEqual(entname, "tf_weapon_grapplinghook", false))
 				{
 					if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 					{
-						new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+						float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 						if(delaytime>0.0)
 						{
 							HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -632,7 +620,7 @@ EndHookAbility1(client)
 			{
 				if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 				{
-					new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+					float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 					if(delaytime>0.0)
 					{
 						HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -667,7 +655,7 @@ EndHookAbility1(client)
 					}
 				}
 			}
-		    UnloadHook(client);
+			UnloadHook(client);
 			if(FF2_GetAbilityArgument(boss, this_plugin_name, "hook_ability", 6, 0)==1)
 			{
 				CoolTimer[client]=GetGameTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hook_ability", 2, 1.0);
@@ -679,21 +667,21 @@ EndHookAbility1(client)
 	}
 }
 
-public Action:EndHookAbility2(Handle:Timer, client)
+public Action EndHookAbility2(Handle Timer, int client)
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    new boss = FF2_GetBossIndex(client);
-	    new activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+		int boss = FF2_GetBossIndex(client);
+		int activewep = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
 		if(IsValidEntity(activewep))
 		{
-			new String:entname[50];
+			char entname[50];
 			GetEntityClassname(activewep, entname, sizeof(entname));
 			if(StrEqual(entname, "tf_weapon_grapplinghook", false))
 			{
 				if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 				{
-					new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+					float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 					if(delaytime>0.0)
 					{
 						HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -733,7 +721,7 @@ public Action:EndHookAbility2(Handle:Timer, client)
 		{
 			if(FF2_HasAbility(boss, this_plugin_name, "hookstyle"))
 			{
-				new Float:delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
+				float delaytime = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "hookstyle", 6, 0.0);
 				if(delaytime>0.0)
 				{
 					HookDelaySwing[client] = GetGameTime()+delaytime;
@@ -768,20 +756,20 @@ public Action:EndHookAbility2(Handle:Timer, client)
 				}
 			}
 		}
-	    RemoveEquipmentByClassName(client, "tf_weapon_grapplinghook");
-	    UnloadHook(client);
+		RemoveEquipmentByClassName(client, "tf_weapon_grapplinghook");
+		UnloadHook(client);
 	}
 }
 
-UnloadHook(client)
+void UnloadHook(int client)
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    new entity = EntRefToEntIndex(HookRef[client]);
+		int entity = EntRefToEntIndex(HookRef[client]);
 		if(IsValidEntity(entity))
 		{
-		    new String:classname[64];
-		    GetEntityClassname(entity, classname, sizeof(classname));
+			char classname[64];
+			GetEntityClassname(entity, classname, sizeof(classname));
 			if(StrEqual(classname, "tf_projectile_grapplinghook", false))
 			{
 				RemoveEdict(entity);
@@ -793,20 +781,20 @@ UnloadHook(client)
 	}
 }
 
-DamageEntity(client, attacker = 0, Float:dmg, dmg_type = DMG_GENERIC, String:weapon[]="")
+void DamageEntity(int client, int attacker = 0, float dmg, int dmg_type = DMG_GENERIC, char[] weapon="")
 {
 	if(IsValidClient(client) || IsValidEntity(client))
 	{
-	    if(IsValidClient(client) && !IsFakeClient(client))
+		if(IsValidClient(client) && !IsFakeClient(client))
 		{
-		    Format(weapon, 1, ""); //point hurt will crash the server if you specify the classname against live players
+			Format(weapon, 1, ""); //point hurt will crash the server if you specify the classname against live players
 		}
-		new damage = RoundToNearest(dmg);
-		new String:dmg_str[16];
+		int damage = RoundToNearest(dmg);
+		char dmg_str[16];
 		IntToString(damage,dmg_str,16);
-		new String:dmg_type_str[32];
+		char dmg_type_str[32];
 		IntToString(dmg_type,dmg_type_str,32);
-		new pointHurt=CreateEntityByName("point_hurt");
+		int pointHurt=CreateEntityByName("point_hurt");
 		if(pointHurt)
 		{
 			DispatchKeyValue(client,"targetname","targetsname");
@@ -820,8 +808,8 @@ DamageEntity(client, attacker = 0, Float:dmg, dmg_type = DMG_GENERIC, String:wea
 			DispatchSpawn(pointHurt);
 			if(IsValidEntity(attacker))
 			{
-			    new Float:AttackLocation[3];
-		        GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", AttackLocation);
+				float AttackLocation[3];
+				GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", AttackLocation);
 				TeleportEntity(pointHurt, AttackLocation, NULL_VECTOR, NULL_VECTOR);
 			}
 			AcceptEntityInput(pointHurt,"Hurt",(attacker>0)?attacker:-1);
@@ -832,94 +820,94 @@ DamageEntity(client, attacker = 0, Float:dmg, dmg_type = DMG_GENERIC, String:wea
 	}
 }
 
-void RemoveEquipmentByClassName(client, String:classname[255])
+void RemoveEquipmentByClassName(int client, char classname[255])
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    if(StrEqual(classname, "tf_wearable_weapon", false))
+		if(StrEqual(classname, "tf_wearable_weapon", false))
 		{
-		    new i = -1; 
-            while ((i = FindEntityByClassname(i, "tf_wearabl*")) != -1)
-            { 
-                if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
-			    {
-				    if(IsValidEntity(i))
-				    {
-					    new index=GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex");
-				        switch(index)
-				        {
-				            case 131, 406, 1099, 1144, 133, 444, 642, 231, 57, 405, 608: //every wearable weapon
-					        {
-					            AcceptEntityInput(i, "Kill"); 
-					        }
-				        }
-				    }
-			    }
-            }
+			int i = -1; 
+			while ((i = FindEntityByClassname(i, "tf_wearabl*")) != -1)
+			{ 
+				if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
+				{
+					if(IsValidEntity(i))
+					{
+						int index=GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex");
+						switch(index)
+						{
+							case 131, 406, 1099, 1144, 133, 444, 642, 231, 57, 405, 608: //every wearable weapon
+							{
+								AcceptEntityInput(i, "Kill"); 
+							}
+						}
+					}
+				}
+			}
 		}
-	    else
+		else
 		{
-		    new i = -1; 
-            while ((i = FindEntityByClassname(i, classname)) != -1)
-            { 
-                if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
-			    {
-				    if(IsValidEntity(i))
-				    {
-					    AcceptEntityInput(i, "Kill");
-				    }
-			    }
-            }
+			int i = -1; 
+			while ((i = FindEntityByClassname(i, classname)) != -1)
+			{ 
+				if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
+				{
+					if(IsValidEntity(i))
+					{
+						AcceptEntityInput(i, "Kill");
+					}
+				}
+			}
 		}
 	}
 }
 
-stock bool:HasEquipmentByClassName(client, String:classname[255])
+stock bool HasEquipmentByClassName(int client, char classname[255])
 {
-    if(IsValidClient(client))
+	if(IsValidClient(client))
 	{
-	    if(StrEqual(classname, "tf_wearable_weapon", false))
+		if(StrEqual(classname, "tf_wearable_weapon", false))
 		{
-		    new i = -1; 
-            while ((i = FindEntityByClassname(i, "tf_wearabl*")) != -1)
-            { 
-                if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
-			    {
-				    if(IsValidEntity(i))
-				    {
-					    new index=GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex");
-				        switch(index)
-				        {
-				            case 131, 406, 1099, 1144, 133, 444, 642, 231, 57, 405, 608: //every wearable weapon
-					        {
-					            return true;
-					        }
-				        }
-				    }
-			    }
-            }
+			int i = -1; 
+			while ((i = FindEntityByClassname(i, "tf_wearabl*")) != -1)
+			{ 
+				if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
+				{
+					if(IsValidEntity(i))
+					{
+						int index=GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex");
+						switch(index)
+						{
+							case 131, 406, 1099, 1144, 133, 444, 642, 231, 57, 405, 608: //every wearable weapon
+							{
+								return true;
+							}
+						}
+					}
+				}
+			}
 		}
-	    else
+		else
 		{
-		    new i = -1; 
-            while ((i = FindEntityByClassname(i, classname)) != -1)
-            { 
-                if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
-			    {
-				    if(IsValidEntity(i))
-				    {
-					    return true;
-				    }
-			    }
-            }
+			int i = -1; 
+			while ((i = FindEntityByClassname(i, classname)) != -1)
+			{ 
+				if(client == GetEntPropEnt(i, Prop_Send, "m_hOwnerEntity"))
+				{
+					if(IsValidEntity(i))
+					{
+						return true;
+					}
+				}
+			}
 		}
 	}
 	return false;
 }
 
-stock SpawnWeapon(client, String:name[], index, level, qual, String:att[])
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, char[] att)
 {
-	new Handle:hWeapon=TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon=TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	if(hWeapon==INVALID_HANDLE)
 	{
 		return -1;
@@ -929,8 +917,8 @@ stock SpawnWeapon(client, String:name[], index, level, qual, String:att[])
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count=ExplodeString(att, ";", atts, 32, 32);
+	char atts[32][32];
+	int count=ExplodeString(att, ";", atts, 32, 32);
 
 	if(count % 2)
 	{
@@ -940,10 +928,10 @@ stock SpawnWeapon(client, String:name[], index, level, qual, String:att[])
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2;
-		for(new i; i<count; i+=2)
+		int i2;
+		for(int i; i<count; i+=2)
 		{
-			new attrib=StringToInt(atts[i]);
+			int attrib=StringToInt(atts[i]);
 			if(!attrib)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", atts[i], atts[i+1]);
@@ -960,13 +948,13 @@ stock SpawnWeapon(client, String:name[], index, level, qual, String:att[])
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	}
 
-	new entity=TF2Items_GiveNamedItem(client, hWeapon);
+	int entity=TF2Items_GiveNamedItem(client, hWeapon);
 	CloseHandle(hWeapon);
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
 
-stock bool:IsValidClient(client, bool:replaycheck=true)
+stock bool IsValidClient(client, bool replaycheck=true)
 {
 	if(client<=0 || client>MaxClients)
 	{
@@ -992,3 +980,5 @@ stock bool:IsValidClient(client, bool:replaycheck=true)
 	}
 	return true;
 }
+
+#file "FF2 Subplugin: Grapple Hook Plus"
