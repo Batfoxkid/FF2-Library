@@ -56,14 +56,13 @@ public Plugin myinfo = {
 int RPSWinner;
 bool RPSLoser[MAXPLAYERS+1]=false;
 Handle cvarRPSQueuePoints;
-Handle cvarUpdater;
 Handle cvarKillBoss;
 
 public void OnPluginStart()
 {	
-	CreateConVar("rps4points_version", PLUGIN_VERSION, "RPS4Points Version", FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD);
-	cvarKillBoss=CreateConVar("rps4points_slay_boss", "0", "0-Don't slay boss if boss loses on RPS, 1-Slay boss if boss loses on RPS", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	cvarRPSQueuePoints=CreateConVar("rps4points_points", "10", "Points awarded / removed on RPS result", FCVAR_PLUGIN);
+	CreateConVar("rps4points_version", PLUGIN_VERSION, "RPS4Points Version", FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
+	cvarKillBoss=CreateConVar("rps4points_slay_boss", "0", "0-Don't slay boss if boss loses on RPS, 1-Slay boss if boss loses on RPS", _, true, 0.0, true, 1.0);
+	cvarRPSQueuePoints=CreateConVar("rps4points_points", "10", "Points awarded / removed on RPS result");
 
 	HookEvent("rps_taunt_event", Event_RPSTaunt);
 
