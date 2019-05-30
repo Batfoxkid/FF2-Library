@@ -18,6 +18,8 @@
 #tryinclude <goomba>
 #define REQUIRE_PLUGIN
 
+#pragma newdecls required
+
 /**
  * Dynamic Defaults. Default mobility abilities (super jump, teleport) but with some improvements:
  * - The means for outside plugins to regulate the availability of these mobility options, hence the name "dynamic"
@@ -66,7 +68,7 @@ int RoundInProgress = false;
 public Plugin myinfo = {
 	name = "Freak Fortress 2: Dynamic Defaults",
 	author = "sarysa, with a small amount of code by RainBolt Dash",
-	version = "1.3.2",
+	version = "1.3.3",
 }
 
 #define IsEmptyString(%1) (%1[0] == 0)
@@ -561,7 +563,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DP_ForwardPushWhileMovingBack[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 13);
 			
 			// while args 21-24 (weapon specification) are not stored, get their validity now so useless code isn't executed constantly later.
-			static char[] weaponName[MAX_WEAPON_NAME_LENGTH];
+			static char weaponName[MAX_WEAPON_NAME_LENGTH];
 			weaponName[0] = 0;
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DP_STRING, 22, weaponName, MAX_WEAPON_NAME_LENGTH);
 			DP_ShouldWeaponSwitch[clientIdx] = !IsEmptyString(weaponName);
