@@ -1547,7 +1547,7 @@ public void DSM_PreThink(int clientIdx)
 			TF2_RemoveCondition(clientIdx, TFCond_Slowed);
 			
 		// negatives are nullified by megaheal and condition 103
-		if (TF2_IsPlayerInCondition(clientIdx, TFCond_MegaHeal) || TF2_IsPlayerInCondition(clientIdx, TFCond:103))
+		if (TF2_IsPlayerInCondition(clientIdx, TFCond_MegaHeal) || TF2_IsPlayerInCondition(clientIdx, view_as<TFCond>(103)))
 			conditionModifier = 1.0;
 			
 		// finally, condition positives
@@ -1577,7 +1577,7 @@ public void DSM_PreThink(int clientIdx)
 					int disguiseTarget = GetEntProp(clientIdx, Prop_Send, "m_iDisguiseTargetIndex");
 					if (disguiseTarget > 0 && disguiseTarget < MAX_PLAYERS)
 					{
-						int TFClassType:disguiseClass = TFClassType:GetEntProp(clientIdx, Prop_Send, "m_nDisguiseClass");
+						TFClassType disguiseClass = view_as<TFClassType>(GetEntProp(clientIdx, Prop_Send, "m_nDisguiseClass"));
 						float maxSpeed = 300.0;
 						if (disguiseClass == TFClass_Heavy)
 							maxSpeed = 230.0;
@@ -2938,21 +2938,21 @@ stock void PlaySoundLocal(int clientIdx, char[] soundPath, bool followPlayer = t
 		EmitAmbientSound(soundPath, playerPos, followPlayer ? clientIdx : SOUND_FROM_WORLD);
 }
 
-stock bool IsInstanceOf(entity, const char[] desiredClassname)
+stock bool IsInstanceOf(int entity, const char[] desiredClassname)
 {
 	static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 	GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 	return strcmp(classname, desiredClassname) == 0;
 }
 
-stock bool EntityStartsWith(entity, const char[] desiredPrefix)
+stock bool EntityStartsWith(int entity, const char[] desiredPrefix)
 {
 	static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 	GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 	return StrContains(classname, desiredPrefix) == 0;
 }
 
-stock void SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1)
 {
 	Handle weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
@@ -3055,7 +3055,7 @@ stock bool ConformLineDistance(float result[3], const float src[3], const float 
 	return distance != 0.0;
 }
 
-stock CopyVector(float dst[3], const float src[3])
+stock void CopyVector(float dst[3], const float src[3])
 {
 	dst[0] = src[0];
 	dst[1] = src[1];
@@ -3132,7 +3132,7 @@ stock int ParticleEffectAt(float position[3], char[] effectName, float duration 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
