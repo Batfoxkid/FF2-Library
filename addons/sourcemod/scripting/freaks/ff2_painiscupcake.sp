@@ -143,7 +143,7 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dont)
 	return Plugin_Continue;
 }
 
-public Action FF2_OnAbilityTimeEnd(int boss, int slot)
+/*public Action FF2_OnAbilityTimeEnd(int boss, int slot)
 {
 	if(FF2_HasAbility(boss, this_plugin_name, "rage_painis"))
 	{
@@ -159,7 +159,7 @@ public Action FF2_OnAbilityTimeEnd(int boss, int slot)
 			playingSound=false;
 		}
 	}
-}
+}*/
 
 public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
