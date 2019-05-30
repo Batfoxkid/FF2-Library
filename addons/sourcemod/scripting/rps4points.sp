@@ -32,18 +32,13 @@
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#undef REQUIRE_PLUGIN
-#tryinclude <updater>
-#define REQUIRE_PLUGIN
 
-#if SOURCEMOD_V_MINOR > 7
-	#pragma newdecls required
-#endif
+#pragma newdecls required
 
 // Version Number
 #define MAJOR_REVISION "1"
 #define MINOR_REVISION "1"
-//#define PATCH_REVISION "0"
+#define PATCH_REVISION "1"
 
 #if !defined PATCH_REVISION
 	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION
@@ -52,16 +47,11 @@
 #endif
 
 public Plugin myinfo = {
-	name = "Freak Fortress 2: RPS4Points",
+	name = "Freak Fortress 2: RPS4Points*",
 	author = "SHADoW NiNE TR3S",
 	description="Gamble for FF2 queue points using Rock, Paper, Scissors taunt",
 	version=PLUGIN_VERSION,
 };
-
-
-#if defined _updater_included
-#define UPDATE_URL "http://www.shadow93.net/sm/rps4points/update.txt"
-#endif
 
 int RPSWinner;
 bool RPSLoser[MAXPLAYERS+1]=false;
@@ -73,44 +63,11 @@ public void OnPluginStart()
 {	
 	CreateConVar("rps4points_version", PLUGIN_VERSION, "RPS4Points Version", FCVAR_REPLICATED|FCVAR_NOTIFY|FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_DONTRECORD);
 	cvarKillBoss=CreateConVar("rps4points_slay_boss", "0", "0-Don't slay boss if boss loses on RPS, 1-Slay boss if boss loses on RPS", FCVAR_PLUGIN, true, 0.0, true, 1.0);
-	cvarUpdater=CreateConVar("rps4points_updater", "0", "0-Disable Updater support, 1-Enable automatic updating (requires Updater)", FCVAR_PLUGIN, true, 0.0, true, 1.0);
 	cvarRPSQueuePoints=CreateConVar("rps4points_points", "10", "Points awarded / removed on RPS result", FCVAR_PLUGIN);
 
 	HookEvent("rps_taunt_event", Event_RPSTaunt);
 
 	LoadTranslations("rps4points.phrases");
-	
-	HookConVarChange(cvarUpdater, CvarChange);
-}
-
-public void OnLibraryAdded(const char[] name)
-{
-	#if defined _updater_included
-	if (StrEqual(name, "updater") && GetConVarBool(cvarUpdater))
-	{
-		Updater_AddPlugin(UPDATE_URL);
-	}
-	#endif
-}
-
-public void OnLibraryRemoved(const char[] name)
-{
-	#if defined _updater_included
-	if(StrEqual(name, "updater") && GetConVarBool(cvarUpdater))
-	{
-		Updater_RemovePlugin();
-	}
-	#endif
-}
-
-public void OnConfigsExecuted()
-{
-	#if defined _updater_included
-	if (LibraryExists("updater") && GetConVarBool(cvarUpdater))
-	{
-		Updater_AddPlugin(UPDATE_URL);
-	}
-	#endif
 }
 
 stock bool IsValidClient(int client)
@@ -129,8 +86,8 @@ stock bool IsBoss(int client)
 
 public void Event_RPSTaunt(Event event, const char[] name, bool dontBroadcast)
 {
-	new winner = GetEventInt(event, "winner");
-	new loser = GetEventInt(event, "loser");
+	int winner = GetEventInt(event, "winner");
+	int loser = GetEventInt(event, "loser");
 	
 	// Make sure winner or loser are valid
 	if(!IsValidClient(winner) || !IsValidClient(loser)) 
@@ -162,7 +119,7 @@ public Action DelayRPSDeath(Handle timer, any client)
 {
 	if(IsValidClient(client))
 	{
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
 			SDKHooks_TakeDamage(client, RPSWinner, RPSWinner, float(FF2_GetBossHealth(boss)), DMG_GENERIC, -1);
@@ -170,13 +127,4 @@ public Action DelayRPSDeath(Handle timer, any client)
 	}
 }
 
-public void CvarChange(Handle convar, const char[] oldValue, const char[] newValue)
-{
-	if(convar==cvarUpdater)
-	{
-		#if defined _updater_included
-		GetConVarInt(cvarUpdater) ? Updater_AddPlugin(UPDATE_URL) : Updater_RemovePlugin();
-		#endif
-	}
-}
-
+#file "FF2 Plugin: RPS 4 Points"
