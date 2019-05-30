@@ -24,7 +24,7 @@ public void OnPluginStart2()
 	return;
 }
 
-public void OnEntityCreated(entity, const char[] classname)
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	if(!StrContains(classname, "trigger_hurt", false))
 	{
@@ -35,9 +35,7 @@ public void OnEntityCreated(entity, const char[] classname)
 
 public Action OnTriggerTouched(int entity, int client)
 {
-	int mainboss = FF2_GetBossIndex(0);
-
-	if(FF2_HasAbility(mainboss, this_plugin_name, "ff2_nightmare") /*&& FF2_GetAbilityDuration(mainboss) > 0.0*/)
+	if(FF2_HasAbility(0, this_plugin_name, "ff2_nightmare") /*&& FF2_GetAbilityDuration(0) > 0.0*/)
 	{
 		return Plugin_Handled;
 	}
@@ -47,9 +45,8 @@ public Action OnTriggerTouched(int entity, int client)
 
 public void OnGameFrame()
 {
-	int boss, mainboss;
-	mainboss = FF2_GetBossIndex(0);
-	bool hideHUD = FF2_HasAbility(mainboss, this_plugin_name, "ff2_nightmare");
+	int boss;
+	bool hideHUD = FF2_HasAbility(0, this_plugin_name, "ff2_nightmare");
 	float bossCharge;
 
 	for(int client = 1; client <= MaxClients; client++)
