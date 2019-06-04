@@ -1099,7 +1099,7 @@ public bool IsSpotSafe(int clientIdx, float playerPos[3], float sizeMultiplier)
 */
 stock void UpdatePlayerHitbox(const int client, float scale)
 {
-	float vecScaledPlayerMin[3] = { -24.5, -24.5, 0.0 }, float vecScaledPlayerMax[3] = { 24.5,  24.5, 83.0 };
+	float vecScaledPlayerMin[3] = { -24.5, -24.5, 0.0 }, vecScaledPlayerMax[3] = { 24.5,  24.5, 83.0 };
 	ScaleVector(vecScaledPlayerMin, scale);
 	ScaleVector(vecScaledPlayerMax, scale);
 	SetEntPropVector(client, Prop_Send, "m_vecSpecifiedSurroundingMins", vecScaledPlayerMin);
