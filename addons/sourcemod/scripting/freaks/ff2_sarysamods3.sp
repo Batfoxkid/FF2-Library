@@ -1113,7 +1113,7 @@ public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
 			{
 				new particle = AttachParticle(clientIndexes[i], particleName, 75.0);
 				if (IsValidEntity(particle))
-					CreateTimer(1.0, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+					CreateTimer(1.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 			}
 		}
 	}
@@ -1422,7 +1422,7 @@ public ShootFlamingGibs(flameCount, const String:modelName[], Float:flameDuratio
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods3] Created shooter with %d flames.", flameCount);
 
-	CreateTimer(10.0, RemoveEntity, EntIndexToEntRef(flamingGibShooter), TIMER_FLAG_NO_MAPCHANGE); // remove a one-off entity with no significance? timer's fine.
+	CreateTimer(10.0, Timer_RemoveEntity, EntIndexToEntRef(flamingGibShooter), TIMER_FLAG_NO_MAPCHANGE); // remove a one-off entity with no significance? timer's fine.
 }
  
 public DoFlamingDebris(bossIdx)
@@ -2809,7 +2809,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -2872,11 +2872,11 @@ stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, 
 		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
 
 		//Delete:
-		CreateTimer(Duration + 1.0, RemoveEntity, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(Duration + 1.0, Timer_RemoveEntity, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntity(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
