@@ -1946,7 +1946,7 @@ public Action fxDrug_KillTimer(Handle timer,any client)
 */
 public Action fxDrug_Timer(Handle timer, any client)
 {
-	static Repeat = 0;
+	static int Repeat = 0;
 	
 	if ( !IsClientInGame( client ) )
 	{
