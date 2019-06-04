@@ -1538,7 +1538,7 @@ public void IonAttack(Handle data)
 		sendfademsg(0, 10, 200, FFADE_OUT, 255, 255, 255, 150);
 		
 		// Knockback
-		float vReturn[3], float vClientPosition[3], float dist;
+		float vReturn[3], vClientPosition[3], dist;
 		for (int i = 1; i <= MaxClients; i++)
 		{
 			if (IsClientConnected(i) && IsClientInGame(i) && IsPlayerAlive(i))
@@ -1719,7 +1719,7 @@ stock void env_shake(float Origin[3], float Amplitude, float Radius, float Durat
 	}
 }
 
-stock RemoveEntity2(entity, float time = 0.0)
+stock void RemoveEntity2(int entity, float time = 0.0)
 {
 	if (time == 0.0)
 	{
