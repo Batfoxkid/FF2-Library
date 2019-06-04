@@ -585,7 +585,7 @@ public Action:CPG_OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &da
 			{
 				new particle = AttachParticle(victim, CPG_EffectOnHit[attacker], 75.0);
 				if (IsValidEntity(particle))
-					CreateTimer(CPG_EffectDuration[attacker], RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+					CreateTimer(CPG_EffectDuration[attacker], Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 			}
 		}
 		
@@ -1124,13 +1124,13 @@ ParticleEffect(clientIdx, String:effectName[], Float:duration)
 		
 	new particle = AttachParticle(clientIdx, effectName, 75.0);
 	if (IsValidEntity(particle))
-		CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 }
 
 /**
  * Taken from default_abilities
  */
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntity(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
