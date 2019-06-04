@@ -179,7 +179,7 @@ enum VoiceMode
 
 #define MAJOR_REVISION "0"
 #define MINOR_REVISION "4"
-#define PATCH_REVISION "6"
+#define PATCH_REVISION "7"
 
 #if !defined PATCH_REVISION
 	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION
@@ -209,7 +209,7 @@ bool AMSOnly[MAXPLAYERS+1];
 bool isHitBoxAvailable=false;
 
 public Plugin myinfo = {
-	name = "Freak Fortress 2: Salmon Summon System",
+	name = "Freak Fortress 2: Salmon Summon System*",
 	author = "Koishi (SHADoW NiNE TR3S)",
 	description="Minion Summon System",
 	version=PLUGIN_VERSION,
@@ -979,7 +979,7 @@ stock void killEntityIn(int iEnt, float flSeconds)
     AcceptEntityInput(iEnt, "FireUser1");
 }
 
-public Action RemoveEntity(Handle timer, any entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -1055,7 +1055,7 @@ stock void ResetSalmonSettings(int client)
 	}
 	if(pParticleEnt[client]!=-1)
 	{
-		CreateTimer(0.1, RemoveEntity, EntIndexToEntRef(pParticleEnt[client]), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.1, Timer_RemoveEntity, EntIndexToEntRef(pParticleEnt[client]), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	if(HookHealth[client])
 	{
