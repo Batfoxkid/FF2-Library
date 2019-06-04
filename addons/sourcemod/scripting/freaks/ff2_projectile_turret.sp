@@ -13,9 +13,11 @@
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma newdecls required
+
 // change these to minimize console output
-new PRINT_DEBUG_INFO = true;
-new PRINT_DEBUG_SPAM = false;
+int PRINT_DEBUG_INFO = true;
+int PRINT_DEBUG_SPAM = false;
 
 /**
  * Originally I was to have multiple mods in one file here, but this turret ended up being such a major
@@ -27,10 +29,10 @@ new PRINT_DEBUG_SPAM = false;
  *		 Took the beacon code from RTD mod, since that's the beacon style most players are familiar with.
  */
 
-public Plugin:myinfo = {
-	name = "Freak Fortress 2: Projectile Turret",
+public Plugin myinfo = {
+	name = "Freak Fortress 2: Projectile Turret*",
 	author = "sarysa",
-	version = "1.1.1",
+	version = "1.1.2",
 };
 
 // copied from tf2 sdk
@@ -97,10 +99,10 @@ enum // Collision_Group_t in const.h
 #define FAR_FUTURE 100000000.0
 #define IsEmptyString(%1) (%1[0] == 0)
 
-new BossTeam = _:TFTeam_Blue;
+int BossTeam = view_as<int>(TFTeam_Blue);
 
 // quick way to see if the round is active
-new bool:RoundActive = false;
+bool RoundActive = false;
 
 /**
  * Projectile Turret
@@ -141,58 +143,58 @@ new bool:RoundActive = false;
 // 40 seems like a good number, cause 40 can produce quite a number of server-side entities
 #define PT_STRING "rage_projectile_turret"
 #define MAX_TURRETS 40
-new bool:PT_ActiveThisRound = false;
-new bool:PT_TurretValid[MAX_TURRETS]; // is this a valid turret?
-new Float:PT_TimePlacedAt[MAX_TURRETS]; // needed to handle an overflow situation
-new Float:PT_FreezeTurretAt[MAX_TURRETS]; // time to freeze the turret
-new PT_TurretEntityRef[MAX_TURRETS]; // a reference to one turret's entity
-new PT_TurretType[MAX_TURRETS]; // one of the TURRET_TYPEs above
-new PT_MotionSensor[MAX_TURRETS]; // type of motion sensor
-new Float:PT_MotionSensorAngleDeviation[MAX_TURRETS]; // maximum angle to target enemies in a cone. above 90 creates significant problems
-new Float:PT_MotionSensorMaxDistance[MAX_TURRETS]; // maximum distance between firing point and enemy. i.e. for grenade launchers, should be set fairly low. rockets can be set higher.
-new bool:PT_DieWithOwner[MAX_TURRETS]; // will it die with the owner? note that if the user logs, it must go away
-new Float:PT_TurretDieAt[MAX_TURRETS]; // user can opt to have turrets self destruct after a period of time
-new PT_TurretOwner[MAX_TURRETS]; // clientIdx of owner
-new Float:PT_TurretDPS[MAX_TURRETS]; // damage per shot, not second ;P
-new Float:PT_TurretFireRate[MAX_TURRETS]; // delay between shots
-new Float:PT_TurretSpeedFactor[MAX_TURRETS]; // speed factor of projectile motion only
-new PT_TurretDirs[MAX_TURRETS]; // 1=front only, 2=front and back, 3=front and sides, 4=all four sides
-new PT_TurretProjectileSkin[MAX_TURRETS]; // precached model index for the projectile
-new Float:PT_TurretFireAt[MAX_TURRETS]; // next time turret can fire
-new Float:PT_TurretFireFront[MAX_TURRETS][3]; // front spawner offset from origin
-new Float:PT_TurretFireBack[MAX_TURRETS][3]; // back spawner offset from origin
-new Float:PT_TurretFireLeft[MAX_TURRETS][3]; // left spawner offset from origin
-new Float:PT_TurretFireRight[MAX_TURRETS][3]; // right spawner offset from origin
-new Float:PT_NextBeaconAt[MAX_TURRETS]; // next time for beacon to go off
+bool PT_ActiveThisRound = false;
+bool PT_TurretValid[MAX_TURRETS]; // is this a valid turret?
+float PT_TimePlacedAt[MAX_TURRETS]; // needed to handle an overflow situation
+float PT_FreezeTurretAt[MAX_TURRETS]; // time to freeze the turret
+int PT_TurretEntityRef[MAX_TURRETS]; // a reference to one turret's entity
+int PT_TurretType[MAX_TURRETS]; // one of the TURRET_TYPEs above
+int PT_MotionSensor[MAX_TURRETS]; // type of motion sensor
+float PT_MotionSensorAngleDeviation[MAX_TURRETS]; // maximum angle to target enemies in a cone. above 90 creates significant problems
+float PT_MotionSensorMaxDistance[MAX_TURRETS]; // maximum distance between firing point and enemy. i.e. for grenade launchers, should be set fairly low. rockets can be set higher.
+bool PT_DieWithOwner[MAX_TURRETS]; // will it die with the owner? note that if the user logs, it must go away
+float PT_TurretDieAt[MAX_TURRETS]; // user can opt to have turrets self destruct after a period of time
+int PT_TurretOwner[MAX_TURRETS]; // clientIdx of owner
+float PT_TurretDPS[MAX_TURRETS]; // damage per shot, not second ;P
+float PT_TurretFireRate[MAX_TURRETS]; // delay between shots
+float PT_TurretSpeedFactor[MAX_TURRETS]; // speed factor of projectile motion only
+int PT_TurretDirs[MAX_TURRETS]; // 1=front only, 2=front and back, 3=front and sides, 4=all four sides
+int PT_TurretProjectileSkin[MAX_TURRETS]; // precached model index for the projectile
+float PT_TurretFireAt[MAX_TURRETS]; // next time turret can fire
+float PT_TurretFireFront[MAX_TURRETS][3]; // front spawner offset from origin
+float PT_TurretFireBack[MAX_TURRETS][3]; // back spawner offset from origin
+float PT_TurretFireLeft[MAX_TURRETS][3]; // left spawner offset from origin
+float PT_TurretFireRight[MAX_TURRETS][3]; // right spawner offset from origin
+float PT_NextBeaconAt[MAX_TURRETS]; // next time for beacon to go off
 
 // setting for the hale (replaces the retry timer)
 #define PTH_RETRY_INTERVAL 0.3
-new Float:PTH_RetryAt;
-new PTH_NumTurretsToRetry[MAX_PLAYERS_ARRAY];
+float PTH_RetryAt;
+int PTH_NumTurretsToRetry[MAX_PLAYERS_ARRAY];
 
 // more settings for the turret
 #define PTA_STRING "rage_turret_aesthetics"
-new bool:PTA_PlayerDeathHooked = false;
-new String:PTA_FireSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
-new String:PTA_KillSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
-new String:PTA_MeleeKillSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
-new String:PTA_FireGraphic[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH];
-new bool:PTA_Beacon[MAX_PLAYERS_ARRAY];
-new Float:PTA_BeaconDelay[MAX_PLAYERS_ARRAY];
-new String:PTA_BeaconSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
-new BEACON_BEAM;
-new BEACON_HALO;
+bool PTA_PlayerDeathHooked = false;
+char PTA_FireSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
+char PTA_KillSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
+char PTA_MeleeKillSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
+char PTA_FireGraphic[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH];
+bool PTA_Beacon[MAX_PLAYERS_ARRAY];
+float PTA_BeaconDelay[MAX_PLAYERS_ARRAY];
+char PTA_BeaconSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
+int BEACON_BEAM;
+int BEACON_HALO;
 
 public OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	
-	for (new i = 0; i < MAX_TURRETS; i++)
+	for (int i = 0; i < MAX_TURRETS; i++)
 		PT_TurretEntityRef[i] = -1;
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	// drop turret
 	TurretCleanup(); // in case round end somehow doesn't execute. if Shining Armor's particle effect can linger between rounds...
@@ -201,7 +203,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	PTH_RetryAt = FAR_FUTURE;
 
 	// various array inits
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// INITS THAT MUST BE DONE FOR ENTIRE ARRAY, REGARDLESS OF BOSS STATUS
 		PTH_NumTurretsToRetry[clientIdx] = 0;
@@ -212,13 +214,13 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		else if (GetClientTeam(clientIdx) != BossTeam)
 			continue;
 			
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		// determine now if we should execute the loop for the turrets' behavior
 		if (FF2_HasAbility(bossIdx, this_plugin_name, PT_STRING))
 		{
 			// precache the turret models
 			PT_ActiveThisRound = true;
-			static String:modelName[MAX_MODEL_FILE_LENGTH];
+			static char modelName[MAX_MODEL_FILE_LENGTH];
 			ReadModel(bossIdx, PT_STRING, 15, modelName);
 			ReadModel(bossIdx, PT_STRING, 17, modelName);
 		}
@@ -258,7 +260,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	RoundActive = true;
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	// round is no longer active
 	RoundActive = false;
@@ -271,12 +273,12 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 		UnhookEvent("player_death", PTA_PlayerDeath, EventHookMode_Post);
 }
 
-public PTA_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public void PTA_PlayerDeath(Handle event, const char[] name, bool dontBroadcast)
 {
-	new victim = GetClientOfUserId(GetEventInt(event, "userid")); // not really user id, is client index
-	new killer = GetClientOfUserId(GetEventInt(event, "attacker"));
-	new killingEntity = GetEventInt(event, "inflictor_entindex");
-	//new weapon = GetEventInt(event, "weaponid");
+	int victim = GetClientOfUserId(GetEventInt(event, "userid")); // not really user id, is client index
+	int killer = GetClientOfUserId(GetEventInt(event, "attacker"));
+	int killingEntity = GetEventInt(event, "inflictor_entindex");
+	//int weapon = GetEventInt(event, "weaponid");
 	
 	//PrintToServer("Someone died %d / %d / %d / %d", victim, killer, killingEntity, weapon);
 	
@@ -289,7 +291,7 @@ public PTA_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 		EmitSoundToAll(PTA_MeleeKillSound[killer]);
 }
 
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	// don't execute any of this after round is done.
 	// you're just asking for bugs.
@@ -310,16 +312,16 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Drop turrets
  */
-TurretCleanup(clientIdx = -1)
+void TurretCleanup(int clientIdx = -1)
 {
 	// destroy turrets and reset validity
-	for (new i = 0; i < MAX_TURRETS; i++)
+	for (int i = 0; i < MAX_TURRETS; i++)
 	{
 		if (PT_TurretValid[i])
 		{
 			if (clientIdx == -1 || PT_TurretOwner[i] == clientIdx)
 			{
-				RemoveEntity(INVALID_HANDLE, PT_TurretEntityRef[i]);
+				RemoveEntityNoRef(PT_TurretEntityRef[i]);
 				PT_TurretValid[i] = false;
 			}
 		}
@@ -327,7 +329,7 @@ TurretCleanup(clientIdx = -1)
 }
 
 // need to prevent turret self-damage
-public Action:OnTurretDamaged(turret, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTurretDamaged(int turret, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	// no weapon is assigned to turret damage, so there's one dead giveaway
 	if (weapon == -1)
@@ -353,7 +355,7 @@ public Action:OnTurretDamaged(turret, &attacker, &inflictor, &Float:damage, &dam
 #define DDT_NOWHERE_TO_SPAWN 1
 #define DDT_TOO_MANY_TURRETS 2
 #define DDT_SUCCESS 3
-bool:ShouldRetryDropTurret(result)
+bool ShouldRetryDropTurret(int result)
 {
 	return result == DDT_NOWHERE_TO_SPAWN;
 }
@@ -365,23 +367,23 @@ bool:ShouldRetryDropTurret(result)
 #define TURRET_SPAWN_TRY_DIFFERENT_PLAYER_AT 10
 //#define PT_TRACEMASK (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE)
 #define PT_TRACEMASK MASK_PLAYERSOLID
-DoDropTurret(bossIdx)
+int DoDropTurret(int bossIdx)
 {
-	new userId = FF2_GetBossUserId(bossIdx);
+	int serId = FF2_GetBossUserId(bossIdx);
 	if (userId <= 0)
 		return DDT_INVALID_BOSS;
-	new clientIdx = GetClientOfUserId(userId);
+	int clientIdx = GetClientOfUserId(userId);
 	if (clientIdx <= 0)
 		return DDT_INVALID_BOSS;
 	if (!IsClientInGame(clientIdx) || !IsPlayerAlive(clientIdx))
 		return DDT_INVALID_BOSS;
 		
 	// enforce the user turret maximum
-	new userMaxTurrets = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 18);
-	new turretCount = 0;
-	new oldestTurret = -1;
-	new Float:oldestTurretTime = 999999.0;
-	for (new i = 0; i < MAX_TURRETS; i++)
+	int userMaxTurrets = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 18);
+	int turretCount = 0;
+	int oldestTurret = -1;
+	float oldestTurretTime = 999999.0;
+	for (int i = 0; i < MAX_TURRETS; i++)
 	{
 		if (PT_TurretValid[i])
 		{
@@ -394,7 +396,7 @@ DoDropTurret(bossIdx)
 			if (turretCount >= userMaxTurrets)
 			{
 				PT_TurretValid[oldestTurret] = false;
-				new turretEntity = EntRefToEntIndex(PT_TurretEntityRef[oldestTurret]);
+				int turretEntity = EntRefToEntIndex(PT_TurretEntityRef[oldestTurret]);
 				if (IsValidEntity(turretEntity))
 					AcceptEntityInput(turretEntity, "kill");
 				if (PRINT_DEBUG_INFO)
@@ -405,38 +407,38 @@ DoDropTurret(bossIdx)
 	}
 
 	// find an free turret slot first of all, cause if there is none, we can't spawn the turret
-	new newTurretIndex = -1;
-	for (new i = 0; i < MAX_TURRETS; i++)
+	int int TurretIndex = -1;
+	for (int i = 0; i < MAX_TURRETS; i++)
 	{
 		if (PT_TurretValid[i])
 			continue;
 			
-		newTurretIndex = i;
+		int TurretIndex = i;
 		break;
 	}
 	
-	if (newTurretIndex == -1)
+	if (int TurretIndex == -1)
 	{
 		PrintToServer("[projectile_turret] WARNING: User(s) spawned too many turrets. Exceeded limit of %d", MAX_TURRETS);
 		return DDT_TOO_MANY_TURRETS;
 	}
 	
 	// get the boss' position
-	new Float:bossPosition[3];
+	float bossPosition[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPosition);
 	
 	// determine spawn point now. there are few instances where a valid spawn point
 	// may be impossible, like in the well on Skeith's map, or in the boss spawn vents on warebloom
-	new Float:spawnPoint[3];
-	new Float:velocity[3];
-	new Float:hullMin[3] = { -35.0, -35.0, 0.0 }; // trace a hull somewhat larger than a player for good measure 
-	new Float:hullMax[3] = { 35.0, 35.0, 83.0 }; // trace a hull somewhat larger than a player for good measure
-	new Float:bossEyeAngles[3];
-	new Float:tmpVec[3];
+	float spawnPoint[3];
+	float velocity[3];
+	float hullMin[3] = { -35.0, -35.0, 0.0 }; // trace a hull somewhat larger than a player for good measure 
+	float hullMax[3] = { 35.0, 35.0, 83.0 }; // trace a hull somewhat larger than a player for good measure
+	float bossEyeAngles[3];
+	float tmpVec[3];
 	GetClientEyeAngles(clientIdx, bossEyeAngles);
 	bossEyeAngles[0] = -20.0; // turret should fly up and out of the hale. angle 0 is how that's done.
-	new spawnPattern = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 13);
-	new spawnPatternFlags = spawnPattern & ~SPAWN_PATTERN_MASK;
+	int spawnPattern = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 13);
+	int spawnPatternFlags = spawnPattern & ~SPAWN_PATTERN_MASK;
 	spawnPattern &= SPAWN_PATTERN_MASK;
 	if (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION) // don't preserve momentum ever if the turret's just going to be dropped somewhere
 		spawnPatternFlags &= ~FLAG_SP_PRESERVE_MOMENTUM;
@@ -444,7 +446,7 @@ DoDropTurret(bossIdx)
 	if (spawnPattern == SPAWN_PATTERN_FRONT) // easiest to invalidate
 	{
 		// first trace a ray to find our end point
-		new Handle:trace = TR_TraceRayFilterEx(bossPosition, bossEyeAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
+		Handle trace = TR_TraceRayFilterEx(bossPosition, bossEyeAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 		if (!TR_DidHit(trace)) // wtf?
 		{
 			PrintToServer("Trace ray failed?!");
@@ -470,15 +472,15 @@ DoDropTurret(bossIdx)
 	else if (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION)
 	{
 		// grab turret dimensions
-		new String:turretDimensionsStr[134];
-		new String:turretDimensionsStrSplit[2][66];
-		new String:turretStrIndividual[3][21];
+		char turretDimensionsStr[134];
+		char turretDimensionsStrSplit[2][66];
+		char turretStrIndividual[3][21];
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, PT_STRING, 14, turretDimensionsStr, 134);
-		new Float:TurretMinMax[2][3];
+		float TurretMinMax[2][3];
 		
 		// split up and validate the dimensions first of all, necessary for proper spawning and verifying boss is within turret borders
 		ExplodeString(turretDimensionsStr, " ", turretDimensionsStrSplit, 2, 66);
-		for (new i = 0; i < 2; i++)
+		for (int i = 0; i < 2; i++)
 		{
 			ExplodeString(turretDimensionsStrSplit[i], ",", turretStrIndividual, 3, 21);
 			TurretMinMax[i][0] = StringToFloat(turretStrIndividual[0]);
@@ -495,33 +497,33 @@ DoDropTurret(bossIdx)
 		}
 		
 		// some options in the TARDIS I just don't have room to bring in here
-		new Float:maxZDifference = 500.0;
-		new Float:minSpawnDistance = 100.0;
-		new Float:maxSpawnDistance = 350.0;
+		float maxZDifference = 500.0;
+		float minSpawnDistance = 100.0;
+		float maxSpawnDistance = 350.0;
 	
 		// find a suitable place for the turret.
-		new playerToSpawnTurretAround = clientIdx;
-		new bool:exclude[MAX_PLAYERS_ARRAY];
+		int playerToSpawnTurretAround = clientIdx;
+		bool exclude[MAX_PLAYERS_ARRAY];
 		exclude[clientIdx] = true;
-		new Float:bossOrigin[3];
+		float bossOrigin[3];
 		GetEntPropVector(playerToSpawnTurretAround, Prop_Send, "m_vecOrigin", bossOrigin);
-		new Float:turretOrigin[3];
-		new Float:testPoint[3];
-		new bool:wallTestFailure = false;
-		new bool:playerTestFailure = false;
-		new Float:testDistanceMinimum = 0.0;
-		new Float:testedDistance = 0.0;
-		new Float:rayAngles[3];
-		new Float:playerOrigin[3];
-		new Float:turretAngles[3];
+		float turretOrigin[3];
+		float testPoint[3];
+		bool wallTestFailure = false;
+		bool playerTestFailure = false;
+		float testDistanceMinimum = 0.0;
+		float testedDistance = 0.0;
+		float rayAngles[3];
+		float playerOrigin[3];
+		float turretAngles[3];
 		turretAngles[0] = 0.0;
 		turretAngles[1] = 0.0;
 		turretAngles[2] = 0.0;
 
 		// need our widths to test. 1.51 is a cheap way to cover even the center point of the turret. (i.e. the 2/2/3 triangle)
-		new Float:widthTest = fmax(fabs(TurretMinMax[1][0] - TurretMinMax[0][0]), fabs(TurretMinMax[1][1] - TurretMinMax[0][1])) * 1.51;
+		float widthTest = fmax(fabs(TurretMinMax[1][0] - TurretMinMax[0][0]), fabs(TurretMinMax[1][1] - TurretMinMax[0][1])) * 1.51;
 		widthTest += 36.0; // 2015-03-22, 1.5 the width of players too. no wonder players were getting stuck!
-		for (new attempt = 0; attempt < MAX_TURRET_SPAWN_ATTEMPTS; attempt++)
+		for (int attempt = 0; attempt < MAX_TURRET_SPAWN_ATTEMPTS; attempt++)
 		{
 			if (attempt > 0 && attempt % TURRET_SPAWN_TRY_DIFFERENT_PLAYER_AT == 0)
 			{
@@ -541,7 +543,7 @@ DoDropTurret(bossIdx)
 			// we don't care about the top points. it'll fall through a ceiling and I can live with that.
 			testPoint[2] = turretOrigin[2];
 			wallTestFailure = false;
-			for (new testNum = 0; testNum < 4; testNum++)
+			for (int testNum = 0; testNum < 4; testNum++)
 			{
 				// simple way to disperse our four tests
 				if (testNum == 0 || testNum == 1)
@@ -561,7 +563,7 @@ DoDropTurret(bossIdx)
 				GetVectorAngles(tmpVec, rayAngles);
 
 				// get the distance a ray can travel
-				new Handle:trace = TR_TraceRayFilterEx(bossOrigin, rayAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
+				Handle trace = TR_TraceRayFilterEx(bossOrigin, rayAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(tmpVec, trace);
 				CloseHandle(trace);
 				testedDistance = GetVectorDistance(tmpVec, bossOrigin);
@@ -583,9 +585,9 @@ DoDropTurret(bossIdx)
 			// doing it cheaply as possible by completely ignoring the Z axis.
 			// yes it can be problematic with vertical maps. oh well. but OTOH we don't want it falling on players.
 			playerTestFailure = false;
-			new failPlayer = 0;
+			int failPlayer = 0;
 
-			for (new victim = 1; victim < MAX_PLAYERS; victim++)
+			for (int victim = 1; victim < MAX_PLAYERS; victim++)
 			{
 				// for paranoia's sake I'm including the boss in this test
 				if (!IsLivingPlayer(victim))
@@ -618,9 +620,9 @@ DoDropTurret(bossIdx)
 			tmpVec[2] = turretOrigin[2] - bossOrigin[2];
 			GetVectorAngles(tmpVec, rayAngles);
 
-			new Float:eyeAngles[3];
+			float eyeAngles[3];
 			GetClientEyeAngles(clientIdx, eyeAngles);
-			new Float:testAngle = fixAngle(rayAngles[1] - eyeAngles[1]);
+			float testAngle = fixAngle(rayAngles[1] - eyeAngles[1]);
 			if (testAngle >= 45.0 && testAngle < 135.0)
 				turretAngles[1] = 90.0;
 			else if (testAngle >= -45.0 || testAngle < 45.0)
@@ -629,12 +631,12 @@ DoDropTurret(bossIdx)
 				turretAngles[1] = -90.0;
 
 			// and lets set a better origin point so it's close to the ground from the get go
-			new Float:highestSafeZ = -99999.0;
-			new Float:lowestSafeZ = 99999.0;
-			new Float:smallestZDiff = 99999.0;
+			float highestSafeZ = -99999.0;
+			float lowestSafeZ = 99999.0;
+			float smallestZDiff = 99999.0;
 			testPoint[2] = turretOrigin[2];
 			rayAngles[1] = 0.0;
-			for (new testNum = 0; testNum < 4; testNum++)
+			for (int testNum = 0; testNum < 4; testNum++)
 			{
 				// simple way to disperse our four tests
 				if (testNum == 0 || testNum == 1)
@@ -648,7 +650,7 @@ DoDropTurret(bossIdx)
 
 				// perform a ray trace straight down
 				rayAngles[0] = 89.9;
-				new Handle:trace = TR_TraceRayFilterEx(testPoint, rayAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
+				Handle trace = TR_TraceRayFilterEx(testPoint, rayAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(tmpVec, trace);
 				CloseHandle(trace);
 				if (tmpVec[2] > highestSafeZ)
@@ -658,7 +660,7 @@ DoDropTurret(bossIdx)
 
 				// also perform a ray trace straight up
 				rayAngles[0] = -89.9;
-				new Float:oldZ = tmpVec[2];
+				float oldZ = tmpVec[2];
 				trace = TR_TraceRayFilterEx(testPoint, rayAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(tmpVec, trace);
 				CloseHandle(trace);
@@ -667,7 +669,7 @@ DoDropTurret(bossIdx)
 			}
 
 			// determine our max topple
-			new Float:maxTopple = (TurretMinMax[1][0] - TurretMinMax[0][0]) / 3.0;
+			float maxTopple = (TurretMinMax[1][0] - TurretMinMax[0][0]) / 3.0;
 
 			// looks like we have one more fail condition. too much variation means the turret will likely topple, and we don't want that
 			// so ensure there is no such variation
@@ -714,10 +716,10 @@ DoDropTurret(bossIdx)
 	}
 	else
 	{
-		new Float:testAngles[3];
+		float testAngles[3];
 		testAngles[0] = bossEyeAngles[0];
-		new bool:randSpotSuccess = false;
-		for (new i = 0; i < 20; i++) // give up after 20 times
+		bool randSpotSuccess = false;
+		for (int i = 0; i < 20; i++) // give up after 20 times
 		{
 			if (spawnPattern == SPAWN_PATTERN_EXCLUDE_FRONT)
 				testAngles[1] = fixAngle(GetRandomFloat(0.0, 269.9) + bossEyeAngles[1] + 45.0);
@@ -725,7 +727,7 @@ DoDropTurret(bossIdx)
 				testAngles[1] = GetRandomFloat(-179.9, 179.9);
 			
 			// first trace a ray to find our end point
-			new Handle:trace = TR_TraceRayFilterEx(bossPosition, testAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
+			Handle trace = TR_TraceRayFilterEx(bossPosition, testAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 			if (!TR_DidHit(trace)) // wtf?
 			{
 				PrintToServer("[projectile_turret] Trace ray failed?!");
@@ -780,7 +782,7 @@ DoDropTurret(bossIdx)
 		// if the flag for adding player velocity is set, do it!
 		if ((spawnPatternFlags & FLAG_SP_PRESERVE_MOMENTUM))
 		{
-			new Float:playerVelocity[3];
+			float playerVelocity[3];
 			GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", playerVelocity);
 			velocity[0] += playerVelocity[0];
 			velocity[1] += playerVelocity[1];
@@ -789,22 +791,22 @@ DoDropTurret(bossIdx)
 	}
 	
 	// turret stat args
-	new turretType = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 2);
+	int turretType = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 2);
 	if (turretType == TURRET_TYPE_ARROW)
 	{
 		PrintToServer("[projectile_turret] Turret Type Arrow is unstable, and probably never will work as spawning functioning arrows has issues. Switching to rocket.");
 		turretType = TURRET_TYPE_ROCKET;
 	}
-	new Float:fireDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 3);
-	new Float:damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 4);
-	new Float:speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 5);
-	new fireDirections = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 6);
-	new Float:timeToLive = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 7);
-	new turretHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 8);
-	new motionSensor = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 9);
-	new Float:angleDeviation = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 10);
-	new Float:maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 11);
-	new bool:dieWithOwner = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 12) == 1;
+	float fireDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 3);
+	float damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 4);
+	float speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 5);
+	int fireDirections = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 6);
+	float timeToLive = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 7);
+	int turretHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 8);
+	int motionSensor = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 9);
+	float angleDeviation = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 10);
+	float maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, PT_STRING, 11);
+	bool dieWithOwner = FF2_GetAbilityArgument(bossIdx, this_plugin_name, PT_STRING, 12) == 1;
 	
 	// no sense using the expensive motion sensor code if the angle set is 0.0
 	if (motionSensor == MOTION_SENSOR_ARC && angleDeviation <= 0.0)
@@ -814,10 +816,10 @@ DoDropTurret(bossIdx)
 	}
 	
 	// turret model args
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, PT_STRING, 15, modelName, MAX_MODEL_FILE_LENGTH);
-	new projectileOverride = -1;
-	new String:projectileModelName[MAX_MODEL_FILE_LENGTH];
+	int projectileOverride = -1;
+	char projectileModelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, PT_STRING, 17, projectileModelName, MAX_MODEL_FILE_LENGTH);
 	if (strlen(projectileModelName) > 3)
 		projectileOverride = PrecacheModel(projectileModelName);
@@ -827,11 +829,11 @@ DoDropTurret(bossIdx)
 		turretHealth = 999999;
 
 	// create our physics object and set it to take damage 
-	new turret = CreateEntityByName("prop_physics");
+	int turret = CreateEntityByName("prop_physics");
 	SetEntProp(turret, Prop_Data, "m_takedamage", 2);
 	
 	// give it the same starting angle of rotation as the player. once it bumps around it will change a little.
-	new Float:playerAngles[3];
+	float playerAngles[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_angRotation", playerAngles);
 	SetEntPropVector(turret, Prop_Data, "m_angRotation", playerAngles);
 
@@ -856,69 +858,69 @@ DoDropTurret(bossIdx)
 	//SetEntProp(turret, Prop_Send, "m_usSolidFlags", GetEntProp(turret, Prop_Send, "m_usSolidFlags") | FSOLID_NOT_SOLID);
 	
 	// store the turret's info in the array
-	PT_FreezeTurretAt[newTurretIndex] = GetEngineTime() + (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION ? 1.0 : 3.0);
-	PT_TurretValid[newTurretIndex] = true;
-	PT_TurretEntityRef[newTurretIndex] = EntIndexToEntRef(turret);
-	PT_TurretType[newTurretIndex] = turretType;
-	PT_MotionSensor[newTurretIndex] = motionSensor;
-	PT_MotionSensorAngleDeviation[newTurretIndex] = angleDeviation;
-	PT_MotionSensorMaxDistance[newTurretIndex] = maxDistance;
-	PT_DieWithOwner[newTurretIndex] = dieWithOwner;
-	PT_TurretDieAt[newTurretIndex] = GetEngineTime() + (timeToLive == 0.0 ? 3600.0 : timeToLive);
-	PT_TurretDirs[newTurretIndex] = fireDirections;
-	PT_TurretSpeedFactor[newTurretIndex] = speedFactor;
-	PT_TurretDPS[newTurretIndex] = damage;
-	PT_TurretFireRate[newTurretIndex] = fireDelay;
-	PT_TurretOwner[newTurretIndex] = clientIdx;
-	PT_TurretProjectileSkin[newTurretIndex] = projectileOverride;
-	PT_TurretFireAt[newTurretIndex] = GetEngineTime() + 2.0; // enforce a 2 second delay before turret can fire, give it time to land and right itself
-	PT_NextBeaconAt[newTurretIndex] = GetEngineTime() + PTA_BeaconDelay[clientIdx];
-	PT_TimePlacedAt[newTurretIndex] = GetEngineTime();
+	PT_FreezeTurretAt[int TurretIndex] = GetEngineTime() + (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION ? 1.0 : 3.0);
+	PT_TurretValid[int TurretIndex] = true;
+	PT_TurretEntityRef[int TurretIndex] = EntIndexToEntRef(turret);
+	PT_TurretType[int TurretIndex] = turretType;
+	PT_MotionSensor[int TurretIndex] = motionSensor;
+	PT_MotionSensorAngleDeviation[int TurretIndex] = angleDeviation;
+	PT_MotionSensorMaxDistance[int TurretIndex] = maxDistance;
+	PT_DieWithOwner[int TurretIndex] = dieWithOwner;
+	PT_TurretDieAt[int TurretIndex] = GetEngineTime() + (timeToLive == 0.0 ? 3600.0 : timeToLive);
+	PT_TurretDirs[int TurretIndex] = fireDirections;
+	PT_TurretSpeedFactor[int TurretIndex] = speedFactor;
+	PT_TurretDPS[int TurretIndex] = damage;
+	PT_TurretFireRate[int TurretIndex] = fireDelay;
+	PT_TurretOwner[int TurretIndex] = clientIdx;
+	PT_TurretProjectileSkin[int TurretIndex] = projectileOverride;
+	PT_TurretFireAt[int TurretIndex] = GetEngineTime() + 2.0; // enforce a 2 second delay before turret can fire, give it time to land and right itself
+	PT_NextBeaconAt[int TurretIndex] = GetEngineTime() + PTA_BeaconDelay[clientIdx];
+	PT_TimePlacedAt[int TurretIndex] = GetEngineTime();
 	
 	// oh, and get the firing locations
-	new String:fireLocations[256];
-	new String:vectorSets[4][64];
-	new String:floatSets[3][16];
+	char fireLocations[256];
+	char vectorSets[4][64];
+	char floatSets[3][16];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, PT_STRING, 16, fireLocations, 256);
-	new vCount = ExplodeString(fireLocations, " ", vectorSets, 4, 64);
-	for (new i = 0; i < vCount; i++)
+	int vCount = ExplodeString(fireLocations, " ", vectorSets, 4, 64);
+	for (int i = 0; i < vCount; i++)
 	{
 		ExplodeString(vectorSets[i], ",", floatSets, 3, 16);
-		new Float:x = StringToFloat(floatSets[0]);
-		new Float:y = StringToFloat(floatSets[1]);
-		new Float:z = StringToFloat(floatSets[2]);
+		float x = StringToFloat(floatSets[0]);
+		float y = StringToFloat(floatSets[1]);
+		float z = StringToFloat(floatSets[2]);
 		
-		if (i == TURRET_FIRE_FRONT) { PT_TurretFireFront[newTurretIndex][0] = x; PT_TurretFireFront[newTurretIndex][1] = y; PT_TurretFireFront[newTurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_BACK) { PT_TurretFireBack[newTurretIndex][0] = x; PT_TurretFireBack[newTurretIndex][1] = y; PT_TurretFireBack[newTurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_LEFT) { PT_TurretFireLeft[newTurretIndex][0] = x; PT_TurretFireLeft[newTurretIndex][1] = y; PT_TurretFireLeft[newTurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_RIGHT) { PT_TurretFireRight[newTurretIndex][0] = x; PT_TurretFireRight[newTurretIndex][1] = y; PT_TurretFireRight[newTurretIndex][2] = z; }
+		if (i == TURRET_FIRE_FRONT) { PT_TurretFireFront[int TurretIndex][0] = x; PT_TurretFireFront[int TurretIndex][1] = y; PT_TurretFireFront[int TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_BACK) { PT_TurretFireBack[int TurretIndex][0] = x; PT_TurretFireBack[int TurretIndex][1] = y; PT_TurretFireBack[int TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_LEFT) { PT_TurretFireLeft[int TurretIndex][0] = x; PT_TurretFireLeft[int TurretIndex][1] = y; PT_TurretFireLeft[int TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_RIGHT) { PT_TurretFireRight[int TurretIndex][0] = x; PT_TurretFireRight[int TurretIndex][1] = y; PT_TurretFireRight[int TurretIndex][2] = z; }
 	}
 	
-	//PrintToServer("front: %f,%f,%f", PT_TurretFireFront[newTurretIndex][0], PT_TurretFireFront[newTurretIndex][1], PT_TurretFireFront[newTurretIndex][2]);
-	//PrintToServer("back: %f,%f,%f", PT_TurretFireBack[newTurretIndex][0], PT_TurretFireBack[newTurretIndex][1], PT_TurretFireBack[newTurretIndex][2]);
-	//PrintToServer("left: %f,%f,%f", PT_TurretFireLeft[newTurretIndex][0], PT_TurretFireLeft[newTurretIndex][1], PT_TurretFireLeft[newTurretIndex][2]);
-	//PrintToServer("right: %f,%f,%f", PT_TurretFireRight[newTurretIndex][0], PT_TurretFireRight[newTurretIndex][1], PT_TurretFireRight[newTurretIndex][2]);
+	//PrintToServer("front: %f,%f,%f", PT_TurretFireFront[int TurretIndex][0], PT_TurretFireFront[int TurretIndex][1], PT_TurretFireFront[int TurretIndex][2]);
+	//PrintToServer("back: %f,%f,%f", PT_TurretFireBack[int TurretIndex][0], PT_TurretFireBack[int TurretIndex][1], PT_TurretFireBack[int TurretIndex][2]);
+	//PrintToServer("left: %f,%f,%f", PT_TurretFireLeft[int TurretIndex][0], PT_TurretFireLeft[int TurretIndex][1], PT_TurretFireLeft[int TurretIndex][2]);
+	//PrintToServer("right: %f,%f,%f", PT_TurretFireRight[int TurretIndex][0], PT_TurretFireRight[int TurretIndex][1], PT_TurretFireRight[int TurretIndex][2]);
 	
 	// print this crap out
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("%f: [projectile_turret] Generated a turret: type=%d  motion=%d  dieWithOwner=%d  dieAt=%f  dirs=%d  projSpeed=%f  damagePerShot=%f  fireRate=%f  skin=%d",
-				GetEngineTime(), PT_TurretType[newTurretIndex], PT_MotionSensor[newTurretIndex], PT_DieWithOwner[newTurretIndex],
-				PT_TurretDieAt[newTurretIndex], PT_TurretDirs[newTurretIndex], PT_TurretSpeedFactor[newTurretIndex],
-				PT_TurretDPS[newTurretIndex], PT_TurretFireRate[newTurretIndex], PT_TurretProjectileSkin[newTurretIndex]);
+				GetEngineTime(), PT_TurretType[int TurretIndex], PT_MotionSensor[int TurretIndex], PT_DieWithOwner[int TurretIndex],
+				PT_TurretDieAt[int TurretIndex], PT_TurretDirs[int TurretIndex], PT_TurretSpeedFactor[int TurretIndex],
+				PT_TurretDPS[int TurretIndex], PT_TurretFireRate[int TurretIndex], PT_TurretProjectileSkin[int TurretIndex]);
 				
 	return DDT_SUCCESS;
 }
 
-Rage_ProjectileTurret(const String:ability_name[], bossIdx)
+void Rage_ProjectileTurret(const char[] ability_name, int bossIdx)
 {
 	if (!RoundActive)
 		return;
 
-	new turretCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int turretCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// drop our first turret
-	new result = DoDropTurret(bossIdx);
+	int result = DoDropTurret(bossIdx);
 	
 	// if turrent count is above zero, start a timer to drop the others
 	// this is necessary because spawning multiple turrets at the exact same time will often get some stuck inside the player
@@ -931,8 +933,8 @@ Rage_ProjectileTurret(const String:ability_name[], bossIdx)
 	}
 }
 
-new bool:tracePlayersSuccess = false;
-public bool:TracePlayersAndBuildings(entity, contentsMask)
+bool tracePlayersSuccess = false;
+public bool TracePlayersAndBuildings(int entity, int contentsMask)
 {
 	if (!IsValidEntity(entity))
 		return false;
@@ -945,7 +947,7 @@ public bool:TracePlayersAndBuildings(entity, contentsMask)
 	}
 	else
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 		if (!strcmp("obj_sentrygun", classname) || !strcmp("obj_dispenser", classname) || !strcmp("obj_teleporter", classname))
 			tracePlayersSuccess = true;
@@ -954,17 +956,17 @@ public bool:TracePlayersAndBuildings(entity, contentsMask)
 	return false;
 }
 
-//new turretIdxTmp = -1;
-public bool:CheckArcTurretTarget(targetEntity, Float:firingPoint[3], Float:firingAngles[3], Float:maxAngle, &nearestValidTarget, Float:nvtOrigin[3], Float:nvtAngles[3], &Float:nvtDistance)
+//int turretIdxTmp = -1;
+public bool CheckArcTurretTarget(int targetEntity, float firingPoint[3], float firingAngles[3], float maxAngle, &nearestValidTarget, float nvtOrigin[3], float nvtAngles[3], float &nvtDistance)
 {
-	static Float:targetOrigin[3];
-	static Float:pointToTargetAngles[3];
-	static Float:tmpVec[3];
+	static float targetOrigin[3];
+	static float pointToTargetAngles[3];
+	static float tmpVec[3];
 
 	// first ensure that this target is not farther away than the previous valid target
 	GetEntPropVector(targetEntity, Prop_Data, "m_vecOrigin", targetOrigin);
 	targetOrigin[2] += 50.0; // don't aim at their feet
-	new Float:distance = GetVectorDistance(firingPoint, targetOrigin, true);
+	float distance = GetVectorDistance(firingPoint, targetOrigin, true);
 	if (distance > nvtDistance)
 		return false;
 
@@ -986,7 +988,7 @@ public bool:CheckArcTurretTarget(targetEntity, Float:firingPoint[3], Float:firin
 		return false;
 		
 	// finally, ensure no wall between the firing point and its target
-	new Handle:trace = TR_TraceRayFilterEx(firingPoint, pointToTargetAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
+	Handle trace = TR_TraceRayFilterEx(firingPoint, pointToTargetAngles, PT_TRACEMASK, RayType_Infinite, TraceWallsOnly);
 	if (!TR_DidHit(trace)) // wtf?
 	{
 		CloseHandle(trace);
@@ -994,11 +996,11 @@ public bool:CheckArcTurretTarget(targetEntity, Float:firingPoint[3], Float:firin
 	}
 	TR_GetEndPosition(tmpVec, trace);
 	CloseHandle(trace);
-	new Float:traceDistance = GetVectorDistance(firingPoint, tmpVec, true);
+	float traceDistance = GetVectorDistance(firingPoint, tmpVec, true);
 	if (traceDistance < distance) // we hit a wall.
 		return false;
 		
-	// all tests passed. this is our new best target!
+	// all tests passed. this is our int best target!
 	nearestValidTarget = targetEntity;
 	nvtOrigin[0] = targetOrigin[0];
 	nvtOrigin[1] = targetOrigin[1];
@@ -1011,22 +1013,22 @@ public bool:CheckArcTurretTarget(targetEntity, Float:firingPoint[3], Float:firin
 	return true;
 }
  
-//new bool:m_positionTest;
-public FireTurretProjectiles(turretEntity, turretIdx, dirs, type, bossEntity, Float:damage, Float:speedFactor, reskinModelIdx)
+//bool m_positionTest;
+public void FireTurretProjectiles(int turretEntity, int turretIdx, int dirs, int type, int bossEntity, float damage, float speedFactor, int reskinModelIdx)
 {
-	decl Float:firingPoint[3];
-	decl Float:firingAngles[3];
-	decl Float:pivotOrigin[3];
-	decl Float:pivotAngles[3];
-	decl Float:offset[3];
+	float firingPoint[3];
+	float firingAngles[3];
+	float pivotOrigin[3];
+	float pivotAngles[3];
+	float offset[3];
 	
 	GetEntPropVector(turretEntity, Prop_Data, "m_vecOrigin", pivotOrigin);
 	GetEntPropVector(turretEntity, Prop_Data, "m_angRotation", pivotAngles);
 	
 	// detected a player in line of sight?
-	new bool:motionSensorSuccess = false;
+	bool motionSensorSuccess = false;
 	
-	for (new i = 0; i < MAX_TURRET_FIRING_POINTS; i++)
+	for (int i = 0; i < MAX_TURRET_FIRING_POINTS; i++)
 	{
 		// weed out invalid directions
 		if (dirs == 1 && i > TURRET_FIRE_FRONT)
@@ -1083,7 +1085,7 @@ public FireTurretProjectiles(turretEntity, turretIdx, dirs, type, bossEntity, Fl
 		{
 			// just a simple trace ray
 			tracePlayersSuccess = false;
-			new Handle:trace = TR_TraceRayFilterEx(firingPoint, firingAngles, PT_TRACEMASK, RayType_Infinite, TracePlayersAndBuildings);
+			Handle trace = TR_TraceRayFilterEx(firingPoint, firingAngles, PT_TRACEMASK, RayType_Infinite, TracePlayersAndBuildings);
 			CloseHandle(trace);
 			
 			if (!tracePlayersSuccess)
@@ -1093,16 +1095,16 @@ public FireTurretProjectiles(turretEntity, turretIdx, dirs, type, bossEntity, Fl
 		else if (PT_MotionSensor[turretIdx] == MOTION_SENSOR_ARC)
 		{
 			// efficiency
-			new Float:maxDistanceSquared = PT_MotionSensorMaxDistance[turretIdx] * PT_MotionSensorMaxDistance[turretIdx];
+			float maxDistanceSquared = PT_MotionSensorMaxDistance[turretIdx] * PT_MotionSensorMaxDistance[turretIdx];
 		
 			// as we go through, gotta find the nearest valid target
-			new nearestValidTarget = -1; // entity
-			new Float:nvtOrigin[3]; // coords
-			new Float:nvtAngles[3]; // new firing angle
-			new Float:nvtDistance = maxDistanceSquared; // distance (squared)
+			int nearestValidTarget = -1; // entity
+			float nvtOrigin[3]; // coords
+			float nvtAngles[3]; // new firing angle
+			float nvtDistance = maxDistanceSquared; // distance (squared)
 		
 			// got to go through every enemy client
-			for (new client = 1; client < MAX_PLAYERS; client++)
+			for (int client = 1; client < MAX_PLAYERS; client++)
 			{
 				if (!IsClientInGame(client) || !IsPlayerAlive(client))
 					continue;
@@ -1119,7 +1121,7 @@ public FireTurretProjectiles(turretEntity, turretIdx, dirs, type, bossEntity, Fl
 			}
 			
 			// and every sentry...
-			new building = MAX_PLAYERS;
+			int building = MAX_PLAYERS;
 			while ((building = FindEntityByClassname(building, "obj_sentrygun")) != -1)
 				CheckArcTurretTarget(building, firingPoint, firingAngles, PT_MotionSensorAngleDeviation[turretIdx], nearestValidTarget, nvtOrigin, nvtAngles, nvtDistance);
 			
@@ -1155,12 +1157,12 @@ public FireTurretProjectiles(turretEntity, turretIdx, dirs, type, bossEntity, Fl
 }
 
 // credit to Asherkin and voogru for much of this (rockets particularly)
-public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], type, bossEntity, Float:damageFactor, Float:speedFactor, reskinModelIdx)
+public int FireTurretProjectile(int turretEntity, float vPosition[3], float vAngles[3], int type, int bossEntity, float damageFactor, float speedFactor, int reskinModelIdx)
 {
-	new Float:speed;
-	new Float:damage;
-	new String:classname[MAX_ENTITY_CLASSNAME_LENGTH] = "";
-	new String:entname[MAX_ENTITY_CLASSNAME_LENGTH] = "";
+	float speed;
+	float damage;
+	char classname[MAX_ENTITY_CLASSNAME_LENGTH] = "";
+	char entname[MAX_ENTITY_CLASSNAME_LENGTH] = "";
 	
 	if (type == TURRET_TYPE_ROCKET)
 	{
@@ -1192,7 +1194,7 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 		return -1;
 	}
 
-	new projectileEntity = CreateEntityByName(entname);
+	int projectileEntity = CreateEntityByName(entname);
 	
 	if (!IsValidEntity(projectileEntity))
 	{
@@ -1200,8 +1202,8 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 		return -1;
 	}
 	
-	decl Float:vVelocity[3];
-	decl Float:vBuffer[3];
+	float vVelocity[3];
+	float vBuffer[3];
 	
 	GetAngleVectors(vAngles, vBuffer, NULL_VECTOR, NULL_VECTOR);
 	
@@ -1242,7 +1244,7 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 	else if (type == TURRET_TYPE_ARROW)
 	{
 		// TODO, fix this mess. arrow's a train wreck at the moment
-		SetEntDataFloat(projectileEntity, FindSendPropOffs(classname, "m_iDeflected") + 4, damage, true);
+		SetEntDataFloat(projectileEntity, FindSendPropInfo(classname, "m_iDeflected") + 4, damage, true);
 		SetEntProp(projectileEntity, Prop_Send, "m_nHitboxSet", 1);
 		//SetEntPropFloat(projectileEntity, Prop_Send, "m_flDamage", damage);
 		//SetEntProp(projectileEntity, Prop_Send, "m_iDamage", 100);//damage);
@@ -1256,7 +1258,7 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 		// though said SDK -does- have a few nifty props, with comments explaining them!
 		// p.s. still great hackin', takes a lot of experimentation to find a hidden netprop!
 		// p.p.s. seems that arrow derived from similar classes as rocket, so offset is same
-		SetEntDataFloat(projectileEntity, FindSendPropOffs(classname, "m_iDeflected") + 4, damage, true);
+		SetEntDataFloat(projectileEntity, FindSendPropInfo(classname, "m_iDeflected") + 4, damage, true);
 	}
 	
 	SetEntProp(projectileEntity, Prop_Send, "m_nSkin", 1); // set skin to blue team's
@@ -1287,7 +1289,7 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 	else if (type == TURRET_TYPE_ARROW)
 	{
 		// need to create its trail manually, modified from alongub's code for player trails
-		new arrowTrail = CreateEntityByName("env_spritetrail");
+		int arrowTrail = CreateEntityByName("env_spritetrail");
 
 		if (IsValidEntity(arrowTrail)) 
 		{
@@ -1316,7 +1318,7 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 		EmitAmbientSound(PTA_FireSound[bossEntity], vPosition, turretEntity);
 		
 	// display the firing graphic TODO
-	//new String:PTA_FireGraphic[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH];
+	//char PTA_FireGraphic[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH];
 	
 	return projectileEntity;
 }
@@ -1324,30 +1326,30 @@ public FireTurretProjectile(turretEntity, Float:vPosition[3], Float:vAngles[3], 
 /**
  * Best to use OnGameFrame() for the turrets.
  */
-public OnGameFrame()
+public void OnGameFrame()
 {
 	// front_spawner, back_spawner, left_spawner, right_spawner
 	// cycle through all the turrets
 	if (PT_ActiveThisRound)
 	{
-		new Float:curTime = GetEngineTime();
+		float curTime = GetEngineTime();
 		
 		// any turrets pending spawn?
 		if (curTime >= PTH_RetryAt)
 		{
-			new totalRemaining = 0;
-			for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+			int totalRemaining = 0;
+			for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 			{
 				if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
 					continue;
 				else if (PTH_NumTurretsToRetry[clientIdx] <= 0)
 					continue;
 					
-				new bossIdx = FF2_GetBossIndex(clientIdx);
+				int bossIdx = FF2_GetBossIndex(clientIdx);
 				if (bossIdx < 0)
 					continue;
 
-				new result = DoDropTurret(bossIdx);
+				int result = DoDropTurret(bossIdx);
 				if (!ShouldRetryDropTurret(result))
 					PTH_NumTurretsToRetry[clientIdx]--;
 				
@@ -1360,14 +1362,14 @@ public OnGameFrame()
 				PTH_RetryAt = curTime + PTH_RETRY_INTERVAL;
 		}
 	
-		for (new i = 0; i < MAX_TURRETS; i++)
+		for (int i = 0; i < MAX_TURRETS; i++)
 		{
 			// skip invalid turrets
 			if (!PT_TurretValid[i])
 				continue;
 				
 			// ensure entity hasn't been destroyed
-			new turret = EntRefToEntIndex(PT_TurretEntityRef[i]);
+			int turret = EntRefToEntIndex(PT_TurretEntityRef[i]);
 			if (turret == -1)
 			{
 				PT_TurretValid[i] = false;
@@ -1390,7 +1392,7 @@ public OnGameFrame()
 			}
 			
 			// ensure the owner is in game
-			new clientIdx = PT_TurretOwner[i];
+			int clientIdx = PT_TurretOwner[i];
 			if (!IsClientInGame(clientIdx))
 			{
 				AcceptEntityInput(turret, "kill");
@@ -1421,12 +1423,12 @@ public OnGameFrame()
 			}
 				
 			// is it time to display the beacon?
-			new Float:turretOrigin[3];
+			float turretOrigin[3];
 			GetEntPropVector(turret, Prop_Send, "m_vecOrigin", turretOrigin);
 			if (PT_NextBeaconAt[i] <= curTime && PTA_Beacon[clientIdx])
 			{
 				// ripped straight from RTD beacon, since it's the kind everyone's familiar with already
-				new Float:beaconPos[3];
+				float beaconPos[3];
 				beaconPos[0] = turretOrigin[0];
 				beaconPos[1] = turretOrigin[1];
 				beaconPos[2] = turretOrigin[2] + 10.0;
@@ -1462,17 +1464,17 @@ public OnGameFrame()
 /**
  * Various reusable helper methods
  */
-stock CopyVector(Float:dst[3], Float:src[3])
+stock void CopyVector(float dst[3], float src[3])
 {
 	dst[0] = src[0];
 	dst[1] = src[1];
 	dst[2] = src[2];
 }
 
-stock DistanceConstrain(Float:startPoint[3], Float:endPoint[3], Float:targetVector[3], Float:distanceMax)
+stock void DistanceConstrain(float startPoint[3], float endPoint[3], float targetVector[3], float distanceMax)
 {
-	new Float:constraintFactor = 1.0;
-	new Float:diffs[3];
+	float constraintFactor = 1.0;
+	float diffs[3];
 	diffs[0] = fabs(startPoint[0] - endPoint[0]);
 	diffs[1] = fabs(startPoint[1] - endPoint[1]);
 	diffs[2] = fabs(startPoint[2] - endPoint[2]);
@@ -1491,12 +1493,12 @@ stock DistanceConstrain(Float:startPoint[3], Float:endPoint[3], Float:targetVect
 /**
  * Taken from default_abilities
  */
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	RemoveEntityNoRef(EntRefToEntIndex(entid));
 }
 
-public RemoveEntityNoRef(any:entity)
+public void RemoveEntityNoRef(any entity)
 {
 	if (IsValidEdict(entity) && entity > MaxClients)
 	{
@@ -1504,15 +1506,15 @@ public RemoveEntityNoRef(any:entity)
 	}
 }
 
-stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 
 	if (!IsValidEntity(particle))
 		return -1;
 		
-	decl String:targetName[128];
-	decl Float:position[3];
+	char targetName[128];
+	float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2] += offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -1535,12 +1537,12 @@ stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attac
 	return particle;
 }
 
-stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 0.0)
+stock int ParticleEffectAt(float position[3], char[] effectName[], float duration = 0.0)
 {
 	if (strlen(effectName) < 3)
 		return -1; // nothing to display
 		
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
 		TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -1550,7 +1552,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -1560,9 +1562,9 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
  */
 // assumes you've only performed one operation on it that could take it out of range
 // don't pass in stuff anything abs(x)>=480.0
-public Float:fixAngle(Float:angle)
+public float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -1571,24 +1573,24 @@ public Float:fixAngle(Float:angle)
 	return angle;
 }
 
-stock Float:fabs(Float:x)
+stock float fabs(float x)
 {
 	return x < 0.0 ? -x : x;
 }
 
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, argInt, char soundFile[MAX_SOUND_FILE_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		PrecacheSound(soundFile);
 }
 
-stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MODEL_FILE_LENGTH])
+stock void ReadModel(int bossIdx, const char[] ability_name, int argInt, char modelFile[MAX_MODEL_FILE_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
@@ -1605,24 +1607,24 @@ stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[M
 #define YAW 1
 #define ROLL 2
  
-stock Float:DEG2RAD(Float:n) { return n * 0.017453; }
+stock float DEG2RAD(float n) { return n * 0.017453; }
 
-stock Float:DotProduct(Float:v1[3], Float:v2[4])
+stock float DotProduct(float v1[3], float v2[4])
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
 }
 
 // don't call this directly, call the one with two params
-stock VectorRotate2( Float:in1[3], Float:in2[3][4], Float:out[3] )
+stock void VectorRotate2( float in1[3], float in2[3][4], float out[3] )
 {
 	out[0] = DotProduct( in1, in2[0] );
 	out[1] = DotProduct( in1, in2[1] );
 	out[2] = DotProduct( in1, in2[2] );
 }
 
-stock AngleMatrix(Float:angles[3], Float:matrix[3][4])
+stock void AngleMatrix(float angles[3], float matrix[3][4])
 {
-	new Float:sr, Float:sp, Float:sy, Float:cr, Float:cp, Float:cy;
+	float sr, float sp, float sy, float cr, float cp, float cy;
 
 	//SinCos( DEG2RAD( angles[YAW] ), &sy, &cy );
 	//SinCos( DEG2RAD( angles[PITCH] ), &sp, &cp );
@@ -1639,10 +1641,10 @@ stock AngleMatrix(Float:angles[3], Float:matrix[3][4])
 	matrix[1][0] = cp*sy;
 	matrix[2][0] = -sp;
 
-	new Float:crcy = cr*cy;
-	new Float:crsy = cr*sy;
-	new Float:srcy = sr*cy;
-	new Float:srsy = sr*sy;
+	float crcy = cr*cy;
+	float crsy = cr*sy;
+	float srcy = sr*cy;
+	float srsy = sr*sy;
 	matrix[0][1] = sp*srcy-crsy;
 	matrix[1][1] = sp*srsy+crcy;
 	matrix[2][1] = sr*cp;
@@ -1657,14 +1659,14 @@ stock AngleMatrix(Float:angles[3], Float:matrix[3][4])
 }
 
 //void VectorRotate( const Vector &in1, const QAngle &in2, Vector &out )
-stock VectorRotate(Float:inPoint[3], Float:angles[3], Float:outPoint[3])
+stock void VectorRotate(float inPoint[3], float angles[3], float outPoint[3])
 {
-	new Float:matRotate[3][4];
+	float matRotate[3][4];
 	AngleMatrix(angles, matRotate);
 	VectorRotate2(inPoint, matRotate, outPoint);
 }
 
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -1672,7 +1674,7 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock bool:IsValidBoss(clientIdx)
+stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
@@ -1680,34 +1682,34 @@ stock bool:IsValidBoss(clientIdx)
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
-stock Float:RandomNegative(Float:val)
+stock float RandomNegative(float val)
 {
 	return val * (GetRandomInt(0, 1) == 1 ? 1.0 : -1.0);
 }
 
-stock Float:fmax(Float:x1, Float:x2)
+stock float fmax(float x1, float x2)
 {
 	return x1 > x2 ? x1 : x2;
 }
 
-stock FindNearestLivingPlayer(playerToSpawnTurretAround, bool:exclude[MAX_PLAYERS_ARRAY])
+stock int FindNearestLivingPlayer(int playerToSpawnTurretAround, bool exclude[MAX_PLAYERS_ARRAY])
 {
 	if (!IsLivingPlayer(playerToSpawnTurretAround))
 		return -1;
 		
-	new Float:playerOrigin[3];
-	new Float:testOrigin[3];
-	new bestPlayer = -1;
-	new Float:bestDistance = 99999.0;
+	float playerOrigin[3];
+	float testOrigin[3];
+	int bestPlayer = -1;
+	float bestDistance = 99999.0;
 	GetEntPropVector(playerToSpawnTurretAround, Prop_Send, "m_vecOrigin", playerOrigin);
 
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx) || exclude[clientIdx])
 			continue;
 			
 		GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", testOrigin);
-		new Float:distance = GetVectorDistance(playerOrigin, testOrigin);
+		float distance = GetVectorDistance(playerOrigin, testOrigin);
 		if (distance < bestDistance)
 		{
 			bestPlayer = clientIdx;
@@ -1720,3 +1722,5 @@ stock FindNearestLivingPlayer(playerToSpawnTurretAround, bool:exclude[MAX_PLAYER
 	
 	return bestPlayer;
 }
+
+#file "FF2 Subplugin: Projectile Turret"
