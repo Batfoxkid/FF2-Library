@@ -957,7 +957,7 @@ public bool TracePlayersAndBuildings(int entity, int contentsMask)
 }
 
 //int turretIdxTmp = -1;
-public bool CheckArcTurretTarget(int targetEntity, float firingPoint[3], float firingAngles[3], float maxAngle, &nearestValidTarget, float nvtOrigin[3], float nvtAngles[3], float &nvtDistance)
+public bool CheckArcTurretTarget(int targetEntity, float firingPoint[3], float firingAngles[3], float maxAngle, int &nearestValidTarget, float nvtOrigin[3], float nvtAngles[3], float &nvtDistance)
 {
 	static float targetOrigin[3];
 	static float pointToTargetAngles[3];
@@ -1537,7 +1537,7 @@ stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool
 	return particle;
 }
 
-stock int ParticleEffectAt(float position[3], char[] effectName[], float duration = 0.0)
+stock int ParticleEffectAt(float position[3], char[] effectName, float duration = 0.0)
 {
 	if (strlen(effectName) < 3)
 		return -1; // nothing to display
@@ -1583,7 +1583,7 @@ public bool TraceWallsOnly(int entity, int contentsMask)
 	return false;
 }
 
-stock void ReadSound(int bossIdx, const char[] ability_name, argInt, char soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char soundFile[MAX_SOUND_FILE_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
@@ -1624,7 +1624,7 @@ stock void VectorRotate2( float in1[3], float in2[3][4], float out[3] )
 
 stock void AngleMatrix(float angles[3], float matrix[3][4])
 {
-	float sr, float sp, float sy, float cr, float cp, float cy;
+	float sr, sp, sy, cr, cp, cy;
 
 	//SinCos( DEG2RAD( angles[YAW] ), &sy, &cy );
 	//SinCos( DEG2RAD( angles[PITCH] ), &sp, &cp );
