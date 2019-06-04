@@ -230,7 +230,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, IONCANNON))
 			{
-				IonCannon_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, IONCANNON, 5);
+				IonCannon_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, IONCANNON, 5));
 				if(IonCannon_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, IONCANNON, IONCANNONALIAS);
@@ -238,7 +238,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, DELIRIUM))
 			{
-				Delirium_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, DELIRIUM, 3);
+				Delirium_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, DELIRIUM, 3));
 				if(Delirium_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, DELIRIUM, DELIRIUMALIAS);
@@ -246,7 +246,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, HELLFIRE))
 			{
-				HellFire_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, HELLFIRE, 6);
+				HellFire_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, HELLFIRE, 6));
 				if(HellFire_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, HELLFIRE, HELLFIREALIAS);
@@ -254,7 +254,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, SCALEBOSS))
 			{
-				BossScale_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, SCALEBOSS, 3);
+				BossScale_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, SCALEBOSS, 3));
 				if(BossScale_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, SCALEBOSS, SCALEBOSSALIAS);
@@ -262,7 +262,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, SCALEPLAYER))
 			{
-				PlayerScale_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, SCALEPLAYER, 4);
+				PlayerScale_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, SCALEPLAYER, 4));
 				if(PlayerScale_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, SCALEPLAYER, SCALEPLAYERALIAS);
@@ -270,7 +270,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, EXPLOSION))
 			{
-				Explosion_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, EXPLOSION, 3);
+				Explosion_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, EXPLOSION, 3));
 				if(Explosion_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, EXPLOSION, EXPLOSIONALIAS);
@@ -278,7 +278,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, DROWN))
 			{
-				Drown_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, DROWN, 3);
+				Drown_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, DROWN, 3));
 				if(Drown_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, DROWN, DROWNALIAS);
@@ -286,7 +286,7 @@ public void HookAbilities()
 			}
 			if(FF2_HasAbility(boss, this_plugin_name, EFFECT))
 			{
-				Visual_TriggerAMS[client]=bool FF2_GetAbilityArgument(boss, this_plugin_name, EFFECT, 4);
+				Visual_TriggerAMS[client]=view_as<bool>(FF2_GetAbilityArgument(boss, this_plugin_name, EFFECT, 4));
 				if(Visual_TriggerAMS[client])
 				{
 					AMS_InitSubability(boss, client, this_plugin_name, EFFECT, EFFECTALIAS);
@@ -319,7 +319,7 @@ public Action ResetCaber(Handle timer)
 	return Plugin_Stop;
 }
 
-public PlayerSpawnEvent(Handle event, const char[] name, bool dontBroadcast)
+public void PlayerSpawnEvent(Handle event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
 	SetEntData(client, fov_offset, 90, 4, true);
@@ -327,7 +327,7 @@ public PlayerSpawnEvent(Handle event, const char[] name, bool dontBroadcast)
 	ClientCommand(client, "r_screenoverlay 0");
 }
 
-public Action FF2_OnAbility2(boss,const char[] plugin_name[],const char[] ability_name[],action)
+public Action FF2_OnAbility2(int boss,const char[] plugin_name,const char[] ability_name,int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
@@ -352,19 +352,19 @@ public Action FF2_OnAbility2(boss,const char[] plugin_name[],const char[] abilit
 	return Plugin_Continue;
 }
 
-Rage_VisualEffect(client)
+void Rage_VisualEffect(int client)
 {
 	if(Visual_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	VIS_Invoke(client);
 }
 
-public bool VIS_CanInvoke(client)
+public bool VIS_CanInvoke(int client)
 {
 	return true;
 }
 
-public VIS_Invoke(client)
+public void VIS_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	VisualEffect=FF2_GetAbilityArgument(boss,this_plugin_name,EFFECT, 1);	        	//effect
@@ -451,12 +451,12 @@ public VIS_Invoke(client)
 	}
 }
 
-public Visual_Prethink(client)
+public void Visual_Prethink(int client)
 {
 	EffectTick(client, GetEngineTime());
 }
 
-public EffectTick(client, float gameTime)
+public void EffectTick(int client, float gameTime)
 {
 	if(gameTime>=EffectDuration)
 	{
@@ -473,19 +473,19 @@ public EffectTick(client, float gameTime)
 }
 
 
-Rage_Drown(client)
+void Rage_Drown(int client)
 {
 	if(Drown_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	RDR_Invoke(client);
 }
 
-public bool RDR_CanInvoke(client)
+public bool RDR_CanInvoke(int client)
 {
 	return true;
 }
 
-public RDR_Invoke(client)
+public void RDR_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	DrownDuration=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss,this_plugin_name,DROWN, 1); //duration
@@ -528,13 +528,13 @@ public RDR_Invoke(client)
 	}
 }
 
-public DrownEvent(client)
+public void DrownEvent(int client)
 {
 	SetEntProp(client, Prop_Send, "m_nWaterLevel", 3);
 	DrownTick(client, GetEngineTime());
 }
 
-public DrownTick(client, float gameTime)
+public void DrownTick(int client, float gameTime)
 {
 	if(gameTime>=DrownDuration)
 	{
@@ -561,19 +561,19 @@ public Action EndDrowning(Handle timer)
 	return Plugin_Stop;
 }
 
-Rage_Explosion(client)
+void Rage_Explosion(int client)
 {
 	if(Explosion_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	EXP_Invoke(client);
 }
 
-public bool EXP_CanInvoke(client)
+public bool EXP_CanInvoke(int client)
 {
 	return true;
 }
 
-public EXP_Invoke(client)
+public void EXP_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	int damage=FF2_GetAbilityArgument(boss,this_plugin_name,EXPLOSION, 1);	        //damage 
@@ -670,19 +670,19 @@ public Action SetExplosion(Handle timer, Handle data)
 }
 
 
-Rage_ScaleBoss(client)
+void Rage_ScaleBoss(int client)
 {
 	if(BossScale_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	SCB_Invoke(client);
 }
 
-public bool SCB_CanInvoke(client)
+public bool SCB_CanInvoke(int client)
 {
 	return true;
 }
 
-public SCB_Invoke(client)
+public void SCB_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	oldScale[client]=GetEntPropFloat(client, Prop_Send, "m_flModelScale");
@@ -738,19 +738,19 @@ public SCB_Invoke(client)
 }
 				
 				
-Rage_ScalePlayers(client)
+void Rage_ScalePlayers(int client)
 {
 	if(PlayerScale_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	SCP_Invoke(client);
 }
 
-public bool SCP_CanInvoke(client)
+public bool SCP_CanInvoke(int client)
 {
 	return true;
 }
 
-public SCP_Invoke(client)
+public void SCP_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	PlayerScale=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,SCALEPLAYER, 1);	//scale
@@ -820,12 +820,12 @@ public SCP_Invoke(client)
 	}
 }
 
-public Scale_Prethink(client)
+public void Scale_Prethink(int client)
 {
 	ScaleTick(client, GetEngineTime());
 }
 
-public ScaleTick(client, float gameTime)
+public void ScaleTick(int client, float gameTime)
 {
 	if(gameTime>=PlayerDuration)
 	{
@@ -902,7 +902,7 @@ public Action ResetScale(Handle timer)
 
 bool ResizeTraceFailed;
 int ResizeMyTeam;
-public bool Resize_TracePlayersAndBuildings(entity, contentsMask)
+public bool Resize_TracePlayersAndBuildings(int entity, int contentsMask)
 {
 	if (IsValidClient(entity,true))
 	{
@@ -1051,7 +1051,7 @@ bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float 
 	return true;
 }
 
-public bool IsSpotSafe(clientIdx, float playerPos[3], float sizeMultiplier)
+public bool IsSpotSafe(int clientIdx, float playerPos[3], float sizeMultiplier)
 {
 	ResizeTraceFailed = false;
 	ResizeMyTeam = GetClientTeam(clientIdx);
@@ -1097,7 +1097,7 @@ public bool IsSpotSafe(clientIdx, float playerPos[3], float sizeMultiplier)
 /*
 	Hitbox scaling
 */
-stock UpdatePlayerHitbox(const client, float scale)
+stock void UpdatePlayerHitbox(const int client, float scale)
 {
 	float vecScaledPlayerMin[3] = { -24.5, -24.5, 0.0 }, float vecScaledPlayerMax[3] = { 24.5,  24.5, 83.0 };
 	ScaleVector(vecScaledPlayerMin, scale);
@@ -1108,19 +1108,19 @@ stock UpdatePlayerHitbox(const client, float scale)
 
 
 
-Rage_Hellfire(client)
+void Rage_Hellfire(int client)
 {
 	if(HellFire_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	HLF_Invoke(client);
 }
 
-public bool HLF_CanInvoke(client)
+public bool HLF_CanInvoke(int client)
 {
 	return true;
 }
 
-public HLF_Invoke(client)
+public void HLF_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	hellsound=FF2_GetAbilityArgument(boss,this_plugin_name,HELLFIRE, 1);	        //sound
@@ -1214,7 +1214,7 @@ public Action AfterBurn(Handle timer, Handle pack)
 	return Plugin_Continue;	
 }
 
-SetExplodeAtClient( client, damage, radius, dmgtype )
+void SetExplodeAtClient( int client, int damage, int radius, int dmgtype )
 {
 	if(IsClientInGame(client) && IsPlayerAlive(client))
 	{
@@ -1239,7 +1239,7 @@ SetExplodeAtClient( client, damage, radius, dmgtype )
 	}
 }
 
-SetDamageRadial( attacker, dmg,  float pos[3], Radiusradius, dmgtype )
+void SetDamageRadial( int attacker, int dmg,  float pos[3], int Radiusradius, int dmgtype )
 {
 	int i;
 	float dist;
@@ -1266,19 +1266,19 @@ SetDamageRadial( attacker, dmg,  float pos[3], Radiusradius, dmgtype )
 }
 
 
-Rage_IonCannon(client)
+void Rage_IonCannon(int client)
 {
 	if(IonCannon_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	IOC_Invoke(client);
 }
 
-public bool IOC_CanInvoke(client)
+public bool IOC_CanInvoke(int client)
 {
 	return true;
 }
 
-public IOC_Invoke(client)
+public void IOC_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	distance=FF2_GetAbilityArgument(boss,this_plugin_name,IONCANNON, 1);	        //blast speed seconds
@@ -1358,7 +1358,7 @@ public IOC_Invoke(client)
 	}
 }
 
-public DrawIonBeam(float startPosition[3])
+public void DrawIonBeam(float startPosition[3])
 {
 	float position[3];
 	position[0] = startPosition[0];
@@ -1374,7 +1374,7 @@ public DrawIonBeam(float startPosition[3])
 	TE_SendToAll();
 }
 
-public IonAttack(Handle data)
+public void IonAttack(Handle data)
 {
 	float startPosition[3];
 	float position[3];
@@ -1566,12 +1566,12 @@ public Action DrawIon(Handle Timer, any data)
 	return (Plugin_Stop);
 }
 
-public bool TraceEntityFilterPlayer(entity, contentsMask)
+public bool TraceEntityFilterPlayer(int entity, int contentsMask)
 {
 	return (entity > GetMaxClients() || !entity);
 }
 
-stock bool makeexplosion(attacker = 0, inflictor = -1, const float attackposition[3], const char[] weaponname[] = "", magnitude = 100, radiusoverride = 0, float damageforce = 0.0, flags = 0){
+stock bool makeexplosion(int attacker = 0, int inflictor = -1, const float attackposition[3], const char[] weaponname = "", int magnitude = 100, int radiusoverride = 0, float damageforce = 0.0, int flags = 0){
 	
 	int explosion = CreateEntityByName("env_explosion");
 	
@@ -1617,7 +1617,7 @@ stock bool makeexplosion(attacker = 0, inflictor = -1, const float attackpositio
 }
 
 // Thanks to V0gelz
-stock env_shooter(float Angles[3], float iGibs, float Delay, float GibAngles[3], float Velocity, float Variance, float Giblife, float Location[3], char[] ModelType[] )
+stock void env_shooter(float Angles[3], float iGibs, float Delay, float GibAngles[3], float Velocity, float Variance, float Giblife, float Location[3], char[] ModelType )
 {
 	//decl Ent;
 
@@ -1689,7 +1689,7 @@ stock env_shooter(float Angles[3], float iGibs, float Delay, float GibAngles[3],
 	}
 }
 
-stock env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
+stock void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
 	decl Ent;
 
@@ -1748,7 +1748,7 @@ public Action RemoveEntityTimer(Handle Timer, any entity)
 	return (Plugin_Stop);
 }
 
-stock bool IsClientConnectedIngame(client)
+stock bool IsClientConnectedIngame(int client)
 {
 	if(client > 0 && client <= MaxClients)
 		if(IsClientInGame(client))
@@ -1757,7 +1757,7 @@ stock bool IsClientConnectedIngame(client)
 	return (false);
 }
 
-stock sendfademsg(client, duration, holdtime, fadeflag, r, g, b, a)
+stock void sendfademsg(int client, int duration, int holdtime, int fadeflag, int r, int g, int b, int a)
 {
 	Handle fademsg;
 	
@@ -1777,19 +1777,19 @@ stock sendfademsg(client, duration, holdtime, fadeflag, r, g, b, a)
 }
 
 
-Rage_Delirium(client)
+void Rage_Delirium(int client)
 {
 	if(Delirium_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	DEL_Invoke(client);
 }
 
-public bool DEL_CanInvoke(client)
+public bool DEL_CanInvoke(int client)
 {
 	return true;
 }
 
-public DEL_Invoke(client)
+public void DEL_Invoke(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	DeliriumDistance=FF2_GetAbilityArgument(boss,this_plugin_name,DELIRIUM, 1);	//rage distance
@@ -1865,12 +1865,12 @@ public DEL_Invoke(client)
 	DeliriumDuration=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss,this_plugin_name,DELIRIUM, 2);	//rage duration
 }
 
-public Delirium_Prethink(client)
+public void Delirium_Prethink(int client)
 {
 	DrunkTick(client, GetEngineTime());
 }
 
-public DrunkTick(client, float gameTime)
+public void DrunkTick(int client, float gameTime)
 {
 	if(gameTime>=DeliriumDuration)
 	{
@@ -1903,7 +1903,7 @@ public Action EndSickness(Handle timer)
 /* 
 * Create colorfull drug on client
 */
-stock fxDrug_Create(client)
+stock void fxDrug_Create(int client)
 {
 	specialDrugTimers[ client ] = CreateTimer(0.1, fxDrug_Timer, client, TIMER_REPEAT);	
 }
@@ -1911,7 +1911,7 @@ stock fxDrug_Create(client)
 /* 
 * Kill drug on selected client
 */
-stock fxDrug_Kill(client)
+stock void fxDrug_Kill(int client)
 {
 	if ( IsClientInGame( client ) && IsClientConnected( client ) )
 	{
@@ -2000,7 +2000,7 @@ public Action fxDrug_Timer(Handle timer, any client)
 
 }
 
-stock SetAmmo(client, slot, ammo)
+stock void SetAmmo(int client, int slot, int ammo)
 {
 	int weapon = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon))
@@ -2011,7 +2011,7 @@ stock SetAmmo(client, slot, ammo)
 	}
 }
 
-stock SpawnWeapon(client,char[] name[],index,level,qual,char[] att[])
+stock int SpawnWeapon(int client,char[] name,int index,int level,int qual,char[] att)
 {
 	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
@@ -2040,7 +2040,7 @@ stock SpawnWeapon(client,char[] name[],index,level,qual,char[] att[])
 	return entity;
 }
 
-stock bool IsValidClient(client, bool checkifAlive=false, bool replayCheck=false)
+stock bool IsValidClient(int client, bool checkifAlive=false, bool replayCheck=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(checkifAlive) return IsClientInGame(client) && IsPlayerAlive(client);
@@ -2049,10 +2049,10 @@ stock bool IsValidClient(client, bool checkifAlive=false, bool replayCheck=false
 }
 
 
-stock Handle FindPlugin(char[]  pluginName[])
+stock Handle FindPlugin(char[]  pluginName)
 {
-	char  buffer[256];
-	char  path[PLATFORM_MAX_PATH];
+	char buffer[256];
+	char path[PLATFORM_MAX_PATH];
 	Handle  iter = GetPluginIterator();
 	Handle  pl = INVALID_HANDLE;
 	
@@ -2072,12 +2072,12 @@ stock Handle FindPlugin(char[]  pluginName[])
 	return pl;
 }
 
-stock AMS_InitSubability(bossIdx, clientIdx, const char[]  pluginName[], const char[]  abilityName[], const char[]  prefix[])
+stock void AMS_InitSubability(int bossIdx, int clientIdx, const char[] pluginName, const char[] abilityName, const char[] prefix)
 {
 	Handle plugin = FindPlugin("ff2_sarysapub3");
 	if (plugin != INVALID_HANDLE)
 	{
-		int Function:func = GetFunctionByName(plugin, "AMS_InitSubability");
+		Function func = GetFunctionByName(plugin, "AMS_InitSubability");
 		if (func != INVALID_FUNCTION)
 		{
 			Call_StartFunction(plugin, func);
