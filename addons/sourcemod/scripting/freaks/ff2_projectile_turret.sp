@@ -185,7 +185,7 @@ char PTA_BeaconSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH];
 int BEACON_BEAM;
 int BEACON_HALO;
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
@@ -369,7 +369,7 @@ bool ShouldRetryDropTurret(int result)
 #define PT_TRACEMASK MASK_PLAYERSOLID
 int DoDropTurret(int bossIdx)
 {
-	int serId = FF2_GetBossUserId(bossIdx);
+	int userId = FF2_GetBossUserId(bossIdx);
 	if (userId <= 0)
 		return DDT_INVALID_BOSS;
 	int clientIdx = GetClientOfUserId(userId);
@@ -407,17 +407,17 @@ int DoDropTurret(int bossIdx)
 	}
 
 	// find an free turret slot first of all, cause if there is none, we can't spawn the turret
-	int int TurretIndex = -1;
+	int TurretIndex = -1;
 	for (int i = 0; i < MAX_TURRETS; i++)
 	{
 		if (PT_TurretValid[i])
 			continue;
 			
-		int TurretIndex = i;
+		TurretIndex = i;
 		break;
 	}
 	
-	if (int TurretIndex == -1)
+	if (TurretIndex == -1)
 	{
 		PrintToServer("[projectile_turret] WARNING: User(s) spawned too many turrets. Exceeded limit of %d", MAX_TURRETS);
 		return DDT_TOO_MANY_TURRETS;
@@ -858,24 +858,24 @@ int DoDropTurret(int bossIdx)
 	//SetEntProp(turret, Prop_Send, "m_usSolidFlags", GetEntProp(turret, Prop_Send, "m_usSolidFlags") | FSOLID_NOT_SOLID);
 	
 	// store the turret's info in the array
-	PT_FreezeTurretAt[int TurretIndex] = GetEngineTime() + (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION ? 1.0 : 3.0);
-	PT_TurretValid[int TurretIndex] = true;
-	PT_TurretEntityRef[int TurretIndex] = EntIndexToEntRef(turret);
-	PT_TurretType[int TurretIndex] = turretType;
-	PT_MotionSensor[int TurretIndex] = motionSensor;
-	PT_MotionSensorAngleDeviation[int TurretIndex] = angleDeviation;
-	PT_MotionSensorMaxDistance[int TurretIndex] = maxDistance;
-	PT_DieWithOwner[int TurretIndex] = dieWithOwner;
-	PT_TurretDieAt[int TurretIndex] = GetEngineTime() + (timeToLive == 0.0 ? 3600.0 : timeToLive);
-	PT_TurretDirs[int TurretIndex] = fireDirections;
-	PT_TurretSpeedFactor[int TurretIndex] = speedFactor;
-	PT_TurretDPS[int TurretIndex] = damage;
-	PT_TurretFireRate[int TurretIndex] = fireDelay;
-	PT_TurretOwner[int TurretIndex] = clientIdx;
-	PT_TurretProjectileSkin[int TurretIndex] = projectileOverride;
-	PT_TurretFireAt[int TurretIndex] = GetEngineTime() + 2.0; // enforce a 2 second delay before turret can fire, give it time to land and right itself
-	PT_NextBeaconAt[int TurretIndex] = GetEngineTime() + PTA_BeaconDelay[clientIdx];
-	PT_TimePlacedAt[int TurretIndex] = GetEngineTime();
+	PT_FreezeTurretAt[TurretIndex] = GetEngineTime() + (spawnPattern == SPAWN_PATTERN_SPAWN_ON_LOCATION ? 1.0 : 3.0);
+	PT_TurretValid[TurretIndex] = true;
+	PT_TurretEntityRef[TurretIndex] = EntIndexToEntRef(turret);
+	PT_TurretType[TurretIndex] = turretType;
+	PT_MotionSensor[TurretIndex] = motionSensor;
+	PT_MotionSensorAngleDeviation[TurretIndex] = angleDeviation;
+	PT_MotionSensorMaxDistance[TurretIndex] = maxDistance;
+	PT_DieWithOwner[TurretIndex] = dieWithOwner;
+	PT_TurretDieAt[TurretIndex] = GetEngineTime() + (timeToLive == 0.0 ? 3600.0 : timeToLive);
+	PT_TurretDirs[TurretIndex] = fireDirections;
+	PT_TurretSpeedFactor[TurretIndex] = speedFactor;
+	PT_TurretDPS[TurretIndex] = damage;
+	PT_TurretFireRate[TurretIndex] = fireDelay;
+	PT_TurretOwner[TurretIndex] = clientIdx;
+	PT_TurretProjectileSkin[TurretIndex] = projectileOverride;
+	PT_TurretFireAt[TurretIndex] = GetEngineTime() + 2.0; // enforce a 2 second delay before turret can fire, give it time to land and right itself
+	PT_NextBeaconAt[TurretIndex] = GetEngineTime() + PTA_BeaconDelay[clientIdx];
+	PT_TimePlacedAt[TurretIndex] = GetEngineTime();
 	
 	// oh, and get the firing locations
 	char fireLocations[256];
@@ -890,23 +890,23 @@ int DoDropTurret(int bossIdx)
 		float y = StringToFloat(floatSets[1]);
 		float z = StringToFloat(floatSets[2]);
 		
-		if (i == TURRET_FIRE_FRONT) { PT_TurretFireFront[int TurretIndex][0] = x; PT_TurretFireFront[int TurretIndex][1] = y; PT_TurretFireFront[int TurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_BACK) { PT_TurretFireBack[int TurretIndex][0] = x; PT_TurretFireBack[int TurretIndex][1] = y; PT_TurretFireBack[int TurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_LEFT) { PT_TurretFireLeft[int TurretIndex][0] = x; PT_TurretFireLeft[int TurretIndex][1] = y; PT_TurretFireLeft[int TurretIndex][2] = z; }
-		else if (i == TURRET_FIRE_RIGHT) { PT_TurretFireRight[int TurretIndex][0] = x; PT_TurretFireRight[int TurretIndex][1] = y; PT_TurretFireRight[int TurretIndex][2] = z; }
+		if (i == TURRET_FIRE_FRONT) { PT_TurretFireFront[TurretIndex][0] = x; PT_TurretFireFront[TurretIndex][1] = y; PT_TurretFireFront[TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_BACK) { PT_TurretFireBack[TurretIndex][0] = x; PT_TurretFireBack[TurretIndex][1] = y; PT_TurretFireBack[TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_LEFT) { PT_TurretFireLeft[TurretIndex][0] = x; PT_TurretFireLeft[TurretIndex][1] = y; PT_TurretFireLeft[TurretIndex][2] = z; }
+		else if (i == TURRET_FIRE_RIGHT) { PT_TurretFireRight[TurretIndex][0] = x; PT_TurretFireRight[TurretIndex][1] = y; PT_TurretFireRight[TurretIndex][2] = z; }
 	}
 	
-	//PrintToServer("front: %f,%f,%f", PT_TurretFireFront[int TurretIndex][0], PT_TurretFireFront[int TurretIndex][1], PT_TurretFireFront[int TurretIndex][2]);
-	//PrintToServer("back: %f,%f,%f", PT_TurretFireBack[int TurretIndex][0], PT_TurretFireBack[int TurretIndex][1], PT_TurretFireBack[int TurretIndex][2]);
-	//PrintToServer("left: %f,%f,%f", PT_TurretFireLeft[int TurretIndex][0], PT_TurretFireLeft[int TurretIndex][1], PT_TurretFireLeft[int TurretIndex][2]);
-	//PrintToServer("right: %f,%f,%f", PT_TurretFireRight[int TurretIndex][0], PT_TurretFireRight[int TurretIndex][1], PT_TurretFireRight[int TurretIndex][2]);
+	//PrintToServer("front: %f,%f,%f", PT_TurretFireFront[TurretIndex][0], PT_TurretFireFront[TurretIndex][1], PT_TurretFireFront[TurretIndex][2]);
+	//PrintToServer("back: %f,%f,%f", PT_TurretFireBack[TurretIndex][0], PT_TurretFireBack[TurretIndex][1], PT_TurretFireBack[TurretIndex][2]);
+	//PrintToServer("left: %f,%f,%f", PT_TurretFireLeft[TurretIndex][0], PT_TurretFireLeft[TurretIndex][1], PT_TurretFireLeft[TurretIndex][2]);
+	//PrintToServer("right: %f,%f,%f", PT_TurretFireRight[TurretIndex][0], PT_TurretFireRight[TurretIndex][1], PT_TurretFireRight[TurretIndex][2]);
 	
 	// print this crap out
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("%f: [projectile_turret] Generated a turret: type=%d  motion=%d  dieWithOwner=%d  dieAt=%f  dirs=%d  projSpeed=%f  damagePerShot=%f  fireRate=%f  skin=%d",
-				GetEngineTime(), PT_TurretType[int TurretIndex], PT_MotionSensor[int TurretIndex], PT_DieWithOwner[int TurretIndex],
-				PT_TurretDieAt[int TurretIndex], PT_TurretDirs[int TurretIndex], PT_TurretSpeedFactor[int TurretIndex],
-				PT_TurretDPS[int TurretIndex], PT_TurretFireRate[int TurretIndex], PT_TurretProjectileSkin[int TurretIndex]);
+				GetEngineTime(), PT_TurretType[TurretIndex], PT_MotionSensor[TurretIndex], PT_DieWithOwner[TurretIndex],
+				PT_TurretDieAt[TurretIndex], PT_TurretDirs[TurretIndex], PT_TurretSpeedFactor[TurretIndex],
+				PT_TurretDPS[TurretIndex], PT_TurretFireRate[TurretIndex], PT_TurretProjectileSkin[TurretIndex]);
 				
 	return DDT_SUCCESS;
 }
