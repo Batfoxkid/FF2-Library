@@ -1099,7 +1099,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 		{
 			if (TA_CanUse[clientIdx])
 			{
-				RemoveEntity(INVALID_HANDLE, TA_BarrelRollEntRef[clientIdx]);
+				RemoveEntityTele(TA_BarrelRollEntRef[clientIdx]);
 				TA_BarrelRollEntRef[clientIdx] = 0;
 				if (IsClientInGame(clientIdx))
 					SetClientViewEntity(clientIdx, clientIdx);
@@ -1304,7 +1304,7 @@ Action:OnDOTAbilityTick(clientIdx, tickCount)
 public RemoveSentryAt(sentryIdx)
 {
 	Sentry_EntRef[sentryIdx] = 0;
-	RemoveEntity(INVALID_HANDLE, Sentry_ParticleEntRef[sentryIdx]);
+	RemoveEntityTele(Sentry_ParticleEntRef[sentryIdx]);
 
 	for (new i = sentryIdx; i < MAX_HAYWIRE_SENTRIES - 2; i++)
 	{
@@ -1341,7 +1341,7 @@ public HS_StopHaywire(clientIdx)
 		if (Sentry_ParticleEntRef[i] == 0)
 			continue;
 			
-		RemoveEntity(INVALID_HANDLE, Sentry_ParticleEntRef[i]);
+		RemoveEntityTele(Sentry_ParticleEntRef[i]);
 		Sentry_ParticleEntRef[i] = 0;
 	}
 }
@@ -1622,7 +1622,7 @@ public RB_StartChargedShot(clientIdx)
 	}
 
 	if (IsValidEntity(effect))
-		CreateTimer(RB_ChargedShotDuration[clientIdx], RemoveEntity, EntIndexToEntRef(effect), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(RB_ChargedShotDuration[clientIdx], Timer_RemoveEntityTele, EntIndexToEntRef(effect), TIMER_FLAG_NO_MAPCHANGE);
 }
 
 public RB_QueueEndRage(clientIdx, Float:curTime)
@@ -1656,8 +1656,8 @@ public RB_EndRage(clientIdx, bool:rageStarting)
 	if (!rageStarting)
 	{
 		for (new i = 0; i < RB_MAX_ATTACHMENT_POINTS; i++)
-			RemoveEntity(INVALID_HANDLE, RB_AttachmentEntRef[clientIdx][i]);
-		RemoveEntity(INVALID_HANDLE, RB_ChargedAttachmentEntRef[clientIdx]);
+			RemoveEntityTele(RB_AttachmentEntRef[clientIdx][i]);
+		RemoveEntityTele(RB_ChargedAttachmentEntRef[clientIdx]);
 	}
 	
 	RB_FireNextRocketAt[clientIdx] = FAR_FUTURE;
@@ -2305,7 +2305,7 @@ public TA_Tick(clientIdx, Float:curTime, buttons)
 		if (curTime >= TA_ChargingUntil[clientIdx] || !TA_WaterConditionPassed(clientIdx))
 		{
 			// fix the user's roll
-			RemoveEntity(INVALID_HANDLE, TA_BarrelRollEntRef[clientIdx]);
+			RemoveEntityTele(TA_BarrelRollEntRef[clientIdx]);
 			TA_BarrelRollEntRef[clientIdx] = 0;
 			SetClientViewEntity(clientIdx, clientIdx);
 			TA_SpinAngle[clientIdx][2] = 0.0;
@@ -2314,7 +2314,7 @@ public TA_Tick(clientIdx, Float:curTime, buttons)
 			// otherwise disable the charge and remove any charging particle
 			TA_IsCharging[clientIdx] = false;
 			if (TA_ParticleEntRef[clientIdx] != 0)
-				RemoveEntity(INVALID_HANDLE, TA_ParticleEntRef[clientIdx]);
+				RemoveEntityTele(TA_ParticleEntRef[clientIdx]);
 			TA_ParticleEntRef[clientIdx] = 0;
 			
 			// remove megaheal
@@ -3784,7 +3784,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntityTele, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -3852,7 +3852,7 @@ stock AttachParticleToAttachment(entity, const String:particleType[], const Stri
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntityTele(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -3862,11 +3862,14 @@ public Action:RemoveEntity(Handle:timer, any:entid)
 	}
 }
 
-public Action:RemoveEntityNoTele(Handle:timer, any:entid)
+public RemoveEntityTele(any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
+	{
+		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
 		AcceptEntityInput(entity, "Kill");
+	}
 }
 
 stock bool:IsLivingPlayer(clientIdx)
@@ -4216,7 +4219,7 @@ stock SemiHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DMG
 			AcceptEntityInput(pointHurt, "Hurt", attacker);
 			DispatchKeyValue(pointHurt, "classname", "point_hurt");
 			DispatchKeyValue(victim, "targetname", "noonespecial");
-			RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
+			RemoveEntityTele(EntIndexToEntRef(pointHurt));
 		}
 	}
 }
