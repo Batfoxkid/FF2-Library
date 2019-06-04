@@ -1051,9 +1051,9 @@ public CancelHookshot(clientIdx, bool:ropeSnapped, errorIdx)
 	// remove hook entity
 	if (HS_HookEntRef[clientIdx] != 0)
 	{
-		RemoveEntityNoTele(INVALID_HANDLE, HS_HookEntRef[clientIdx]);
-		RemoveEntityNoTele(INVALID_HANDLE, HS_BeamEntRef[clientIdx][0]);
-		RemoveEntityNoTele(INVALID_HANDLE, HS_BeamEntRef[clientIdx][1]);
+		RemoveEntity(HS_HookEntRef[clientIdx]);
+		RemoveEntity(HS_BeamEntRef[clientIdx][0]);
+		RemoveEntity(HS_BeamEntRef[clientIdx][1]);
 		HS_HookEntRef[clientIdx] = 0;
 		HS_BeamEntRef[clientIdx][0] = 0;
 		HS_BeamEntRef[clientIdx][1] = 0;
@@ -1252,7 +1252,7 @@ public SS_StartEvent(bool:bossTriggered)
 	}
 	
 	// remove the entity
-	RemoveEntity(INVALID_HANDLE, SS_EntRef);
+	RemoveEntityTele(SS_EntRef);
 	SS_EntRef = 0;
 }
 
@@ -1371,7 +1371,7 @@ public SS_TickRocks(Float:curTime)
 	{
 		if (RockEntRef[i] != 0 && curTime >= RockSpawnedAt[i] + SS_RockTimeToLive)
 		{
-			RemoveEntity(INVALID_HANDLE, RockEntRef[i]);
+			RemoveEntityTele(RockEntRef[i]);
 			RockEntRef[i] = 0;
 			RockSpawnedAt[i] = FAR_FUTURE;
 			RockCollisionCheckAt[i] = FAR_FUTURE;
@@ -2097,9 +2097,9 @@ public IncrementTotemSelection(clientIdx)
 public RemoveTotemAt(totemIdx)
 {
 	if (Totem_EntRef[totemIdx] != 0)
-		RemoveEntity(INVALID_HANDLE, Totem_EntRef[totemIdx]);
+		RemoveEntityTele(Totem_EntRef[totemIdx]);
 	if (Totem_DynamicLight[totemIdx] != 0)
-		RemoveEntity(INVALID_HANDLE, Totem_DynamicLight[totemIdx]);
+		RemoveEntityTele(Totem_DynamicLight[totemIdx]);
 
 	for (new i = totemIdx; i < MAX_TOTEMS - 1; i++)
 	{
@@ -2539,7 +2539,7 @@ public OnGameFrame()
 		{
 			if (SS_EntRef != 0)
 			{
-				RemoveEntity(INVALID_HANDLE, SS_EntRef);
+				RemoveEntityTele(SS_EntRef);
 				SS_EntRef = 0;
 				
 				if (PRINT_DEBUG_SPAM)
@@ -3121,7 +3121,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntityTele, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -3189,7 +3189,7 @@ stock AttachParticleToAttachment(entity, const String:particleType[], const Stri
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntityTele(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -3199,11 +3199,14 @@ public Action:RemoveEntity(Handle:timer, any:entid)
 	}
 }
 
-public Action:RemoveEntityNoTele(Handle:timer, any:entid)
+public RemoveEntityTele(any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
+	{
+		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
 		AcceptEntityInput(entity, "Kill");
+	}
 }
 
 stock bool:IsLivingPlayer(clientIdx)
@@ -3540,7 +3543,7 @@ stock SemiHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DMG
 			AcceptEntityInput(pointHurt, "Hurt", attacker);
 			DispatchKeyValue(pointHurt, "classname", "point_hurt");
 			DispatchKeyValue(victim, "targetname", "noonespecial");
-			RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
+			RemoveEntityTele(EntIndexToEntRef(pointHurt));
 		}
 	}
 }
@@ -3880,7 +3883,7 @@ stock env_shake(const Float:Origin[3], Float:Amplitude, Float:Radius, Float:Dura
 		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
 
 		//Delete:
-		CreateTimer(Duration + 1.0, RemoveEntity, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(Duration + 1.0, Timer_RemoveEntityTele, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
