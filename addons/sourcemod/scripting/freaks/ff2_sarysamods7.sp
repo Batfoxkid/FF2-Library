@@ -1338,7 +1338,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 			if (DET_EntRef[i] == 0)
 				continue;
 			
-			RemoveEntity(INVALID_HANDLE, DET_EntRef[i]);
+			RemoveEntityTele(DET_EntRef[i]);
 			DET_EntRef[i] = 0;
 			new victim = DET_HomingTarget[i];
 			if (IsLivingPlayer(victim) && DET_IsTrapping[i])
@@ -1401,7 +1401,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 			// remove lingering particles
 			if (DK_ParticleEntRef[clientIdx] != 0)
 			{
-				RemoveEntity(INVALID_HANDLE, DK_ParticleEntRef[clientIdx]);
+				RemoveEntityTele(DK_ParticleEntRef[clientIdx]);
 			}
 		}
 	}
@@ -1474,7 +1474,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 				MB_CanUse[clientIdx] = false;
 				for (new i = 0; i < MB_MaxProjectiles[clientIdx]; i++)
 					if (MB_ProjectileEntRefs[clientIdx][i] != 0)
-						RemoveEntity(INVALID_HANDLE, MB_ProjectileEntRefs[clientIdx][i]);
+						RemoveEntityTele(MB_ProjectileEntRefs[clientIdx][i]);
 			}
 		}
 	}
@@ -1803,7 +1803,7 @@ public Action:DE_OnStartTouch(projectile, victim)
 	new owner = DET_Owner[trapIdx];
 	
 	// destroy old entity, create new entity, begin entrapment
-	RemoveEntity(INVALID_HANDLE, DET_EntRef[trapIdx]);
+	RemoveEntityTele(DET_EntRef[trapIdx]);
 	DET_EntRef[trapIdx] = 0;
 	DET_VictimExpectedHP[trapIdx] = GetEntProp(victim, Prop_Send, "m_iHealth");
 	DET_DamageAt[trapIdx] = GetEngineTime();
@@ -1949,7 +1949,7 @@ public DE_RemoveObject(removeIdx)
 		SetEntityMoveType(victim, MOVETYPE_WALK);
 	}
 	
-	RemoveEntity(INVALID_HANDLE, DET_EntRef[removeIdx]);
+	RemoveEntityTele(DET_EntRef[removeIdx]);
 	DET_EntRef[removeIdx] = 0;
 	for (new i = removeIdx; i < DET_MAX_PROJECTILES - 1; i++)
 	{
@@ -2377,7 +2377,7 @@ public SM_PreThink(clientIdx)
  */
 public RR_RemoveRocket(rrpIdx)
 {
-	RemoveEntity(INVALID_HANDLE, RRP_EntRef[rrpIdx]);
+	RemoveEntityTele(RRP_EntRef[rrpIdx]);
 	RRP_EntRef[rrpIdx] = 0;
 	
 	for (new i = rrpIdx; i < RRP_MAX_PROJECTILES - 1; i++)
@@ -2869,7 +2869,7 @@ public DK_Tick(Float:curTime)
 		{
 			if (DK_ParticleEntRef[clientIdx] != 0)
 			{
-				RemoveEntity(INVALID_HANDLE, DK_ParticleEntRef[clientIdx]);
+				RemoveEntityTele(DK_ParticleEntRef[clientIdx]);
 				DK_ParticleEntRef[clientIdx] = 0;
 				DK_RemoveParticleAt[clientIdx] = FAR_FUTURE;
 			}
@@ -3038,14 +3038,14 @@ public SN_EndRage(clientIdx, Float:curTime)
 	// destroy the particle trail
 	if (SNA_TrailEntRef[clientIdx] != 0)
 	{
-		RemoveEntity(INVALID_HANDLE, SNA_TrailEntRef[clientIdx]);
+		RemoveEntityTele(SNA_TrailEntRef[clientIdx]);
 		SNA_TrailEntRef[clientIdx] = 0;
 	}
 
 	// destroy the doppleganger
 	if (SNA_DopplegangerEntRef[clientIdx] != 0)
 	{
-		RemoveEntity(INVALID_HANDLE, SNA_DopplegangerEntRef[clientIdx]);
+		RemoveEntityTele(SNA_DopplegangerEntRef[clientIdx]);
 		SNA_DopplegangerEntRef[clientIdx] = 0;
 	}
 
@@ -3643,7 +3643,7 @@ public SAC_OnDeactivated(clientIdx)
 					AcceptEntityInput(pointHurt, "Hurt", clientIdx);
 					DispatchKeyValue(pointHurt, "classname", "point_hurt");
 					DispatchKeyValueFormat(victim, "targetname", "whatisthis%d", victim);
-					RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
+					RemoveEntityTele(EntIndexToEntRef(pointHurt));
 					
 					if (PRINT_DEBUG_SPAM)
 						PrintToServer("Point hurt applied to %d with damage %f", victim, actualDamage);
@@ -5884,7 +5884,7 @@ public MP_DetonateRocket(clientIdx, Float:rocketPos[3])
 		SetVariantInt(BossTeam);
 		AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
 		DispatchSpawn(rocket);
-		CreateTimer(0.05, RemoveEntity, EntIndexToEntRef(rocket), TIMER_FLAG_NO_MAPCHANGE); // timers...UNCLEAN!!! though admittedly useful in this one hack fix.
+		CreateTimer(0.05, Timer_RemoveEntityTele, EntIndexToEntRef(rocket), TIMER_FLAG_NO_MAPCHANGE); // timers...UNCLEAN!!! though admittedly useful in this one hack fix.
 	}
 }
 
@@ -6339,7 +6339,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntityTele, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -6410,7 +6410,7 @@ stock AttachParticleToAttachment(entity, const String:particleType[], const Stri
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntityTele(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -6420,11 +6420,14 @@ public Action:RemoveEntity(Handle:timer, any:entid)
 	}
 }
 
-public Action:RemoveEntityNoTele(Handle:timer, any:entid)
+public RemoveEntityTele(any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
+	{
+		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
 		AcceptEntityInput(entity, "Kill");
+	}
 }
 
 stock bool:IsLivingPlayer(clientIdx)
@@ -6800,7 +6803,7 @@ stock FullyHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DM
 		AcceptEntityInput(pointHurt, "Hurt", attacker);
 		DispatchKeyValue(pointHurt, "classname", "point_hurt");
 		DispatchKeyValue(victim, "targetname", "noonespecial");
-		RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
+		RemoveEntityTele(EntIndexToEntRef(pointHurt));
 	}
 }
 
