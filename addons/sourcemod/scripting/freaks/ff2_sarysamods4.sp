@@ -586,7 +586,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 			{
 				new particle = EntRefToEntIndex(IS_ParticleEntRef[victim]);
 				if (IsValidEntity(particle))
-					RemoveEntity(INVALID_HANDLE, IS_ParticleEntRef[victim]);
+					RemoveEntity(IS_ParticleEntRef[victim]);
 				IS_ParticleEntRef[victim] = 0;
 			}
 		}
@@ -1676,7 +1676,7 @@ public IS_Tick(clientIdx, Float:curTime)
 		{
 			new particle = EntRefToEntIndex(IS_ParticleEntRef[clientIdx]);
 			if (IsValidEntity(particle))
-				RemoveEntity(INVALID_HANDLE, IS_ParticleEntRef[clientIdx]);
+				RemoveEntity(IS_ParticleEntRef[clientIdx]);
 			IS_ParticleEntRef[clientIdx] = 0;
 		}
 		
@@ -1875,7 +1875,7 @@ public MS_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 	{
 		new entity = EntRefToEntIndex(MSVI_FrozenEntRef[victim]);
 		if (IsValidEntity(entity))
-			RemoveEntity(INVALID_HANDLE, entity);
+			RemoveEntity(entity);
 		MSVI_FrozenEntRef[victim] = 0;
 	}
 }
@@ -1935,7 +1935,7 @@ MS_RemoveAllAilments(clientIdx)
 		{
 			new entity = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
 			if (IsValidEntity(entity))
-				RemoveEntity(INVALID_HANDLE, entity);
+				RemoveEntity(entity);
 		}
 		MSVI_FrozenEntRef[clientIdx] = 0;
 		MSVI_FrozenUntil[clientIdx] = 0.0;
@@ -2207,7 +2207,7 @@ public SpawnMeteor(clientIdx)
 	{
 		new particle = AttachParticle(rocket, MS_TrailEffectOverride[clientIdx]);
 		if (IsValidEntity(particle))
-			CreateTimer(MS_ROCKET_LIFE, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(MS_ROCKET_LIFE, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	
 	// statistics
@@ -2514,7 +2514,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -2550,7 +2550,7 @@ stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntity(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
