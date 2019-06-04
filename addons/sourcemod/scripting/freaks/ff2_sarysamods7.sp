@@ -44,6 +44,8 @@
 #define EF_ITEM_BLINK 0x100	// blink an item so that the user notices it.
 #define EF_PARENT_ANIMATES 0x200	// always assume that the parent entity is animating
 
+#define Address_MinimumValid 0x10000 //addresses below this value are considered invalid to use for Load/Store
+
 // solid types
 #define SOLID_NONE 0 // no solid model
 #define SOLID_BSP 1 // a BSP tree
