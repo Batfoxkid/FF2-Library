@@ -643,7 +643,7 @@ public Action SetExplosion(Handle timer, Handle data)
 	
 	for(int i=0;i<5;i++)
 	{
-		decl proj;
+		int proj;
 		proj = CreateEntityByName("env_explosion");   
 		DispatchKeyValueFloat(proj, "DamageForce", 180.0);
 		SetEntProp(proj, Prop_Data, "m_iMagnitude", 400, 4);
@@ -913,7 +913,7 @@ public bool Resize_TracePlayersAndBuildings(int entity, int contentsMask)
 	}
 	else if (IsValidEntity(entity))
 	{
-		static char[] classname[64];
+		static char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if ((strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0)
 			|| (strcmp(classname, "prop_dynamic") == 0) || (strcmp(classname, "func_physbox") == 0) || (strcmp(classname, "func_breakable") == 0))
@@ -1198,7 +1198,7 @@ public Action AfterBurn(Handle timer, Handle pack)
 	if (gAfterburn >= packafterBurnDuration)
 	{
 		gAfterburn = 0;
-		decl i;
+		int i;
 		for( i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i))
@@ -1619,7 +1619,7 @@ stock bool makeexplosion(int attacker = 0, int inflictor = -1, const float attac
 // Thanks to V0gelz
 stock void env_shooter(float Angles[3], float iGibs, float Delay, float GibAngles[3], float Velocity, float Variance, float Giblife, float Location[3], char[] ModelType )
 {
-	//decl Ent;
+	//int Ent;
 
 	//Initialize:
 	int Ent = CreateEntityByName("env_shooter");
@@ -1691,7 +1691,7 @@ stock void env_shooter(float Angles[3], float iGibs, float Delay, float GibAngle
 
 stock void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
-	decl Ent;
+	int Ent;
 
 	//Initialize:
 	Ent = CreateEntityByName("env_shake");
