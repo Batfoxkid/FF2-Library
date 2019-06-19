@@ -11,7 +11,7 @@
 
 #define MAJOR_REVISION "3"
 #define MINOR_REVISION "0"
-//#define PATCH_REVISION "0"
+#define PATCH_REVISION "1"
 
 #if !defined PATCH_REVISION
 	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION
@@ -224,13 +224,10 @@ public PrepareAbilities()
 			
 				if(FF2_HasAbility(boss, this_plugin_name, SPECIALOUTLINE))
 				{
-					for(new player=1; player<=MaxClients; player++)
-					{
-						if(IsClientInGame(player) && IsPlayerAlive(player) && GetClientTeam(player)!= FF2_GetBossTeam())
-						{
-							SetEntProp(player, Prop_Send, "m_bGlowEnabled", 1);
-						}
-					}
+					if(FF2_GetAbilityArgument(boss, this_plugin_name, SPECIALOUTLINE, 1))
+						CreateTimer(1.0, Timer_OutlineStart, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+
+					CreateTimer(1.0, Timer_OutlineLoop, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 				}
 				if(FF2_HasAbility(boss, this_plugin_name, MADMILKSTUN))
 				{
@@ -266,6 +263,51 @@ public PrepareAbilities()
 			}
 		}
 	}
+}
+
+public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+{
+	for(new client=1;client<=MaxClients;client++)
+	{
+		if (IsValidClient(client))
+		{
+			Outline_TriggerAMS[client] = false;
+			SDKUnhook(client, SDKHook_PreThink, Outline_Prethink);
+			
+			//for Rage_Buffs
+			Buffs_TriggerAMS[client] = false;
+			
+			//for Slay_Minions
+			Slay_TriggerAMS[client] = false;
+			
+			//for Special_Fire
+			Fire_TriggerAMS[client] = false;
+			SDKUnhook(client, SDKHook_PreThink, Fire_Prethink);
+			
+			// for Healing and Reviving abilities
+			ReviveBosses_TriggerAMS[client]=false;
+			HealBosses_TriggerAMS[client]=false;
+			
+			// Sound Stops
+			StopSound(client, SNDCHAN_AUTO, RAGETHEME);
+			StopSound(client, SNDCHAN_AUTO, NORMALTHEME);
+			StopSound(client, SNDCHAN_AUTO, LIFELOSETHEME);
+			StopSound(client, SNDCHAN_AUTO, FEWPLAYERSTHEME);
+		}
+	}
+	EndOutline = INACTIVE;
+	EndFire = INACTIVE;
+	PlayingRightNow = false;
+	
+	if(RageThemeTimer)
+	{
+		KillTimer(RageThemeTimer);
+		RageThemeTimer = INVALID_HANDLE;
+	}
+	
+	StopMusic_RageVersion = 0;
+	StopMusic_LifeLoseVersion = 0;
+	StopMusic_FewPlayerVersion = 0;
 }
 
 public Action:event_player_death(Handle:event, const String:name[], bool:dontBroadcast)
@@ -395,9 +437,16 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 			Float:amountgainedhealth = FF2_GetAbilityArgumentFloat(boss,this_plugin_name,HEALTHONKILL,1,0.0);
 		
 			new health = FF2_GetBossHealth(boss);
-			new maxhealth = FF2_GetBossMaxHealth(boss);
+			new maxhealth = FF2_GetBossMaxHealth(boss)*FF2_GetBossLives(boss);
 		
-			health = RoundToCeil(health + (maxhealth * amountgainedhealth));
+			if(amountgainedhealth <= 1)
+			{
+				health = RoundToCeil(health + (maxhealth * amountgainedhealth));
+			}
+			else
+			{
+				health = RoundToCeil(health + amountgainedhealth);
+			}
 			if(health > maxhealth)
 			{
 				health = maxhealth;
@@ -423,79 +472,24 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	return Plugin_Continue;
 }
 
-public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	for(new client=1;client<=MaxClients;client++)
-	{
-		if (IsValidClient(client))
-		{
-			Outline_TriggerAMS[client] = false;
-			SDKUnhook(client, SDKHook_PreThink, Outline_Prethink);
-			
-			//for Rage_Buffs
-			Buffs_TriggerAMS[client] = false;
-			
-			//for Slay_Minions
-			Slay_TriggerAMS[client] = false;
-			
-			//for Special_Fire
-			Fire_TriggerAMS[client] = false;
-			SDKUnhook(client, SDKHook_PreThink, Fire_Prethink);
-			
-			// for Healing and Reviving abilities
-			ReviveBosses_TriggerAMS[client]=false;
-			HealBosses_TriggerAMS[client]=false;
-			
-			// Sound Stops
-			StopSound(client, SNDCHAN_AUTO, RAGETHEME);
-			StopSound(client, SNDCHAN_AUTO, NORMALTHEME);
-			StopSound(client, SNDCHAN_AUTO, LIFELOSETHEME);
-			StopSound(client, SNDCHAN_AUTO, FEWPLAYERSTHEME);
-		}
-	}
-	CreateTimer(0.5, StopMusic);
-	
-	EndOutline = INACTIVE;
-	EndFire = INACTIVE;
-	PlayingRightNow = false;
-	
-	if(RageThemeTimer)
-	{
-		KillTimer(RageThemeTimer);
-		RageThemeTimer = INVALID_HANDLE;
-	}
-	
-	StopMusic_RageVersion = 0;
-	StopMusic_LifeLoseVersion = 0;
-	StopMusic_FewPlayerVersion = 0;
-}
-
-public Action:StopMusic(Handle:timer)
-{
-	for(new client=1;client<=MaxClients;client++)
-	{
-		if (IsClientInGame(client))
-		{
-			// Sound Stops
-			StopSound(client, SNDCHAN_AUTO, RAGETHEME);
-			StopSound(client, SNDCHAN_AUTO, NORMALTHEME);
-			StopSound(client, SNDCHAN_AUTO, LIFELOSETHEME);
-			StopSound(client, SNDCHAN_AUTO, FEWPLAYERSTHEME);
-		}
-	}
-	return Plugin_Continue;
-}
-
 public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
 {	
 	if (attacker<1 || attacker>MaxClients || !IsValidClient(attacker))
 		return Plugin_Continue;	
 	new index = FF2_GetBossIndex(attacker);
-	if (index!=-1 && client!=attacker && FF2_HasAbility(index, this_plugin_name, MADMILKSTUN) && GetEntPropEnt(attacker, Prop_Send, "m_hActiveWeapon")!=GetPlayerWeaponSlot(attacker, TFWeaponSlot_Melee))
+	if (index!=-1 && client!=attacker && FF2_HasAbility(index, this_plugin_name, MADMILKSTUN) && GetEntPropEnt(attacker, Prop_Send, "m_hActiveWeapon"))
 	{
-		new Float:duration=FF2_GetAbilityArgumentFloat(index, this_plugin_name, MADMILKSTUN, 1, 3.0);
-		if (duration>0.25)
-			TF2_StunPlayer(client, duration, 0.0, TF_STUNFLAGS_NORMALBONK, attacker);	
+		new bool:Meleestun = bool:FF2_GetAbilityArgument(index, this_plugin_name, MADMILKSTUN, 2, 0);
+		if (!Meleestun && GetPlayerWeaponSlot(attacker, TFWeaponSlot_Melee))
+		{
+			
+		}
+		else
+		{
+			new Float:duration=FF2_GetAbilityArgumentFloat(index, this_plugin_name, MADMILKSTUN, 1, 3.0);
+			if (duration>0.25)
+				TF2_StunPlayer(client, duration, 0.0, TF_STUNFLAGS_NORMALBONK, attacker);
+		}	
 	}
 	return Plugin_Continue;
 }
@@ -612,6 +606,32 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	return Plugin_Continue;
 }
 
+public Action:Timer_OutlineLoop(Handle:timer)
+{
+	if(FF2_GetRoundState() != 1)
+		return Plugin_Stop;
+
+	for(new player=1; player<=MaxClients; player++)
+	{
+		if(IsClientInGame(player) && IsPlayerAlive(player))
+		{
+			if(GetClientTeam(player) != FF2_GetBossTeam())
+				SetEntProp(player, Prop_Send, "m_bGlowEnabled", 1);
+
+			TF2_AddCondition(player, TFCond_SpawnOutline, -1.0);
+		}
+	}
+	return Plugin_Continue;
+}
+
+public Action:Timer_OutlineStart(Handle:timer, any:userid)
+{
+	new client=GetClientOfUserId(userid);
+	TF2_AddCondition(client, TFCond_Healing, -1.0);
+	TF2_AddCondition(client, TFCond_HalloweenQuickHeal, 170.0);
+	return Plugin_Continue;
+}
+
 public Action:BackToNormal(Handle:timer, any:client)
 {
 	new boss=FF2_GetBossIndex(client);
@@ -671,11 +691,11 @@ public RBF_Invoke(client)
 	{
 		TF2_AddCondition(client, TFCond_Buffed, FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, BUFFS, 2, 5.0)); // Minicrits
 	}
-	else if(Buffmode == 0 || Buffmode == 2 || Buffmode == 4 || Buffmode == 6)
+	if(Buffmode == 0 || Buffmode == 2 || Buffmode == 4 || Buffmode == 6)
 	{
 		TF2_AddCondition(client, TFCond_DefenseBuffNoCritBlock, FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, BUFFS, 2, 5.0)); // Defense Buff
 	}
-	else if(Buffmode == 0 || Buffmode == 3 || Buffmode == 5 || Buffmode == 6)
+	if(Buffmode == 0 || Buffmode == 3 || Buffmode == 5 || Buffmode == 6)
 	{
 		TF2_AddCondition(client, TFCond_RegenBuffed, FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, BUFFS, 2, 5.0));	// Speed boost and regen
 	}
@@ -1005,27 +1025,24 @@ public Action:FF2_OnLoseLife(index)
 {		
 	new userid = FF2_GetBossUserId(index);
 	new client=GetClientOfUserId(userid);
-	if(index==-1 || !IsValidEdict(client))
+	if(index==-1 || !IsValidEdict(client) || !FF2_HasAbility(index, this_plugin_name, TRANSFORMATION))
 		return Plugin_Continue;
 	
-	if(FF2_HasAbility(index, this_plugin_name, TRANSFORMATION))
-	{
-		FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 1, lifelose_model, sizeof(lifelose_model));
-		lifelose_playerclass = FF2_GetAbilityArgument(index, this_plugin_name, TRANSFORMATION, 2, 8);
-		FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 3, lifelose_weapon_classname, sizeof(lifelose_weapon_classname));
-		lifelose_weapon_defindex = FF2_GetAbilityArgument(index, this_plugin_name, TRANSFORMATION, 4, 4);
-		FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 5, lifelose_weapon_attributes, sizeof(lifelose_weapon_attributes));
+	FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 1, lifelose_model, sizeof(lifelose_model));
+	lifelose_playerclass = FF2_GetAbilityArgument(index, this_plugin_name, TRANSFORMATION, 2, 8);
+	FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 3, lifelose_weapon_classname, sizeof(lifelose_weapon_classname));
+	lifelose_weapon_defindex = FF2_GetAbilityArgument(index, this_plugin_name, TRANSFORMATION, 4, 4);
+	FF2_GetAbilityArgumentString(index, this_plugin_name, TRANSFORMATION, 5, lifelose_weapon_attributes, sizeof(lifelose_weapon_attributes));
 		
-		TF2_SetPlayerClass(client, TFClassType:lifelose_playerclass);
+	TF2_SetPlayerClass(client, TFClassType:lifelose_playerclass);
 		
-		TF2_RemoveAllWeapons(client);
-		SpawnWeapon(client, lifelose_weapon_classname, lifelose_weapon_defindex, 101, 9, lifelose_weapon_attributes, true, false);
+	TF2_RemoveAllWeapons(client);
+	SpawnWeapon(client, lifelose_weapon_classname, lifelose_weapon_defindex, 101, 9, lifelose_weapon_attributes, true, false);
 		
-		PrecacheModel(lifelose_model);
-		SetVariantString(lifelose_model);
-		AcceptEntityInput(client, "SetCustomModel");
-		SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
-	}
+	PrecacheModel(lifelose_model);
+	SetVariantString(lifelose_model);
+	AcceptEntityInput(client, "SetCustomModel");
+	SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
 	
 	if(FF2_HasAbility(index, this_plugin_name, LIFELOSTHEMECHANGE))
 	{
