@@ -816,7 +816,7 @@ public AMS_InitSubability(bossIdx, clientIdx, const String:pluginName[], const S
 	
 	AMS_NumSpells[clientIdx] = min(AMS_MAX_SPELLS, AMS_NumSpells[clientIdx]);
 	
-	Debug("SARYSAPUB3 - AMS_INITSUBABILITY: bossIdx %i | clientIdx %i | pluginName %s | abilityName %s | prefix %s | slot %i", bossIdx, clientIdx, pluginName, abilityName, prefix, slot);
+	FF2Dbg("SARYSAPUB3 - AMS_INITSUBABILITY: bossIdx %i | clientIdx %i | pluginName %s | abilityName %s | prefix %s | slot %i", bossIdx, clientIdx, pluginName, abilityName, prefix, slot);
 	
 }
 
@@ -867,7 +867,7 @@ AMS_ExecuteSpell(clientIdx, spellIdx)
 			particle = AttachParticleToAttachment(clientIdx, AMS_CastingParticle, AMS_CastingAttachment);
 			
 		if (IsValidEntity(particle))
-			CreateTimer(1.0, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(1.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 
 	new Handle:plugin = INVALID_HANDLE;
@@ -929,7 +929,7 @@ public bool:AMS_CurrentSpellAvailable(clientIdx, bossIdx, Float:curTime)
 
 public Action:AMS_MedicCommand(clientIdx, const String:command[], argc)
 {
-	if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
+	if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
 	
 	new bossIdx = FF2_GetBossIndex(clientIdx);
@@ -1038,7 +1038,7 @@ public AMS_Tick(clientIdx, buttons, Float:curTime)
 		if (!IsEmptyString(AMS_HUDReplacementFormat))
 		{
 			SetHudTextParams(-1.0, AMS_HUDReplacementY[clientIdx], AMS_HUD_INTERVAL + 0.05, 255, 255, 255, 255);
-			ShowSyncHudText(clientIdx, AMS_HUDReplaceHandle, AMS_HUDReplacementFormat, FF2_GetBossCharge(bossIdx, 0), GetEntProp(clientIdx, Prop_Data, "m_iHealth"), FF2_GetBossMaxHealth(bossIdx));
+			ShowSyncHudText(clientIdx, AMS_HUDReplaceHandle, AMS_HUDReplacementFormat, FF2_GetBossCharge(bossIdx, 0), FF2_GetBossHealth(bossIdx), FF2_GetBossMaxHealth(bossIdx)*FF2_GetBossMaxLives(bossIdx));
 		}
 	}
 }
@@ -1792,7 +1792,7 @@ public bool:ADT_CanInvoke(clientIdx)
 		return true;
 		
 	new numPlayers = 0;
-	new enemyTeam = GetClientTeam(clientIdx) == BossTeam ? MercTeam : BossTeam; // why the fuck are mercs allowed on BLU? seriously. WHY THE FUCK.
+	new enemyTeam = (GetClientTeam(clientIdx)==3) ? 2 : 3; // why the fuck are mercs allowed on BLU? seriously. WHY THE FUCK.
 	for (new enemy = 1; enemy < MAX_PLAYERS; enemy++)
 	{
 		if (IsLivingPlayer(enemy) && GetClientTeam(enemy) == enemyTeam)
@@ -1893,7 +1893,7 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
@@ -1964,7 +1964,7 @@ stock AttachParticleToAttachment(entity, const String:particleType[], const Stri
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntity(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -1994,7 +1994,7 @@ stock bool:IsValidBoss(clientIdx)
 	if (!IsLivingPlayer(clientIdx))
 		return false;
 		
-	return GetClientTeam(clientIdx) == BossTeam;
+	return FF2_GetBossIndex(clientIdx) != -1;
 }
 
 // need to briefly stun the target if they have continuous or other special weapons out
@@ -2528,7 +2528,7 @@ stock FullyHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DM
 		AcceptEntityInput(pointHurt, "Hurt", attacker);
 		DispatchKeyValue(pointHurt, "classname", "point_hurt");
 		DispatchKeyValue(victim, "targetname", "noonespecial");
-		RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
+		Timer_RemoveEntity(INVALID_HANDLE, EntIndexToEntRef(pointHurt));
 	}
 }
 
@@ -2881,7 +2881,7 @@ CreateRagdoll(client, Float:flSelfDestruct=0.0, bool:isIce=false)
 		ActivateEntity(iRag);
 		
 		if (flSelfDestruct > 0.0)
-			CreateTimer(flSelfDestruct, RemoveEntity, EntIndexToEntRef(iRag), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(flSelfDestruct, Timer_RemoveEntity, EntIndexToEntRef(iRag), TIMER_FLAG_NO_MAPCHANGE);
 		
 		return iRag;
 	}
