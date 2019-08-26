@@ -36,7 +36,7 @@
 #define IN_ATTACK3		(1 << 25)
 #define MAX_BUTTONS 26
 
-#define PLUGIN_VERSION "1.0"
+#define PLUGIN_VERSION "1.1"
 
 new string_hud = 128;
 new string_path = 256;
@@ -60,6 +60,7 @@ new String:FF2ThrustCond[MAXPLAYERS+1][128];
 //how thrusting is controlled
 new FF2ThrustAir[MAXPLAYERS+1]=0;
 new Float:FF2ThrustDiminishRate[MAXPLAYERS+1]=0.0;
+new Float:FF2ThrustDiminishMin[MAXPLAYERS+1]=450.0;
 new Float:FF2ThrustVertPower[MAXPLAYERS+1]=900.0;
 new Float:FF2ThrustHoriPower[MAXPLAYERS+1]=600.0;
 new Float:FF2ThrustSmalPower[MAXPLAYERS+1]=400.0;
@@ -68,6 +69,8 @@ new Float:FF2ThrustEMult[MAXPLAYERS+1]=2.0;
 //resource reqs for thruster
 new Float:FF2ThrustCooldown[MAXPLAYERS+1]=15.0;
 new Float:FF2ThrustCost[MAXPLAYERS+1]=5.0;
+new FF2ThrustCharges[MAXPLAYERS+1]=0;
+new FF2ThrustChargesMax[MAXPLAYERS+1]=1;
 
 //graphical and sound
 new String:FF2ThrustSmallSound[MAXPLAYERS+1][128];
@@ -84,6 +87,7 @@ new FF2ThrustButton[MAXPLAYERS+1]=1;
 new HUDThrustStyle[MAXPLAYERS+1]=0;
 new Float:HUDThrustOffset[MAXPLAYERS+1]=0.77;
 
+new Float:NextThrust[MAXPLAYERS+1];
 new Float:NextCharge[MAXPLAYERS+1];
 new Float:GraceTimer[MAXPLAYERS+1];
 new Float:PanicMode[MAXPLAYERS+1];
@@ -186,31 +190,35 @@ RegisterBossAbility(client, String:ability_name[])
 			{
 				FF2ThrustCooldown[client]=1.5;
 			}
+			NextCharge[client] = FF2ThrustCooldown[client];
 			FF2ThrustCost[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 3, 0.0);
-			FF2ThrustAir[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 4, 0);
-			FF2ThrustDiminishRate[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 5, 0.0);
-			FF2ThrustVertPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 6, 900.0);
-			FF2ThrustHoriPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 7, 600.0);
-			FF2ThrustSmalPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 8, 400.0);
-			FF2ThrustEMult[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 9, 2.0);
-			FF2ThrustStunType[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 10, 0);
-			FF2ThrustStunDur[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 11, 0.0);
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 12, FF2ThrustCond[client], string_path);
-			FF2ThrustAOEFlags[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 13, 0);
-			FF2LandAOEFlags[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 14, 0);
-			FF2ThrustAOEDmg[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 15, 0.0);
-			FF2LandAOEDmg[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 16, 0.0);
-			FF2DmgFix[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 17, 1);
-			FF2ThrustAOE[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 18, 0.0);
-			FF2LandAOE[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 19, 0.0);
+			FF2ThrustChargesMax[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 4, 1);
+			FF2ThrustCharges[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 5, 0)-1;
+			FF2ThrustAir[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 6, 0);
+			FF2ThrustDiminishRate[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 7, 0.0);
+			FF2ThrustDiminishMin[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 8, 450.0);
+			FF2ThrustVertPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 9, 900.0);
+			FF2ThrustHoriPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 10, 600.0);
+			FF2ThrustSmalPower[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 11, 400.0);
+			FF2ThrustEMult[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 12, 2.0);
+			FF2ThrustStunType[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 13, 0);
+			FF2ThrustStunDur[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 14, 0.0);
+			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 15, FF2ThrustCond[client], string_path);
+			FF2ThrustAOEFlags[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 16, 0);
+			FF2LandAOEFlags[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 17, 0);
+			FF2ThrustAOEDmg[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 18, 0.0);
+			FF2LandAOEDmg[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 19, 0.0);
+			FF2DmgFix[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 20, 1);
+			FF2ThrustAOE[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 21, 0.0);
+			FF2LandAOE[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 22, 0.0);
 			
 			//graphics n sound
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 20, FF2ThrustSmallSound[client], string_path);
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 21, FF2ThrustLargeSound[client], string_path);
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 22, FF2ThrustBlastEffect[client], string_path);
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 23, FF2ThrustExhaustEffect[client], string_path);
-			FF2ThrustEffectStyle[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 24, 0);
-			FF2ThrustEffectOffset[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 25, 1.0);
+			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 23, FF2ThrustSmallSound[client], string_path);
+			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 24, FF2ThrustLargeSound[client], string_path);
+			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 25, FF2ThrustBlastEffect[client], string_path);
+			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 26, FF2ThrustExhaustEffect[client], string_path);
+			FF2ThrustEffectStyle[client] = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 27, 0);
+			FF2ThrustEffectOffset[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 28, 1.0);
 			
 			HUDThrustStyle[client]=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 30, 0);
 			HUDThrustOffset[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 31, 0.77);
@@ -237,6 +245,17 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 		{
 			if(FF2ThrustEnable[client])
 			{
+				if(FF2ThrustCharges[client]<FF2ThrustChargesMax[client])
+				{
+					if(NextCharge[client]<=GetGameTime())
+					{
+						FF2ThrustCharges[client]+=1;
+						if(FF2ThrustCharges[client]<FF2ThrustChargesMax[client])
+						{
+							NextCharge[client]=GetGameTime()+FF2ThrustCooldown[client];
+						}
+					}
+				}
 				if(CanThrust(client)==0)
 				{
 					if(FF2ThrustButton[client]==1)
@@ -400,93 +419,83 @@ public Action:ClientTimer(Handle:timer)
 					{
 						WorldDmg[client] = 0.0;
 						PanicMode[client]=GetGameTime()+5.0;
-						if(NextCharge[client]-0.5>=GetGameTime())
-						{
-							NextCharge[client]=GetGameTime()+0.5;
-						}
-					}
-				}
-				new Float:chargeprcnt = NextCharge[client]-GetGameTime();
-				new String:HudMsg[129];
-				if(HUDThrustStyle[client]==1)
-				{
-					chargeprcnt = 100.0 - (((NextCharge[client]-GetGameTime()) / FF2ThrustCooldown[client])*100.0);
-					//so it doesn't say -0% sometimes
-					if (chargeprcnt<0.0)
-					{
-						chargeprcnt=0.0;
 					}
 				}
 				if(PanicMode[client]>=GetGameTime())
 				{
-					if(NextCharge[client]>GetGameTime()) //fire rate cooldown
+					new Float:chargeprcnt = NextThrust[client]-GetGameTime();
+					new String:HudMsg[129];
+					if(HUDThrustStyle[client]==1)
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 32, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, chargeprcnt, FF2ThrustCost[client]);
+						chargeprcnt = 100.0 - (((NextThrust[client]-GetGameTime()) / 1.5)*100.0);
+						//so it doesn't say -0% sometimes
+						if (chargeprcnt<0.0)
+						{
+							chargeprcnt=0.0;
+						}
 					}
-					else if(CanThrust(client)>1)
+					if(CanThrust(client)>1)
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 33, HudMsg, string_hud);
+						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 36, HudMsg, string_hud);
 						ReplaceString(HudMsg, string_hud, "\\n", "\n");
 						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg);
+						ShowSyncHudText(client, JetPackHUD, HudMsg, chargeprcnt);
 					}
 					else //fully charged and ready to use
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 35, HudMsg, string_hud);
+						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 37, HudMsg, string_hud);
 						ReplaceString(HudMsg, string_hud, "\\n", "\n");
 						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
 						ShowSyncHudText(client, JetPackHUD, HudMsg);
-					}
-				}
-				else if(FF2ThrustCost[client]>0.0)
-				{
-					if(NextCharge[client]>GetGameTime()) //fire rate cooldown
-					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 32, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, chargeprcnt, FF2ThrustCost[client]);
-					}
-					else if(CanThrust(client)>1)
-					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 33, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCost[client]);
-					}
-					else //fully charged and ready to use
-					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 34, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCost[client]);
 					}
 				}
 				else
 				{
-					if(NextCharge[client]>GetGameTime()) //fire rate cooldown
+					new Float:chargeprcnt = NextCharge[client]-GetGameTime();
+					new String:HudMsg[129];
+					if(HUDThrustStyle[client]==1)
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 32, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, chargeprcnt, FF2ThrustCost[client]);
+						chargeprcnt = 100.0 - (((NextCharge[client]-GetGameTime()) / FF2ThrustCooldown[client])*100.0);
+						//so it doesn't say -0% sometimes
+						if (chargeprcnt<0.0)
+						{
+							chargeprcnt=0.0;
+						}
 					}
-					else if(CanThrust(client)>1)
+					if(CanThrust(client)>0) //unavaliable and or no charges to use
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 33, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCost[client]);
+						if(FF2ThrustCharges[client]<FF2ThrustChargesMax[client])
+						{
+							FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 34, HudMsg, string_hud);
+							ReplaceString(HudMsg, string_hud, "\\n", "\n");
+							SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
+							ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCharges[client], chargeprcnt, FF2ThrustCost[client]);
+						}
+						else
+						{
+							FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 32, HudMsg, string_hud);
+							ReplaceString(HudMsg, string_hud, "\\n", "\n");
+							SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 255, 255, 255, 0, 0.2, 0.0, 0.1);
+							ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCharges[client], FF2ThrustCost[client]);
+						}
+						
 					}
-					else //fully charged and ready to use
+					else //has at least 1 charge it can use and is valid to use right now
 					{
-						FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 34, HudMsg, string_hud);
-						ReplaceString(HudMsg, string_hud, "\\n", "\n");
-						SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
-						ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCost[client]);
+						if(FF2ThrustCharges[client]<FF2ThrustChargesMax[client])
+						{
+							FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 35, HudMsg, string_hud);
+							ReplaceString(HudMsg, string_hud, "\\n", "\n");
+							SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
+							ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCharges[client], chargeprcnt, FF2ThrustCost[client]);
+						}
+						else
+						{
+							FF2_GetAbilityArgumentString(FF2_GetBossIndex(client), this_plugin_name, "thruster_ability", 33, HudMsg, string_hud);
+							ReplaceString(HudMsg, string_hud, "\\n", "\n");
+							SetHudTextParams(-1.0, HUDThrustOffset[client], 0.35, 255, 64, 64, 255, 0, 0.2, 0.0, 0.1);
+							ShowSyncHudText(client, JetPackHUD, HudMsg, FF2ThrustCharges[client], FF2ThrustCost[client]);
+						}
 					}
 				}
 			}
@@ -517,11 +526,17 @@ TTLaunchSmall(client)
 	GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVel);
 	if ((GetEntityFlags(client) & FL_ONGROUND))
 	{
-		vVel[2] = GetDiminishForce(client, 2);
+		if(GetDiminishForce(client, 2)>=0.0)
+		{
+			vVel[2] = GetDiminishForce(client, 2);
+		}
 	}
 	else
 	{
-		vVel[2] = GetDiminishForce(client, 2)*0.75;
+		if(GetDiminishForce(client, 2)>=0.0)
+		{
+			vVel[2] = GetDiminishForce(client, 2)*0.75;
+		}
 		CreateTimer(0.1, Timer_DeployParachute, GetClientUserId(client));
 	}
 	TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, vVel);
@@ -529,8 +544,13 @@ TTLaunchSmall(client)
 	vLoc[2] += GetEntityHeight(client, 0.25);
 	EmitSoundToAll(FF2ThrustSmallSound[client], client, _, _, _, 0.65);
 	CreateParticleBlast(client, FF2ThrustBlastEffect[client], vLoc);
-	NextCharge[client]=GetGameTime()+FF2ThrustCooldown[client];
-	GraceTimer[client]=GetGameTime()+0.62;
+	if(PanicMode[client]<GetGameTime())
+	{
+		FF2ThrustCharges[client]-=1;
+		NextCharge[client]=GetGameTime()+FF2ThrustCooldown[client];
+	}
+	NextThrust[client]=GetGameTime()+1.5;
+	GraceTimer[client]=GetGameTime()+0.9;
 	CreateTimer(0.65, Timer_BigBlast, GetClientUserId(client));
 	if(FF2ThrustAOEFlags[client]>0)
 	{
@@ -569,35 +589,47 @@ TTLaunchBig(client)
 	GetAngleVectors(vAng, vAng, NULL_VECTOR, NULL_VECTOR);
 	if((LastButtons[client] & IN_FORWARD) == 0 && (LastButtons[client] & IN_BACK))
 	{
-		vVel[0] = (vAng[0]*GetDiminishForce(client, 1))*-1.0;
-		vVel[1] = (vAng[1]*GetDiminishForce(client, 1))*-1.0;
+		if(GetDiminishForce(client, 1)>=0.0)
+		{
+			vVel[0] = (vAng[0]*GetDiminishForce(client, 1))*-1.0;
+			vVel[1] = (vAng[1]*GetDiminishForce(client, 1))*-1.0;
+		}
 		if(PanicMode[client]>=GetGameTime())
 		{
 			vVel[2] = (vAng[2]*(GetDiminishForce(client, 0)+GetDiminishForce(client, 2)))*-1.0;
 		}
 		else
 		{
-			vVel[2] = (vAng[2]*GetDiminishForce(client, 0))*-1.0;
+			if(GetDiminishForce(client, 0)>=0.0)
+			{
+				vVel[2] = (vAng[2]*GetDiminishForce(client, 0))*-1.0;
+			}
 		}
 	}
 	else
 	{
-		vVel[0] = vAng[0]*GetDiminishForce(client, 1);
-		vVel[1] = vAng[1]*GetDiminishForce(client, 1);
+		if(GetDiminishForce(client, 1)>=0.0)
+		{
+			vVel[0] = vAng[0]*GetDiminishForce(client, 1);
+			vVel[1] = vAng[1]*GetDiminishForce(client, 1);
+		}
 		if(PanicMode[client]>=GetGameTime())
 		{
 			vVel[2] = vAng[2]*(GetDiminishForce(client, 0)+GetDiminishForce(client, 2));
 		}
 		else
 		{
-			vVel[2] = vAng[2]*GetDiminishForce(client, 0);
+			if(GetDiminishForce(client, 0)>=0.0)
+			{
+				vVel[2] = vAng[2]*GetDiminishForce(client, 0);
+			}
 		}
 	}
 	LastFallSpeed[client]=vVel[2];
 	if(PanicMode[client]>=GetGameTime())
 	{
-		NextCharge[client]=GetGameTime()+1.5;
-		GraceTimer[client]=GetGameTime()+0.62;
+		NextThrust[client] = GetGameTime()+1.5;
+		GraceTimer[client] = GetGameTime()+0.62;
 		AirDashCount[client]=0;
 	}
 	else
@@ -883,9 +915,12 @@ ClearVariables(client)
 
 	FF2ThrustStunType[client]=0;
 	FF2ThrustStunDur[client]=0.0;
-
+	
+	FF2ThrustChargesMax[client]=1;
+	FF2ThrustCharges[client]=0;
 	FF2ThrustAir[client]=0;
 	FF2ThrustDiminishRate[client]=0.0;
+	FF2ThrustDiminishMin[client]=450.0;
 	FF2ThrustVertPower[client]=900.0;
 	FF2ThrustHoriPower[client]=600.0;
 	FF2ThrustSmalPower[client]=325.0;
@@ -903,6 +938,7 @@ ClearVariables(client)
 	HUDThrustOffset[client] = 0.77;
 
 	NextCharge[client]=0.0;
+	NextThrust[client]=0.0;
 	PanicMode[client] = 0.0;
 	WorldDmg[client] = 0.0;
 	AirDashCount[client] = 0;
@@ -940,15 +976,20 @@ stock CanThrust(client)
 {
 	//reasons
 	//0 = can use
-	//1 = charge is still cooling down
+	//1 = no charges to use
 	//2 = airdash count maxed out
 	//3 = not enough rage
 	//4 = diminish value too low
-	if(NextCharge[client]<=GetGameTime())
+	//5 = cooldown (the 1.5 fire rate cooldown that is)
+	if(FF2ThrustCharges[client]>0)
 	{
 		if(PanicMode[client]<GetGameTime() && FF2_GetBossCharge(FF2_GetBossIndex(client), 0) < FF2ThrustCost[client])
 		{
 			return 3;
+		}
+		else if(NextThrust[client]>GetGameTime())
+		{
+			return 5;
 		}
 		else
 		{
@@ -963,9 +1004,9 @@ stock CanThrust(client)
 					return 2;
 				}
 			}
-			else if(FF2ThrustDiminishRate[client]!=0.0)
+			else if(FF2ThrustDiminishRate[client]!=0.0 || FF2ThrustDiminishMin[client]>=0.0)
 			{
-				if(GetDiminishForce(client, 0)<450.0)
+				if(GetDiminishForce(client, 0)<FF2ThrustDiminishMin[client])
 				{
 					return 4;
 				}
@@ -975,9 +1016,22 @@ stock CanThrust(client)
 	}
 	else
 	{
-		return 1;
+		if(PanicMode[client]<GetGameTime())
+		{
+			return 1;
+		}
+		else
+		{
+			if(NextThrust[client]>GetGameTime())
+			{
+				return 5;
+			}
+			else
+			{
+				return 0;
+			}
+		}
 	}
-	return 0; //says it's unreachable, but would probably say it must return a value if i removed it
 }
 
 stock Float:GetDiminishForce(client, type)
