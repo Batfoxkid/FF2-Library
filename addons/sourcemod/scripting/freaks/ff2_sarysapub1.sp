@@ -2,16 +2,14 @@
  * sarysa's Public Pack #1
  */
 
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <tf2items>
-#include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+#include <tf2_stocks>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 /**
  * Rages for Thi Barrett, a character of Rise of the Triad and a hale I'm working on.
@@ -38,64 +36,13 @@
  *		    Friagram for pointing out some improvements for some of my earlier stocks.
  */
  
-// copied from tf2 sdk
-// solid types
-#define SOLID_NONE 0 // no solid model
-#define SOLID_BSP 1 // a BSP tree
-#define SOLID_BBOX 2 // an AABB
-#define SOLID_OBB 3 // an OBB (not implemented yet)
-#define SOLID_OBB_YAW 4 // an OBB, constrained so that it can only yaw
-#define SOLID_CUSTOM 5 // Always call into the entity for tests
-#define SOLID_VPHYSICS 6 // solid vphysics object, get vcollide from the model and collide with that
-
-#define FSOLID_CUSTOMRAYTEST 0x0001 // Ignore solid type + always call into the entity for ray tests
-#define FSOLID_CUSTOMBOXTEST 0x0002 // Ignore solid type + always call into the entity for swept box tests
-#define FSOLID_NOT_SOLID 0x0004 // Are we currently not solid?
-#define FSOLID_TRIGGER 0x0008 // This is something may be collideable but fires touch functions
-#define FSOLID_NOT_STANDABLE 0x0010 // You can't stand on this
-#define FSOLID_VOLUME_CONTENTS 0x0020 // Contains volumetric contents (like water)
-#define FSOLID_FORCE_WORLD_ALIGNED 0x0040 // Forces the collision rep to be world-aligned even if it's SOLID_BSP or SOLID_VPHYSICS
-#define FSOLID_USE_TRIGGER_BOUNDS 0x0080 // Uses a special trigger bounds separate from the normal OBB
-#define FSOLID_ROOT_PARENT_ALIGNED 0x0100 // Collisions are defined in root parent's local coordinate space
-#define FSOLID_TRIGGER_TOUCH_DEBRIS 0x0200 // This trigger will touch debris objects
-
-enum // Collision_Group_t in const.h
-{
-	COLLISION_GROUP_NONE  = 0,
-	COLLISION_GROUP_DEBRIS,			// Collides with nothing but world and static stuff
-	COLLISION_GROUP_DEBRIS_TRIGGER, // Same as debris, but hits triggers
-	COLLISION_GROUP_INTERACTIVE_DEBRIS,	// Collides with everything except other interactive debris or debris
-	COLLISION_GROUP_INTERACTIVE,	// Collides with everything except interactive debris or debris
-	COLLISION_GROUP_PLAYER,
-	COLLISION_GROUP_BREAKABLE_GLASS,
-	COLLISION_GROUP_VEHICLE,
-	COLLISION_GROUP_PLAYER_MOVEMENT,  // For HL2, same as Collision_Group_Player, for
-										// TF2, this filters out other players and CBaseObjects
-	COLLISION_GROUP_NPC,			// Generic NPC group
-	COLLISION_GROUP_IN_VEHICLE,		// for any entity inside a vehicle
-	COLLISION_GROUP_WEAPON,			// for any weapons that need collision detection
-	COLLISION_GROUP_VEHICLE_CLIP,	// vehicle clip brush to restrict vehicle movement
-	COLLISION_GROUP_PROJECTILE,		// Projectiles!
-	COLLISION_GROUP_DOOR_BLOCKER,	// Blocks entities not permitted to get near moving doors
-	COLLISION_GROUP_PASSABLE_DOOR,	// ** sarysa TF2 note: Must be scripted, not passable on physics prop (Doors that the player shouldn't collide with)
-	COLLISION_GROUP_DISSOLVING,		// Things that are dissolving are in this group
-	COLLISION_GROUP_PUSHAWAY,		// ** sarysa TF2 note: I could swear the collision detection is better for this than NONE. (Nonsolid on client and server, pushaway in player code)
-
-	COLLISION_GROUP_NPC_ACTOR,		// Used so NPCs in scripts ignore the player.
-	COLLISION_GROUP_NPC_SCRIPTED,	// USed for NPCs in scripts that should not collide with each other
-
-	LAST_SHARED_COLLISION_GROUP
-};
- 
-new bool:DEBUG_FORCE_RAGE = false;
+bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
-new bool:PRINT_DEBUG_INFO = true;
-new bool:PRINT_DEBUG_SPAM = false;
-new bool:DEBUG_HUD = false;
+bool PRINT_DEBUG_INFO = true;
+bool PRINT_DEBUG_SPAM = false;
+bool DEBUG_HUD = false;
  
-new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
-
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 80
 #define MAX_MODEL_FILE_LENGTH 128
@@ -113,25 +60,24 @@ new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
-//new MercTeam = _:TFTeam_Red;
-new BossTeam = _:TFTeam_Blue;
+int BossTeam = view_as<int>(TFTeam_Blue);
 
-new RoundInProgress = false;
-new bool:PluginActiveThisRound = false;
+int RoundInProgress = false;
+bool PluginActiveThisRound = false;
 
 #define IsEmptyString(%1) (%1[0] == 0)
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's public mods, first pack (ROTT boss)",
 	author = "sarysa",
 	version = "1.1.1",
 }
 
 // debug mode, free props
-new bool:RP_FreeProps = false;
+bool RP_FreeProps = false;
 
 // ROTT shared HUD
-new Float:ROTT_HudRefreshAt[MAX_PLAYERS_ARRAY];
+float ROTT_HudRefreshAt[MAX_PLAYERS_ARRAY];
 
 // ROTT props and sub-rages
 #define RP_STRING "rage_rott_props"
@@ -142,47 +88,47 @@ new Float:ROTT_HudRefreshAt[MAX_PLAYERS_ARRAY];
 #define PROP_SLICER 2
 #define PROP_PLATFORM 3
 #define PROP_COUNT 4
-new bool:RP_ActiveThisRound = false;
-new bool:RP_NoFallDamage = false; // arg18
-new bool:RP_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new RP_CurrentlySelectedProp[MAX_PLAYERS_ARRAY]; // internal
-new bool:RP_SpecialKeyDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:RP_AltFireKeyDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:RP_ReloadKeyDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:RP_CanDeployProp[MAX_PLAYERS_ARRAY][PROP_COUNT]; // arg1,3,5,6
-new Float:RP_PropRageCost[MAX_PLAYERS_ARRAY][PROP_COUNT]; // arg2,4,6,8
-new String:RP_PropName[PROP_COUNT][MAX_PROP_NAME_LENGTH]; // derived from various sub-rage args
-new String:RP_StrNotEnoughRage[MAX_CENTER_TEXT_LENGTH]; // arg15
-new String:RP_StrGroundOnly[MAX_CENTER_TEXT_LENGTH]; // arg16
-new String:RP_StrPlayerBlocking[MAX_CENTER_TEXT_LENGTH]; // arg17
-new String:RP_HUDMessage[MAX_CENTER_TEXT_LENGTH]; // arg19
-new Float:RP_EffectTriggerInterval[PROP_COUNT]; // internal, with some derivation from some props
-new RP_PropHealth[PROP_COUNT]; // internal, with some derivation from some props
+bool RP_ActiveThisRound = false;
+bool RP_NoFallDamage = false; // arg18
+bool RP_CanUse[MAX_PLAYERS_ARRAY]; // internal
+int RP_CurrentlySelectedProp[MAX_PLAYERS_ARRAY]; // internal
+bool RP_SpecialKeyDown[MAX_PLAYERS_ARRAY]; // internal
+bool RP_AltFireKeyDown[MAX_PLAYERS_ARRAY]; // internal
+bool RP_ReloadKeyDown[MAX_PLAYERS_ARRAY]; // internal
+bool RP_CanDeployProp[MAX_PLAYERS_ARRAY][PROP_COUNT]; // arg1,3,5,6
+float RP_PropRageCost[MAX_PLAYERS_ARRAY][PROP_COUNT]; // arg2,4,6,8
+char RP_PropName[PROP_COUNT][MAX_PROP_NAME_LENGTH]; // derived from various sub-rage args
+char RP_StrNotEnoughRage[MAX_CENTER_TEXT_LENGTH]; // arg15
+char RP_StrGroundOnly[MAX_CENTER_TEXT_LENGTH]; // arg16
+char RP_StrPlayerBlocking[MAX_CENTER_TEXT_LENGTH]; // arg17
+char RP_HUDMessage[MAX_CENTER_TEXT_LENGTH]; // arg19
+float RP_EffectTriggerInterval[PROP_COUNT]; // internal, with some derivation from some props
+int RP_PropHealth[PROP_COUNT]; // internal, with some derivation from some props
 
 #define RPJP_STRING "rage_rott_jump_pad_info"
 #define RPJP_EffectTriggerInterval 0.2
-new Float:RPJP_JumpPadIntensity; // arg1
-new RPJP_JumpPadHealth; // arg2
-new String:RPJP_JumpPadModel[MAX_MODEL_FILE_LENGTH]; // arg3
-new Float:RPJP_JumpPadCollision[2][3]; // arg4
-new String:RPJP_JumpPadSound[MAX_SOUND_FILE_LENGTH]; // arg10
-new Float:RPJP_AnglePadIntensity; // arg11
-new RPJP_AnglePadHealth; // arg12
-new String:RPJP_AnglePadModel[MAX_MODEL_FILE_LENGTH]; // arg13
-new Float:RPJP_AnglePadCollision[2][3];// arg14
-new Float:RPJP_AnglePadDampeningFactor; // arg16
+float RPJP_JumpPadIntensity; // arg1
+int RPJP_JumpPadHealth; // arg2
+char RPJP_JumpPadModel[MAX_MODEL_FILE_LENGTH]; // arg3
+float RPJP_JumpPadCollision[2][3]; // arg4
+char RPJP_JumpPadSound[MAX_SOUND_FILE_LENGTH]; // arg10
+float RPJP_AnglePadIntensity; // arg11
+int RPJP_AnglePadHealth; // arg12
+char RPJP_AnglePadModel[MAX_MODEL_FILE_LENGTH]; // arg13
+float RPJP_AnglePadCollision[2][3];// arg14
+float RPJP_AnglePadDampeningFactor; // arg16
 
 //#define RPS_STRING "rage_rott_slicer_info"
 //#define RPP_STRING "rage_rott_platform_info"
 #define RPSP_STRING "rage_rott_slicer_platform_info"
-new Float:RPS_DelayBetweenChecks; // arg1
-new Float:RPS_DamagePerCheck; // arg2
-new bool:RPS_NegatePushForce; // arg3
-new String:RPS_SlicerModel[MAX_MODEL_FILE_LENGTH]; // arg4
-new Float:RPS_SlicerCollision[2][3];// arg5
-new Float:RPS_DelayBeforeDamage; // arg6
-new RPP_PlatformHealth; // arg1
-new String:RPP_PlatformModel[MAX_MODEL_FILE_LENGTH]; // arg2
+float RPS_DelayBetweenChecks; // arg1
+float RPS_DamagePerCheck; // arg2
+bool RPS_NegatePushForce; // arg3
+char RPS_SlicerModel[MAX_MODEL_FILE_LENGTH]; // arg4
+float RPS_SlicerCollision[2][3];// arg5
+float RPS_DelayBeforeDamage; // arg6
+int RPP_PlatformHealth; // arg1
+char RPP_PlatformModel[MAX_MODEL_FILE_LENGTH]; // arg2
 
 // error messages for props
 #define NOPE_AVI "vo/engineer_no01.mp3"
@@ -191,8 +137,8 @@ new String:RPP_PlatformModel[MAX_MODEL_FILE_LENGTH]; // arg2
 #define RP_ERROR_STATE_GROUND_ONLY 2
 #define RP_ERROR_STATE_PLAYER_BLOCKING 3
 #define RP_ERROR_STATE_UNKNOWN 4
-new RP_ActiveErrorState[MAX_PLAYERS_ARRAY];
-new Float:RP_DisplayErrorUntil[MAX_PLAYERS_ARRAY];
+int RP_ActiveErrorState[MAX_PLAYERS_ARRAY];
+float RP_DisplayErrorUntil[MAX_PLAYERS_ARRAY];
 
 // ROTT weapons
 #define RW_STRING "rage_rott_weapons"
@@ -207,103 +153,103 @@ new Float:RP_DisplayErrorUntil[MAX_PLAYERS_ARRAY];
 #define RW_TYPE_SPLIT 3
 #define RW_TYPE_ARMOR 4
 #define RW_TYPE_GOD_MODE 5
-new RW_ActiveThisRound;
-new String:RW_Messages[RW_MAX_WEAPONS+3][RW_MAX_MESSAGE_LENGTH];
-new bool:RW_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new RW_ActiveMessageIndex[MAX_PLAYERS_ARRAY]; // internal
-new Float:RW_MessageActiveUntil[MAX_PLAYERS_ARRAY]; // internal
-new RW_ActiveWeaponSpec[MAX_PLAYERS_ARRAY]; // internal
-new bool:RW_ArmorActive[MAX_PLAYERS_ARRAY]; // internal
-new Float:RW_ArmorActiveUntil[MAX_PLAYERS_ARRAY]; // internal
-new bool:RW_GodModeActive[MAX_PLAYERS_ARRAY]; // internal
-new Float:RW_GodModeActiveUntil[MAX_PLAYERS_ARRAY]; // internal
-new Float:RW_NextGodModeSoundAt[MAX_PLAYERS_ARRAY]; // internal
-new RW_WeaponCount[MAX_PLAYERS_ARRAY]; // arg1
-new RW_WeaponVisibility[MAX_PLAYERS_ARRAY]; // arg2
-new Float:RW_HomingInterval; // arg3
-new RW_WeaponChances[MAX_PLAYERS_ARRAY][RW_MAX_WEAPONS]; // arg4
+int RW_ActiveThisRound;
+char RW_Messages[RW_MAX_WEAPONS+3][RW_MAX_MESSAGE_LENGTH];
+bool RW_CanUse[MAX_PLAYERS_ARRAY]; // internal
+int RW_ActiveMessageIndex[MAX_PLAYERS_ARRAY]; // internal
+float RW_MessageActiveUntil[MAX_PLAYERS_ARRAY]; // internal
+int RW_ActiveWeaponSpec[MAX_PLAYERS_ARRAY]; // internal
+bool RW_ArmorActive[MAX_PLAYERS_ARRAY]; // internal
+float RW_ArmorActiveUntil[MAX_PLAYERS_ARRAY]; // internal
+bool RW_GodModeActive[MAX_PLAYERS_ARRAY]; // internal
+float RW_GodModeActiveUntil[MAX_PLAYERS_ARRAY]; // internal
+float RW_NextGodModeSoundAt[MAX_PLAYERS_ARRAY]; // internal
+int RW_WeaponCount[MAX_PLAYERS_ARRAY]; // arg1
+int RW_WeaponVisibility[MAX_PLAYERS_ARRAY]; // arg2
+float RW_HomingInterval; // arg3
+int RW_WeaponChances[MAX_PLAYERS_ARRAY][RW_MAX_WEAPONS]; // arg4
 // arg5 and arg6 not stored this way
-new String:RW_GodModeSounds[RW_MAX_GODMODE_SOUNDS][MAX_SOUND_FILE_LENGTH]; // arg7
-new Float:RW_RJIntensityFactor; // arg8
+char RW_GodModeSounds[RW_MAX_GODMODE_SOUNDS][MAX_SOUND_FILE_LENGTH]; // arg7
+float RW_RJIntensityFactor; // arg8
 // arg19 is an error message not stored here
 
 // ROTT weapon info. only reason I'm storing them is so i.e. drunk missile doesn't suddenly get heatseeker logic on weapon switch.
 #define RWI_PREFIX "rage_rott_weapon_info"
-new RWI_Type[RW_MAX_WEAPONS]; // arg1
+int RWI_Type[RW_MAX_WEAPONS]; // arg1
 // args 2-5 are only needed at rage time
-new Float:RWI_Duration[RW_MAX_WEAPONS]; // arg6, god mode and armor only
-new RWI_AdditionalProjectiles[RW_MAX_WEAPONS]; // arg7, drunk missile only
-new Float:RWI_HomingDegreesPerSecond[RW_MAX_WEAPONS]; // arg8
-new bool:RWI_ObsessiveHoming[RW_MAX_WEAPONS]; // arg9
-new RWI_NumAdditionalExplosions[RW_MAX_WEAPONS]; // arg10
-new Float:RWI_ExplosionInterval[RW_MAX_WEAPONS]; // arg11
-new Float:RWI_RandomDeviationPerSecond[RW_MAX_WEAPONS]; // arg12
-new RWI_ModelOverrideIdx[RW_MAX_WEAPONS]; // arg13
-new String:RWI_ParticleOverride[RW_MAX_WEAPONS][MAX_EFFECT_NAME_LENGTH]; // arg14
+float RWI_Duration[RW_MAX_WEAPONS]; // arg6, god mode and armor only
+int RWI_AdditionalProjectiles[RW_MAX_WEAPONS]; // arg7, drunk missile only
+float RWI_HomingDegreesPerSecond[RW_MAX_WEAPONS]; // arg8
+bool RWI_ObsessiveHoming[RW_MAX_WEAPONS]; // arg9
+int RWI_NumAdditionalExplosions[RW_MAX_WEAPONS]; // arg10
+float RWI_ExplosionInterval[RW_MAX_WEAPONS]; // arg11
+float RWI_RandomDeviationPerSecond[RW_MAX_WEAPONS]; // arg12
+int RWI_ModelOverrideIdx[RW_MAX_WEAPONS]; // arg13
+char RWI_ParticleOverride[RW_MAX_WEAPONS][MAX_EFFECT_NAME_LENGTH]; // arg14
 // arg 15 is up there as RW_Messages
 // arg 16 is only needed at rage time
-new Float:RWI_LockOnAngle[RW_MAX_WEAPONS];
-new Float:RWI_HomeAngle[RW_MAX_WEAPONS];
+float RWI_LockOnAngle[RW_MAX_WEAPONS];
+float RWI_HomeAngle[RW_MAX_WEAPONS];
 
 // ROTT monitored rockets
 #define MAX_ROCKETS 30
 #define FIREBOMB_EXPLOSION_RADIUS "150" // it's input as a string, so...lol
 #define FIREBOMB_EXPLOSION_DISTANCE_BETWEEN 100.0
-new RMR_Spec[MAX_ROCKETS];
-new RMR_RocketEntRef[MAX_ROCKETS];
-new Float:RMR_NextDeviationAt[MAX_ROCKETS];
-new Float:RMR_HomingPerSecond[MAX_ROCKETS];
-new Float:RMR_RandomDeviationPerSecond[MAX_ROCKETS];
-new RMR_CurrentHomingTarget[MAX_ROCKETS];
-new bool:RMR_CanRetarget[MAX_ROCKETS];
-new Float:RMR_RocketVelocity[MAX_ROCKETS];
-new bool:RMR_HasTargeted[MAX_ROCKETS];
-new RMR_FirebombCount[MAX_ROCKETS];
-new RMR_FirebombsActivated[MAX_ROCKETS];
-new RMR_FirebombDamage[MAX_ROCKETS];
-new RMR_RocketOwner[MAX_ROCKETS];
-new Float:RMR_FirebombInterval[MAX_ROCKETS];
-new Float:RMR_ChainExplosionStartedAt[MAX_ROCKETS];
-new Float:RMR_LastPosition[MAX_ROCKETS][3];
-new Float:RMR_LastAngle[MAX_ROCKETS][3];
+int RMR_Spec[MAX_ROCKETS];
+int RMR_RocketEntRef[MAX_ROCKETS];
+float RMR_NextDeviationAt[MAX_ROCKETS];
+float RMR_HomingPerSecond[MAX_ROCKETS];
+float RMR_RandomDeviationPerSecond[MAX_ROCKETS];
+int RMR_CurrentHomingTarget[MAX_ROCKETS];
+bool RMR_CanRetarget[MAX_ROCKETS];
+float RMR_RocketVelocity[MAX_ROCKETS];
+bool RMR_HasTargeted[MAX_ROCKETS];
+int RMR_FirebombCount[MAX_ROCKETS];
+int RMR_FirebombsActivated[MAX_ROCKETS];
+int RMR_FirebombDamage[MAX_ROCKETS];
+int RMR_RocketOwner[MAX_ROCKETS];
+float RMR_FirebombInterval[MAX_ROCKETS];
+float RMR_ChainExplosionStartedAt[MAX_ROCKETS];
+float RMR_LastPosition[MAX_ROCKETS][3];
+float RMR_LastAngle[MAX_ROCKETS][3];
 
 // queued rockets, since they can't be immediately identified on spawn
 #define ROCKET_QUEUE_SIZE 5
-new RocketQueue[ROCKET_QUEUE_SIZE];
-new RocketBeingCreated = false; // prevent endless recursion with the rocket queue
+int RocketQueue[ROCKET_QUEUE_SIZE];
+int RocketBeingCreated = false; // prevent endless recursion with the rocket queue
 
 // ROTT's infinity pistol, though intentionally so weak as to be a joke/challenge more than anything (for balance)
 // given to the user shortly after round start
 #define RIP_STRING "rage_rott_infinity_pistol"
 #define RIP_AWARD_INTERVAL 1.0 // 1 second between clip ammo awards
-new bool:RIP_ActiveThisRound = false;
-new bool:RIP_IsUsing[MAX_PLAYERS_ARRAY];
-new Float:RIP_NextAwardTime[MAX_PLAYERS_ARRAY];
-new RIP_AwardAmmoCount[MAX_PLAYERS_ARRAY];
-new bool:RIP_IsPrimary[MAX_PLAYERS_ARRAY];
+bool RIP_ActiveThisRound = false;
+bool RIP_IsUsing[MAX_PLAYERS_ARRAY];
+float RIP_NextAwardTime[MAX_PLAYERS_ARRAY];
+int RIP_AwardAmmoCount[MAX_PLAYERS_ARRAY];
+bool RIP_IsPrimary[MAX_PLAYERS_ARRAY];
 
 // fixed melee
 #define RFM_STRING "rage_rott_fixed_melee"
-new String:RFM_WeaponName[MAX_PLAYERS_ARRAY][MAX_WEAPON_NAME_LENGTH];
-new RFM_WeaponIdx[MAX_PLAYERS_ARRAY];
-new String:RFM_WeaponArgs[MAX_PLAYERS_ARRAY][MAX_WEAPON_ARG_LENGTH];
-new RFM_WeaponVisibility[MAX_PLAYERS_ARRAY];
+char RFM_WeaponName[MAX_PLAYERS_ARRAY][MAX_WEAPON_NAME_LENGTH];
+int RFM_WeaponIdx[MAX_PLAYERS_ARRAY];
+char RFM_WeaponArgs[MAX_PLAYERS_ARRAY][MAX_WEAPON_ARG_LENGTH];
+int RFM_WeaponVisibility[MAX_PLAYERS_ARRAY];
 			
 // combining the above two since I've run out of ability space.
 #define RSW_STRING "rage_rott_static_weapons"
 
 // individual ROTT props and their management
 #define MAX_PROPS 100
-new PROP_HighestSpawnedProp = -1;
-new PROP_EntRef[MAX_PROPS];
-new PROP_Type[MAX_PROPS];
-new Float:PROP_NextTriggerTime[MAX_PROPS][MAX_PLAYERS_ARRAY]; // yes, this has a large data size. but it's for the best.
-new PROP_OwnerUserId[MAX_PROPS];
+int PROP_HighestSpawnedProp = -1;
+int PROP_EntRef[MAX_PROPS];
+int PROP_Type[MAX_PROPS];
+float PROP_NextTriggerTime[MAX_PROPS][MAX_PLAYERS_ARRAY]; // yes, this has a large data size. but it's for the best.
+int PROP_OwnerUserId[MAX_PROPS];
 
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
-PrintRageWarning()
+void PrintRageWarning()
 {
 	PrintToServer("*********************************************************************");
 	PrintToServer("*                             WARNING                               *");
@@ -314,7 +260,7 @@ PrintRageWarning()
 }
  
 #define CMD_FORCE_RAGE "rage"
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
@@ -326,7 +272,7 @@ public OnPluginStart2()
 	}
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = true;
 	
@@ -337,7 +283,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	RP_HUDMessage[0] = 0;
 	
 	// initialize arrays
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// ROTT weapons
 		RW_CanUse[clientIdx] = false;
@@ -362,7 +308,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		RIP_IsUsing[clientIdx] = false;
 	
 		// boss-only inits
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
@@ -378,30 +324,30 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			RW_WeaponVisibility[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RW_STRING, 2);
 			RW_HomingInterval = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 3);
 			
-			new String:chancesStr[RW_MAX_WEAPONS * 3];
+			char chancesStr[RW_MAX_WEAPONS * 3];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RW_STRING, 4, chancesStr, 30);
-			new String:chancesStrs[RW_MAX_WEAPONS][4];
+			char chancesStrs[RW_MAX_WEAPONS][4];
 			ExplodeString(chancesStr, ";", chancesStrs, RW_MAX_WEAPONS, 4);
-			for (new i = 0; i < RW_WeaponCount[clientIdx]; i++)
+			for (int i = 0; i < RW_WeaponCount[clientIdx]; i++)
 				RW_WeaponChances[clientIdx][i] = StringToInt(chancesStrs[i]);
 
-			new Float:maxAngleLockOn = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 5);
-			new Float:maxAngleHome = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 6);
-			for (new i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
+			float maxAngleLockOn = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 5);
+			float maxAngleHome = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 6);
+			for (int i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
 				RW_GodModeSounds[i][0] = 0;
-			new String:godModeSounds[(MAX_SOUND_FILE_LENGTH + 1) * RW_MAX_GODMODE_SOUNDS];
+			char godModeSounds[(MAX_SOUND_FILE_LENGTH + 1) * RW_MAX_GODMODE_SOUNDS];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RW_STRING, 7, godModeSounds, sizeof(godModeSounds));
 			ExplodeString(godModeSounds, ";", RW_GodModeSounds, RW_MAX_GODMODE_SOUNDS, MAX_SOUND_FILE_LENGTH);
-			for (new i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
+			for (int i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
 				if (strlen(RW_GodModeSounds[i]) > 3)
 					PrecacheSound(RW_GodModeSounds[i]);
 					
 			RW_RJIntensityFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RW_STRING, 8);
 				
 			// specific weapon info
-			for (new i = 0; i < RW_WeaponCount[clientIdx]; i++)
+			for (int i = 0; i < RW_WeaponCount[clientIdx]; i++)
 			{
-				static String:actualRWIString[40];
+				static char actualRWIString[40];
 				Format(actualRWIString, 40, "%s%d", RWI_PREFIX, i);
 				
 				RWI_Type[i] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, actualRWIString, 1);
@@ -420,7 +366,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 					PrintToServer("[sarysapub1] Read in HUD message: %s", RW_Messages[i]);
 				
 				// not storing arg 16, but the sound must be precached
-				static String:rageSound[MAX_SOUND_FILE_LENGTH];
+				static char rageSound[MAX_SOUND_FILE_LENGTH];
 				ReadSound(bossIdx, actualRWIString, 16, rageSound);
 					
 				// overrides for lock on and homing angle
@@ -443,7 +389,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			PluginActiveThisRound = true;
 			RP_ActiveThisRound = true;
 			RP_CurrentlySelectedProp[clientIdx] = -1;
-			for (new i = 1; i <= 7; i += 2)
+			for (int i = 1; i <= 7; i += 2)
 			{
 				RP_CanDeployProp[clientIdx][i/2] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RP_STRING, i) == 1;
 				RP_PropRageCost[clientIdx][i/2] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RP_STRING, i+1);
@@ -542,15 +488,15 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	if (RP_ActiveThisRound)
 	{
 		PROP_HighestSpawnedProp = -1;
-		for (new i = 0; i < MAX_PROPS; i++)
+		for (int i = 0; i < MAX_PROPS; i++)
 			PROP_Type[i] = PROP_INVALID;
 	}
 	
 	if (RW_ActiveThisRound)
 	{
-		for (new i = 0; i < ROCKET_QUEUE_SIZE; i++)
+		for (int i = 0; i < ROCKET_QUEUE_SIZE; i++)
 			RocketQueue[i] = -1;
-		for (new i = 0; i < MAX_ROCKETS; i++)
+		for (int i = 0; i < MAX_ROCKETS; i++)
 			RMR_RocketEntRef[i] = 0;
 			
 		// object destroyed event
@@ -566,12 +512,12 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	CreateTimer(0.3, Timer_PostRoundStartInits, _, TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public Action:Timer_PostRoundStartInits(Handle:timer)
+public Action Timer_PostRoundStartInits(Handle timer)
 {
 	if (!RoundInProgress) // user suicided
 		return Plugin_Continue;
 		
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -580,7 +526,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 		SDKHook(clientIdx, SDKHook_OnTakeDamage, ROTTDamageMonitor);
 	
 		// boss-only inits
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
@@ -591,12 +537,12 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 			PluginActiveThisRound = true;
 			RIP_ActiveThisRound = true;
 			
-			new String:weaponName[MAX_WEAPON_NAME_LENGTH];
+			char weaponName[MAX_WEAPON_NAME_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RIP_STRING, 1, weaponName, sizeof(weaponName));
-			new weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 2);
-			new String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+			int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 2);
+			char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RIP_STRING, 3, weaponArgs, sizeof(weaponArgs));
-			new weaponVisibility = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 4);
+			int weaponVisibility = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 4);
 			
 			SpawnWeapon(clientIdx, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 			
@@ -615,7 +561,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 			RFM_WeaponVisibility[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RFM_STRING, 4);
 			
 			TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Melee);
-			new melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
+			int melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
 			if (IsValidEntity(melee))
 				SetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon", melee);
 		}
@@ -628,12 +574,12 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 			RIP_IsUsing[clientIdx] = true;
 			RIP_ActiveThisRound = true;
 			
-			new String:weaponName[MAX_WEAPON_NAME_LENGTH];
+			char weaponName[MAX_WEAPON_NAME_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RSW_STRING, 1, weaponName, sizeof(weaponName));
-			new weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 2);
-			new String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+			int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 2);
+			char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RSW_STRING, 3, weaponArgs, sizeof(weaponArgs));
-			new weaponVisibility = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 4);
+			int weaponVisibility = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 4);
 			
 			SpawnWeapon(clientIdx, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 			
@@ -648,7 +594,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 			RFM_WeaponVisibility[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 14);
 			
 			TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Melee);
-			new melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
+			int melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
 			if (IsValidEntity(melee))
 				SetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon", melee);
 		}
@@ -657,7 +603,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = false;
 	
@@ -670,7 +616,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 		RP_ActiveThisRound = false;
 		
 		// re-enable fall damage and stop monitoring players
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 			if (IsValidEntity(clientIdx) && IsClientInGame(clientIdx))
 				SDKUnhook(clientIdx, SDKHook_OnTakeDamage, ROTTDamageMonitor);
 		RP_NoFallDamage = false;
@@ -688,7 +634,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	}
 }
 
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (strcmp(plugin_name, this_plugin_name) != 0)
 		return Plugin_Continue;
@@ -705,10 +651,10 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Debug Only!
  */
-public Action:CmdForceRage(user, argsInt)
+public Action CmdForceRage(int user, int argsInt)
 {
 	// get actual args
-	new String:unparsedArgs[ARG_LENGTH];
+	char unparsedArgs[ARG_LENGTH];
 	GetCmdArgString(unparsedArgs, ARG_LENGTH);
 	
 	// gotta do this
@@ -736,13 +682,13 @@ public Action:CmdForceRage(user, argsInt)
  */
 #define PROPS_MESSAGE_MAX 200
 #define HUD_MESSAGE_MAX (RW_MAX_MESSAGE_LENGTH + 2 + PROPS_MESSAGE_MAX + 1 + PROPS_MESSAGE_MAX + 1 + PROPS_MESSAGE_MAX + 1)
-new String:ROTT_HudMessage[MAX_PLAYERS_ARRAY][HUD_MESSAGE_MAX];
-public ROTT_UpdateHUD(clientIdx)
+char ROTT_HudMessage[MAX_PLAYERS_ARRAY][HUD_MESSAGE_MAX];
+public void ROTT_UpdateHUD(int clientIdx)
 {
-	static String:weaponMessage[RW_MAX_MESSAGE_LENGTH];
-	static String:errorMessage[PROPS_MESSAGE_MAX];
-	static String:propsMessage[PROPS_MESSAGE_MAX];
-	static String:debugMessage[PROPS_MESSAGE_MAX];
+	static char weaponMessage[RW_MAX_MESSAGE_LENGTH];
+	static char errorMessage[PROPS_MESSAGE_MAX];
+	static char propsMessage[PROPS_MESSAGE_MAX];
+	static char debugMessage[PROPS_MESSAGE_MAX];
 	
 	if (RW_ActiveThisRound && RW_CanUse[clientIdx])
 	{
@@ -755,7 +701,7 @@ public ROTT_UpdateHUD(clientIdx)
 	
 	if (RP_ActiveThisRound && RP_CanUse[clientIdx])
 	{
-		new curProp = RP_CurrentlySelectedProp[clientIdx];
+		int curProp = RP_CurrentlySelectedProp[clientIdx];
 		Format(propsMessage, PROPS_MESSAGE_MAX, RP_HUDMessage, RP_PropName[curProp], RP_PropRageCost[clientIdx][curProp]);
 		
 		if (RP_ActiveErrorState[clientIdx] != RP_ERROR_STATE_NONE && RP_DisplayErrorUntil[clientIdx] > GetEngineTime())
@@ -790,16 +736,16 @@ public ROTT_UpdateHUD(clientIdx)
 /**
  * ROTT Weapons
  */
-public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
+public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
 {
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// pick a random weapon
-	new randomInt = GetRandomInt(1, 100);
+	int randomInt = GetRandomInt(1, 100);
 	
-	new weaponSpec = -1;
-	new add = 0;
-	for (new i = 0; i < RW_WeaponCount[clientIdx]; i++)
+	int weaponSpec = -1;
+	int add = 0;
+	for (int i = 0; i < RW_WeaponCount[clientIdx]; i++)
 	{
 		add += RW_WeaponChances[clientIdx][i];
 		if (add >= randomInt)
@@ -818,7 +764,7 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	}
 	
 	// get our actual ability info
-	static String:actualRWIString[40];
+	static char actualRWIString[40];
 	Format(actualRWIString, 40, "%s%d", RWI_PREFIX, weaponSpec);
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysapub1] Giving player ROTT weapon specified in %s", actualRWIString);
@@ -836,20 +782,20 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 		}
 		
 		// only change the user's active weapon if necessary
-		new bool:shouldChangeWeapon = false;
-		new oldWeapon = GetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon");
+		bool shouldChangeWeapon = false;
+		int oldWeapon = GetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon");
 		if (IsValidEntity(oldWeapon))
 		{
-			static String:oldClassname[MAX_WEAPON_NAME_LENGTH];
+			static char oldClassname[MAX_WEAPON_NAME_LENGTH];
 			GetEntityClassname(oldWeapon, oldClassname, MAX_WEAPON_NAME_LENGTH);
 			if (!strcmp(oldClassname, RFM_WeaponName[clientIdx]))
 				shouldChangeWeapon = true;
 		}
 		
-		static String:armorArgs[MAX_WEAPON_ARG_LENGTH];
+		static char armorArgs[MAX_WEAPON_ARG_LENGTH];
 		Format(armorArgs, MAX_WEAPON_ARG_LENGTH, "66 ; 0.00 ; 64 ; 0.00 ; 60 ; 0.00 ; %s", RFM_WeaponArgs[clientIdx]);
 		TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Melee);
-		new melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, armorArgs, RFM_WeaponVisibility[clientIdx]);
+		int melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, armorArgs, RFM_WeaponVisibility[clientIdx]);
 		if (IsValidEntity(melee) && shouldChangeWeapon)
 			SetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon", melee);
 			
@@ -862,8 +808,8 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	}
 
 	// read in the weapon to give to the player
-	new clipSize = FF2_GetAbilityArgument(bossIdx, this_plugin_name, actualRWIString, 2);
-	new String:weaponName[MAX_WEAPON_NAME_LENGTH];
+	int clipSize = FF2_GetAbilityArgument(bossIdx, this_plugin_name, actualRWIString, 2);
+	char weaponName[MAX_WEAPON_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, actualRWIString, 3, weaponName, MAX_WEAPON_NAME_LENGTH);
 	
 	// sarysa updated 2014-09-09, with armor gaining support for providing a rocket launcher
@@ -872,14 +818,14 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	{
 		// sarysa updated 2014-09-23
 		// if the hale already has a weapon, check the clip.
-		// if it's lower than the clip of the new weapon, 
-		new bool:shouldAddWeapon = true;
+		// if it's lower than the clip of the int weapon, 
+		bool shouldAddWeapon = true;
 		if (RWI_Type[weaponSpec] == RW_TYPE_ARMOR)
 		{
-			new oldWeapon = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
+			int oldWeapon = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
 			if (IsValidEntity(oldWeapon))
 			{
-				new oldClip = GetEntProp(oldWeapon, Prop_Send, "m_iClip1");
+				int oldClip = GetEntProp(oldWeapon, Prop_Send, "m_iClip1");
 				if (oldClip > 0)
 				{
 					shouldAddWeapon = false;
@@ -891,19 +837,19 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	
 		if (shouldAddWeapon)
 		{
-			new weaponNum = FF2_GetAbilityArgument(bossIdx, this_plugin_name, actualRWIString, 4);
-			new String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+			int weaponNum = FF2_GetAbilityArgument(bossIdx, this_plugin_name, actualRWIString, 4);
+			char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, actualRWIString, 5, weaponArgs, MAX_WEAPON_ARG_LENGTH);
 
 			// fully replace any old rocket launcher
 			TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Primary);
-			new weapon = SpawnWeapon(clientIdx, weaponName, weaponNum, 101, 5, weaponArgs, RW_WeaponVisibility[clientIdx]);
+			int weapon = SpawnWeapon(clientIdx, weaponName, weaponNum, 101, 5, weaponArgs, RW_WeaponVisibility[clientIdx]);
 			if (IsValidEntity(weapon))
 			{
 				SetEntProp(weapon, Prop_Send, "m_iClip1", clipSize);
 
 				// taken from 1st set abilities
-				new ammoOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
+				int ammoOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
 				SetEntProp(clientIdx, Prop_Send, "m_iAmmo", 0, 4, ammoOffset);
 
 				SetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon", weapon);
@@ -935,7 +881,7 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	ROTT_UpdateHUD(clientIdx);
 	
 	// play the rage sound
-	new String:rageSound[MAX_SOUND_FILE_LENGTH];
+	char rageSound[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, actualRWIString, 16, rageSound, MAX_SOUND_FILE_LENGTH);
 	if (strlen(rageSound) > 3)
 	{
@@ -946,12 +892,12 @@ public Rage_ROTTWeapons(const String:ability_name[], bossIdx)
 	}
 }
 
-public DuplicateRocket(clientIdx, baseRocket, Float:speed, Float:spawnAngles[3], Float:zOffset)
+public int DuplicateRocket(int clientIdx, int baseRocket, float speed, float spawnAngles[3], float zOffset)
 {
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
-	new String:classname[MAX_ENTITY_CLASSNAME_LENGTH] = "CTFProjectile_Rocket";
-	new String:entname[MAX_ENTITY_CLASSNAME_LENGTH] = "tf_projectile_rocket";
-	new rocket = CreateEntityByName(entname);
+	char classname[MAX_ENTITY_CLASSNAME_LENGTH] = "CTFProjectile_Rocket";
+	char entname[MAX_ENTITY_CLASSNAME_LENGTH] = "tf_projectile_rocket";
+	int rocket = CreateEntityByName(entname);
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysapub1] Error: Invalid entity %s. Won't spawn rocket.", entname);
@@ -959,12 +905,12 @@ public DuplicateRocket(clientIdx, baseRocket, Float:speed, Float:spawnAngles[3],
 	}
 	
 	// get spawn position from the base rocket
-	new Float:spawnPosition[3];
+	float spawnPosition[3];
 	GetEntPropVector(baseRocket, Prop_Send, "m_vecOrigin", spawnPosition);
-	spawnPosition[2] += zOffset; // fixes problem of new rocket colliding with old one
+	spawnPosition[2] += zOffset; // fixes problem of int rocket colliding with old one
 	
 	// determine velocity
-	new Float:spawnVelocity[3];
+	float spawnVelocity[3];
 	GetAngleVectors(spawnAngles, spawnVelocity, NULL_VECTOR, NULL_VECTOR);
 	spawnVelocity[0] *= speed;
 	spawnVelocity[1] *= speed;
@@ -972,7 +918,7 @@ public DuplicateRocket(clientIdx, baseRocket, Float:speed, Float:spawnAngles[3],
 	
 	// deploy!
 	SetEntProp(rocket, Prop_Send, "m_bCritical", GetEntProp(baseRocket, Prop_Send, "m_bCritical"));
-	new damageOffset = FindSendPropOffs(classname, "m_iDeflected") + 4; // credit to voogru
+	int damageOffset = FindSendPropInfo(classname, "m_iDeflected") + 4; // credit to voogru
 	SetEntDataFloat(rocket, damageOffset, GetEntDataFloat(baseRocket, damageOffset), true);
 	SetEntProp(rocket, Prop_Send, "m_nSkin", 1); // set skin to blue team's
 	SetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity", clientIdx);
@@ -983,7 +929,7 @@ public DuplicateRocket(clientIdx, baseRocket, Float:speed, Float:spawnAngles[3],
 	
 	// I found this offset while trying to fix the sudden-explode issue with these rockets. it's another instance
 	// of the owner entity, so why the hell not copy this over...probably useful for some things.
-	new testOffset = FindSendPropOffs(classname, "m_bCritical") - 4;
+	int testOffset = FindSendPropInfo(classname, "m_bCritical") - 4;
 	SetEntDataEnt2(rocket, testOffset, GetEntDataEnt2(baseRocket, testOffset), true);
 	TeleportEntity(rocket, spawnPosition, spawnAngles, spawnVelocity);
 	DispatchSpawn(rocket);
@@ -1001,14 +947,14 @@ public DuplicateRocket(clientIdx, baseRocket, Float:speed, Float:spawnAngles[3],
 	SetEntProp(rocket, Prop_Send, "m_nModelIndex", GetEntProp(baseRocket, Prop_Send, "m_nModelIndex"));
 	
 	if (PRINT_DEBUG_SPAM)
-		PrintToServer("[sarysapub1] Created a new rocket: %d", rocket);
+		PrintToServer("[sarysapub1] Created a int rocket: %d", rocket);
 	
 	return rocket;
 }
 
-public MonitorRocket(clientIdx, rocket, Float:velocity)
+public void MonitorRocket(int clientIdx, int rocket, float velocity)
 {
-	new spec = RW_ActiveWeaponSpec[clientIdx];
+	int spec = RW_ActiveWeaponSpec[clientIdx];
 	
 	// so even if we don't need to monitor a rocket, we may still need to reskin it
 	if (RWI_ModelOverrideIdx[spec] != -1)
@@ -1017,17 +963,17 @@ public MonitorRocket(clientIdx, rocket, Float:velocity)
 	// trail override
 	if (!IsEmptyString(RWI_ParticleOverride[spec]))
 	{
-		new particle = AttachParticle(rocket, RWI_ParticleOverride[spec]);
+		int particle = AttachParticle(rocket, RWI_ParticleOverride[spec]);
 		if (IsValidEntity(particle))
-			CreateTimer(10.0, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // sanity timer
+			CreateTimer(10.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // sanity timer
 	}
 	
 	// mandatory sunbeams effect for god mode. gotta make it more god-like looking as in ROTT :P
 	if (RWI_Type[spec] == RW_TYPE_GOD_MODE)
 	{
-		new particle = AttachParticle(rocket, "superrare_beams1");
+		int particle = AttachParticle(rocket, "superrare_beams1");
 		if (IsValidEntity(particle))
-			CreateTimer(10.0, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // sanity timer
+			CreateTimer(10.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // sanity timer
 	}
 	
 	// do we really, truly need to monitor this rocket?
@@ -1040,8 +986,8 @@ public MonitorRocket(clientIdx, rocket, Float:velocity)
 	//}
 	
 	// find a free spot
-	new rocketIdx = -1;
-	for (new i = 0; i < MAX_ROCKETS; i++)
+	int rocketIdx = -1;
+	for (int i = 0; i < MAX_ROCKETS; i++)
 	{
 		if (RMR_RocketEntRef[i] == 0)
 		{
@@ -1069,7 +1015,7 @@ public MonitorRocket(clientIdx, rocket, Float:velocity)
 	RMR_HasTargeted[rocketIdx] = false;
 	RMR_FirebombCount[rocketIdx] = RWI_NumAdditionalExplosions[spec];
 	RMR_FirebombsActivated[rocketIdx] = 0;
-	new damageOffset = FindSendPropOffs("CTFProjectile_Rocket", "m_iDeflected") + 4; // credit to voogru
+	int damageOffset = FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4; // credit to voogru
 	RMR_FirebombDamage[rocketIdx] = RoundFloat(GetEntDataFloat(rocket, damageOffset));
 	RMR_RocketOwner[rocketIdx] = clientIdx;
 	RMR_FirebombInterval[rocketIdx] = RWI_ExplosionInterval[spec];
@@ -1082,13 +1028,13 @@ public MonitorRocket(clientIdx, rocket, Float:velocity)
 		RMR_NextDeviationAt[rocketIdx] = 999999.0;
 }
 
-public RemoveRocketAt(rocketIdx, bool:keepAlive)
+public void RemoveRocketAt(int rocketIdx, bool keepAlive)
 {
-	new rocket = EntRefToEntIndex(RMR_RocketEntRef[rocketIdx]);
+	int rocket = EntRefToEntIndex(RMR_RocketEntRef[rocketIdx]);
 	if (IsValidEntity(rocket) && !keepAlive)
 		AcceptEntityInput(rocket, "kill");
 		
-	for (new i = rocketIdx; i < MAX_ROCKETS - 1; i++)
+	for (int i = rocketIdx; i < MAX_ROCKETS - 1; i++)
 	{
 		RMR_Spec[i] = RMR_Spec[i+1];
 		RMR_RocketEntRef[i] = RMR_RocketEntRef[i+1];
@@ -1115,7 +1061,7 @@ public RemoveRocketAt(rocketIdx, bool:keepAlive)
 	RMR_RocketEntRef[MAX_ROCKETS - 1] = 0;
 }
 
-public OnEntityCreated(rocket, const String:classname[])
+public void OnEntityCreated(int rocket, const char[] classname)
 {
 	if (!RW_ActiveThisRound || strcmp(classname, "tf_projectile_rocket"))
 		return;
@@ -1127,7 +1073,7 @@ public OnEntityCreated(rocket, const String:classname[])
 	//PrintToServer("[sarysapub1] Rocket created... %d / %s", rocket, classname);
 		
 	// queue it up, as it hasn't been configured yet and is not ready for tracking or duplication
-	for (new i = 0; i < ROCKET_QUEUE_SIZE; i++)
+	for (int i = 0; i < ROCKET_QUEUE_SIZE; i++)
 	{
 		if (RocketQueue[i] == -1)
 		{
@@ -1139,21 +1085,21 @@ public OnEntityCreated(rocket, const String:classname[])
 
 #define SPLIT_ANGLE_OFFSET 45.0
 #define DRUNK_ANGLE_OFFSET 22.5
-public TestRocket(rocket)
+public void TestRocket(int rocket)
 {
-	new clientIdx = GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity") & 0xff;
+	int clientIdx = GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity") & 0xff;
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysapub1] Testing a rocket. Rocket owner... %d", clientIdx);
 	if (!IsLivingPlayer(clientIdx) || !RW_CanUse[clientIdx])
 		return;
 		
 	// so it's the player's rocket. now do we care?
-	new spec = RW_ActiveWeaponSpec[clientIdx];
+	int spec = RW_ActiveWeaponSpec[clientIdx];
 	
 	// figure out its velocity
-	new Float:vecVelocity[3];
+	float vecVelocity[3];
 	GetEntPropVector(rocket, Prop_Send, "m_vInitialVelocity", vecVelocity);
-	new Float:speed = getLinearVelocity(vecVelocity);
+	float speed = getLinearVelocity(vecVelocity);
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysapub1] Found missile to have velocity of %f", speed);
 		
@@ -1166,8 +1112,8 @@ public TestRocket(rocket)
 		RocketBeingCreated = true;
 		
 		// before turning the rocket, need to store its angle for the second rocket
-		static Float:storedAngle[3];
-		static Float:rocketAngle[3];
+		static float storedAngle[3];
+		static float rocketAngle[3];
 		GetEntPropVector(rocket, Prop_Send, "m_angRotation", storedAngle);
 		
 		if (RWI_Type[spec] == RW_TYPE_SPLIT)
@@ -1186,20 +1132,20 @@ public TestRocket(rocket)
 			rocketAngle[0] = storedAngle[0];
 			rocketAngle[1] = fixAngle(storedAngle[1] - SPLIT_ANGLE_OFFSET);
 			rocketAngle[2] = storedAngle[2];
-			new newRocket = DuplicateRocket(clientIdx, rocket, speed, rocketAngle, 0.1);
+			int newRocket = DuplicateRocket(clientIdx, rocket, speed, rocketAngle, 0.1);
 			if (IsValidEntity(newRocket))
 				MonitorRocket(clientIdx, newRocket, speed);
 		}
 		else if (RWI_Type[spec] == RW_TYPE_DRUNK)
 		{
 			// spawn more missiles
-			for (new i = 0; i < RWI_AdditionalProjectiles[spec]; i++)
+			for (int i = 0; i < RWI_AdditionalProjectiles[spec]; i++)
 			{
-				new mod = i % 4;
+				int mod = i % 4;
 				rocketAngle[0] = fixAngle(storedAngle[0] + (mod == 2 ? DRUNK_ANGLE_OFFSET : (mod == 3 ? -DRUNK_ANGLE_OFFSET : 0.0)));
 				rocketAngle[1] = fixAngle(storedAngle[1] + (mod == 0 ? DRUNK_ANGLE_OFFSET : (mod == 1 ? -DRUNK_ANGLE_OFFSET : 0.0)));
 				rocketAngle[2] = storedAngle[2];
-				new newRocket = DuplicateRocket(clientIdx, rocket, speed, rocketAngle, 0.1 * float(i+1));
+				int newRocket = DuplicateRocket(clientIdx, rocket, speed, rocketAngle, 0.1 * float(i+1));
 				if (IsValidEntity(newRocket))
 					MonitorRocket(clientIdx, newRocket, speed);
 			}
@@ -1211,7 +1157,7 @@ public TestRocket(rocket)
 }
 
 // specific to rott weapons, someday if I do proper homing outside of this it shouldn't be hale-central
-public bool:RW_IsValidHomingTarget(target)
+public bool RW_IsValidHomingTarget(int target)
 {
 	if (!IsLivingPlayer(target))
 		return false;
@@ -1225,35 +1171,12 @@ public bool:RW_IsValidHomingTarget(target)
 	return true;
 }
 
-// needed for short circuit
-//public Action:RW_ObjectDestroyed(Handle:event, const String:name[], bool:dontBroadcast)
-//{
-//	new objectDestroyed = GetEventInt(event, "index");
-//	new userid = GetClientOfUserId(GetEventInt(event, "userid"));
-//	new attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-//	
-//	PrintToServer("objedest=%d    userid=%d    attacker=%d", objectDestroyed, userid, attacker);
-//	
-//	for (new i = 0; i < MAX_ROCKETS; i++)
-//	{
-//		if (RMR_RocketEntRef[i] == 0)
-//			break;
-//			
-//		new rocket = EntRefToEntIndex(RMR_RocketEntRef[i]);
-//		if (objectDestroyed == rocket)
-//		{
-//			if (PRINT_DEBUG_SPAM)
-//				PrintToServer("[sarysapub1] Rocket at index %d got short circuited.", i);
-//			RemoveRocketAt(i, true);
-//			break;
-//		}
-//	}
-//}
-
 /**
  * ROTT Props
  */
-public Action:ROTTDamageMonitor(victim, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action ROTTDamageMonitor(int victim, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon, 
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (RP_NoFallDamage)
 		if (damagetype & DMG_FALL && attacker == 0 && inflictor == 0) // allow world fall damage
@@ -1281,7 +1204,9 @@ public Action:ROTTDamageMonitor(victim, &attacker, &inflictor, &Float:damage, &d
 	return Plugin_Continue;
 }
  
-public Action:OnPropDamaged(prop, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnPropDamaged(int prop, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon, 
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(attacker))
 		return Plugin_Continue;
@@ -1298,7 +1223,7 @@ public Action:OnPropDamaged(prop, &attacker, &inflictor, &Float:damage, &damaget
 	return Plugin_Continue;
 }
 
-public RP_SetErrorState(clientIdx, errorState)
+public void RP_SetErrorState(int clientIdx, int errorState)
 {
 	if (errorState != RP_ERROR_STATE_NONE)
 		EmitSoundToClient(clientIdx, NOPE_AVI);
@@ -1308,7 +1233,7 @@ public RP_SetErrorState(clientIdx, errorState)
 	ROTT_UpdateHUD(clientIdx);
 }
  
-public Action:RP_ActionSlot(clientIdx, const String:command[], argc)
+public Action RP_ActionSlot(int clientIdx, const char[] command, int argc)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
@@ -1319,13 +1244,13 @@ public Action:RP_ActionSlot(clientIdx, const String:command[], argc)
 	return Plugin_Stop;
 }
 
-public IncrementProp(clientIdx)
+public void IncrementProp(int clientIdx)
 {
 	if (RP_CurrentlySelectedProp[clientIdx] == -1)
 		return;
 		
-	new oldSelection = RP_CurrentlySelectedProp[clientIdx];
-	for (new i = oldSelection + 1; i < PROP_COUNT; i++)
+	int oldSelection = RP_CurrentlySelectedProp[clientIdx];
+	for (int i = oldSelection + 1; i < PROP_COUNT; i++)
 	{
 		if (RP_CanDeployProp[clientIdx][i])
 		{
@@ -1336,7 +1261,7 @@ public IncrementProp(clientIdx)
 	
 	if (RP_CurrentlySelectedProp[clientIdx] == oldSelection)
 	{
-		for (new i = 0; i < oldSelection; i++)
+		for (int i = 0; i < oldSelection; i++)
 		{
 			if (RP_CanDeployProp[clientIdx][i])
 			{
@@ -1349,9 +1274,9 @@ public IncrementProp(clientIdx)
 	ROTT_UpdateHUD(clientIdx);
 }
 
-public bool:SpawnProp(clientIdx)
+public bool SpawnProp(int clientIdx)
 {
-	new propType = RP_CurrentlySelectedProp[clientIdx];
+	int propType = RP_CurrentlySelectedProp[clientIdx];
 	if (propType < 0 || propType >= PROP_COUNT)
 	{
 		PrintToServer("[sarysapub1] Somehow user selected an invalid ROTT prop.");
@@ -1360,8 +1285,8 @@ public bool:SpawnProp(clientIdx)
 	}
 	
 	// make sure there's sufficient rage
-	new bossIdx = FF2_GetBossIndex(clientIdx);
-	new Float:rageCost = RP_FreeProps ? 0.0 : RP_PropRageCost[clientIdx][propType];
+	int bossIdx = FF2_GetBossIndex(clientIdx);
+	float rageCost = RP_FreeProps ? 0.0 : RP_PropRageCost[clientIdx][propType];
 	if (FF2_GetBossCharge(bossIdx, 0) < rageCost)
 	{
 		RP_SetErrorState(clientIdx, RP_ERROR_STATE_NEED_RAGE);
@@ -1376,19 +1301,19 @@ public bool:SpawnProp(clientIdx)
 	}
 	
 	// get our spawn point. the model should be configured correctly so we can place it on the user's coordinates.
-	new Float:spawnPoint[3];
+	float spawnPoint[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", spawnPoint);
 	
 	// if it's any solid prop, make sure it's not spawned in a location that could trap another player
 	if (propType != PROP_SLICER)
 	{
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (clientIdx == victim || !IsLivingPlayer(victim))
 				continue;
 				
 			// need to do a cylinder test in a potential blocking radius, which is pretty big (I set max distance high [70.0] to be paranoid)
-			static Float:victimOrigin[3];
+			static float victimOrigin[3];
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimOrigin);
 			
 			// that 108.0 is a generous 25.0 for the prop and 83.0 for the height of a player
@@ -1402,7 +1327,7 @@ public bool:SpawnProp(clientIdx)
 	}
 	
 	// create the entity
-	new prop = CreateEntityByName("prop_physics_override");
+	int prop = CreateEntityByName("prop_physics_override");
 	if (!IsValidEntity(prop))
 	{
 		PrintToServer("[sarysapub1] Failed to create physics prop.");
@@ -1414,13 +1339,13 @@ public bool:SpawnProp(clientIdx)
 	SetEntProp(prop, Prop_Data, "m_takedamage", propType == PROP_SLICER ? 0 : 2);
 	
 	// give it the same angle of rotation as the player, but override the pitch
-	new Float:propAngles[3];
+	float propAngles[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_angRotation", propAngles);
 	propAngles[0] = propType == PROP_ANGLE_PAD ? 45.0 : 0.0;
 	SetEntPropVector(prop, Prop_Data, "m_angRotation", propAngles);
 	
 	// set the model
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	if (propType == PROP_JUMP_PAD)
 	{
 		modelName = RPJP_JumpPadModel;
@@ -1458,10 +1383,10 @@ public bool:SpawnProp(clientIdx)
 	// angle pad needs to be moved 50HU behind the player so they don't get stuck
 	if (propType == PROP_ANGLE_PAD)
 	{
-		new Float:testAngles[3];
+		float testAngles[3];
 		testAngles[0] = 0.0;
 		testAngles[1] = propAngles[1];
-		new Float:spawnOffset[3];
+		float spawnOffset[3];
 		GetAngleVectors(testAngles, spawnOffset, NULL_VECTOR, NULL_VECTOR);
 		spawnOffset[0] = (-spawnOffset[0]) * 50.0;
 		spawnOffset[1] = (-spawnOffset[1]) * 50.0;
@@ -1483,18 +1408,18 @@ public bool:SpawnProp(clientIdx)
 	
 	// set its collision and movement
 	SetEntityMoveType(prop, MOVETYPE_NONE);
-	SetEntProp(prop, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_NONE); // fun fact, there is collision with players, but this flag keeps players from getting trapped upon approaching the prop.
+	SetEntProp(prop, Prop_Send, "m_CollisionGroup", 0); // fun fact, there is collision with players, but this flag keeps players from getting trapped upon approaching the prop.
 	if (propType == PROP_SLICER)
 	{
-		SetEntProp(prop, Prop_Send, "m_usSolidFlags", FSOLID_NOT_SOLID); // not solid
-		SetEntProp(prop, Prop_Send, "m_nSolidType", SOLID_NONE); // not solid
+		SetEntProp(prop, Prop_Send, "m_usSolidFlags", 0x04); // not solid
+		SetEntProp(prop, Prop_Send, "m_nSolidType", 0); // not solid
 	}
 		
 	// damage hook it (need to let boss easily destroy it with melee, but not other weapons)
 	SDKHook(prop, SDKHook_OnTakeDamage, OnPropDamaged);
 	
 	// find an open prop, or destroy an old one
-	new propIdx = PROP_HighestSpawnedProp + 1;
+	int propIdx = PROP_HighestSpawnedProp + 1;
 	if (propIdx >= MAX_PROPS)
 	{
 		// oldest prop is always 0
@@ -1516,8 +1441,8 @@ public bool:SpawnProp(clientIdx)
 	PROP_EntRef[propIdx] = EntIndexToEntRef(prop);
 	PROP_Type[propIdx] = propType;
 	PROP_OwnerUserId[propIdx] = GetClientUserId(clientIdx);
-	new Float:triggerTime = GetEngineTime() + (propType == PROP_SLICER ? RPS_DelayBeforeDamage : 0.0) - RP_EffectTriggerInterval[propType];
-	for (new i = 1; i < MAX_PLAYERS; i++)
+	float triggerTime = GetEngineTime() + (propType == PROP_SLICER ? RPS_DelayBeforeDamage : 0.0) - RP_EffectTriggerInterval[propType];
+	for (int i = 1; i < MAX_PLAYERS; i++)
 		PROP_NextTriggerTime[propIdx][i] = triggerTime;
 		
 	// trigger certain effects on the prop creator now, ignoring the collision check
@@ -1535,21 +1460,21 @@ public bool:SpawnProp(clientIdx)
 	return true; // yay it works
 }
 
-public DestroyProp(propIdx, bool:reorder)
+public void DestroyProp(int propIdx, bool reorder)
 {
-	new prop = EntRefToEntIndex(PROP_EntRef[propIdx]);
+	int prop = EntRefToEntIndex(PROP_EntRef[propIdx]);
 	if (IsValidEntity(prop))
-		RemoveEntity(INVALID_HANDLE, prop);
+		Timer_RemoveEntity(INVALID_HANDLE, prop);
 		
 	if (reorder)
 	{
 		// this is expensive. do it sparingly.
-		for (new i = propIdx; i < PROP_HighestSpawnedProp; i++)
+		for (int i = propIdx; i < PROP_HighestSpawnedProp; i++)
 		{
 			PROP_EntRef[i] = PROP_EntRef[i+1];
 			PROP_Type[i] = PROP_Type[i+1];
 			PROP_OwnerUserId[i] = PROP_OwnerUserId[i+1];
-			for (new j = 0; j < MAX_PLAYERS; j++)
+			for (int j = 0; j < MAX_PLAYERS; j++)
 				PROP_NextTriggerTime[i][j] = PROP_NextTriggerTime[i+1][j];
 		}
 		PROP_HighestSpawnedProp--;
@@ -1559,10 +1484,10 @@ public DestroyProp(propIdx, bool:reorder)
 }
 
 #define JUMP_PAD_DEFAULT_INTENSITY 1000.0
-public RP_TriggerJumpPad(clientIdx, propIdx)
+public void RP_TriggerJumpPad(int clientIdx, int propIdx)
 {
 	// respect any existing velocity, but completely override Z
-	static Float:playerVelocity[3];
+	static float playerVelocity[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", playerVelocity);
 	playerVelocity[2] = JUMP_PAD_DEFAULT_INTENSITY * RPJP_JumpPadIntensity;
 	SetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", playerVelocity);
@@ -1576,18 +1501,18 @@ public RP_TriggerJumpPad(clientIdx, propIdx)
 	PROP_NextTriggerTime[propIdx][clientIdx] = GetEngineTime() + RP_EffectTriggerInterval[PROP_JUMP_PAD];
 }
 
-public RP_TriggerAnglePad(clientIdx, propIdx, Float:propAngles[3])
+public void RP_TriggerAnglePad(int clientIdx, int propIdx, float propAngles[3])
 {
 	// get the player's current velocity and dampen it if necessary
-	static Float:playerVelocity[3];
+	static float playerVelocity[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", playerVelocity);
 	playerVelocity[0] *= (1.0 - RPJP_AnglePadDampeningFactor);
 	playerVelocity[1] *= (1.0 - RPJP_AnglePadDampeningFactor);
 	playerVelocity[2] = 0.0;
 	
 	// get velocity vectors for this jump pad
-	new Float:intensity = (JUMP_PAD_DEFAULT_INTENSITY * 2.0 / 3.0) * RPJP_AnglePadIntensity;
-	new Float:tmpVelocity[3];
+	float intensity = (JUMP_PAD_DEFAULT_INTENSITY * 2.0 / 3.0) * RPJP_AnglePadIntensity;
+	float tmpVelocity[3];
 	GetAngleVectors(propAngles, tmpVelocity, NULL_VECTOR, NULL_VECTOR);
 	tmpVelocity[0] *= intensity;
 	tmpVelocity[1] *= intensity;
@@ -1614,13 +1539,13 @@ public RP_TriggerAnglePad(clientIdx, propIdx, Float:propAngles[3])
 	PROP_NextTriggerTime[propIdx][clientIdx] = GetEngineTime() + RP_EffectTriggerInterval[PROP_ANGLE_PAD];
 }
 
-public RP_TriggerSlicer(clientIdx, propIdx)
+public void RP_TriggerSlicer(int clientIdx, int propIdx)
 {
 	// uber check
 	if (!TF2_IsPlayerInCondition(clientIdx, TFCond_Ubercharged))
 	{
 		// damage the player, including self-damage
-		new owner = GetClientOfUserId(PROP_OwnerUserId[propIdx]);
+		int owner = GetClientOfUserId(PROP_OwnerUserId[propIdx]);
 		if (!IsLivingPlayer(owner))
 			owner = clientIdx;
 		SDKHooks_TakeDamage(clientIdx, owner, owner, RPS_DamagePerCheck, DMG_GENERIC | (RPS_NegatePushForce ? DMG_PREVENT_PHYSICS_FORCE : 0), -1);
@@ -1637,21 +1562,21 @@ public RP_TriggerSlicer(clientIdx, propIdx)
 #define FAKE_RJ_MAX_DISTANCE 200.0
 #define FAKE_RJ_DEFAULT_Z_INTENSITY 500.0
 #define FAKE_RJ_DEFAULT_XY_FACTOR 1.5
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 
 	// ROTT Props
 	if (RP_ActiveThisRound)
 	{
 		// this is a very taxing method. try to alleviate it somewhat by getting all player living states and origins early
-		static Float:clientBounds[MAX_PLAYERS_ARRAY][3];
-		static bool:clientValid[MAX_PLAYERS_ARRAY];
-		static bool:onGround[MAX_PLAYERS_ARRAY];
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		static float clientBounds[MAX_PLAYERS_ARRAY][3];
+		static bool clientValid[MAX_PLAYERS_ARRAY];
+		static bool onGround[MAX_PLAYERS_ARRAY];
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			clientValid[clientIdx] = IsLivingPlayer(clientIdx);
 			if (clientValid[clientIdx])
@@ -1661,9 +1586,9 @@ public OnGameFrame()
 			}
 		}
 		
-		for (new propIdx = PROP_HighestSpawnedProp; propIdx >= 0; propIdx--)
+		for (int propIdx = PROP_HighestSpawnedProp; propIdx >= 0; propIdx--)
 		{
-			new prop = EntRefToEntIndex(PROP_EntRef[propIdx]);
+			int prop = EntRefToEntIndex(PROP_EntRef[propIdx]);
 			if (!IsValidEntity(prop))
 			{
 				DestroyProp(propIdx, true);
@@ -1675,13 +1600,13 @@ public OnGameFrame()
 				continue;
 				
 			// get prop bounds
-			static Float:propBounds[3];
+			static float propBounds[3];
 			GetEntPropVector(prop, Prop_Send, "m_vecOrigin", propBounds);
 
 			// collision tests on all living players
 			if (PROP_Type[propIdx] == PROP_JUMP_PAD) // can do a more accurate test with this one
 			{
-				for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+				for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 				{
 					if (!clientValid[clientIdx] || !onGround[clientIdx])
 						continue;
@@ -1700,20 +1625,20 @@ public OnGameFrame()
 			else if (PROP_Type[propIdx] == PROP_ANGLE_PAD)
 			{
 				// get prop angles
-				static Float:propAngles[3];
+				static float propAngles[3];
 				GetEntPropVector(prop, Prop_Send, "m_angRotation", propAngles);
 				
 				// get proper collision min/max
-				static Float:collisionMin[3];
+				static float collisionMin[3];
 				collisionMin[0] = propBounds[0] + RPJP_AnglePadCollision[0][0];
 				collisionMin[1] = propBounds[1] + RPJP_AnglePadCollision[0][1];
 				collisionMin[2] = propBounds[2] + RPJP_AnglePadCollision[0][2];
-				static Float:collisionMax[3];
+				static float collisionMax[3];
 				collisionMax[0] = propBounds[0] + RPJP_AnglePadCollision[1][0];
 				collisionMax[1] = propBounds[1] + RPJP_AnglePadCollision[1][1];
 				collisionMax[2] = propBounds[2] + RPJP_AnglePadCollision[1][2];
 				
-				for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+				for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 				{
 					if (!clientValid[clientIdx])
 						continue;
@@ -1731,13 +1656,13 @@ public OnGameFrame()
 			}
 			else // if (PROP_Type[propIdx] == PROP_SLICER) [currently implied]
 			{
-				for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+				for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 				{
 					if (!clientValid[clientIdx])
 						continue;
 					
 					// need a modifier that depends on if the player's ducking
-					new Float:zMod = (GetEntityFlags(clientIdx) & FL_DUCKING) == 0 ? 83.0 : 63.0;
+					float zMod = (GetEntityFlags(clientIdx) & FL_DUCKING) == 0 ? 83.0 : 63.0;
 
 					// do a bounds check along the player, since this thing will be shorter than a player but larger than 20 HU tall
 					if (CylinderCollision(propBounds, clientBounds[clientIdx], RPS_SlicerCollision[0][0], (propBounds[2] + RPS_SlicerCollision[0][2]) - zMod, propBounds[2] + RPS_SlicerCollision[1][2]))
@@ -1760,26 +1685,26 @@ public OnGameFrame()
 	if (RW_ActiveThisRound)
 	{
 		// manage homing rockets and firebomb
-		for (new rocketIdx = MAX_ROCKETS - 1; rocketIdx >= 0; rocketIdx--)
+		for (int rocketIdx = MAX_ROCKETS - 1; rocketIdx >= 0; rocketIdx--)
 		{
 			if (RMR_RocketEntRef[rocketIdx] == 0)
 				continue;
 			
-			new rocket = EntRefToEntIndex(RMR_RocketEntRef[rocketIdx]);
+			int rocket = EntRefToEntIndex(RMR_RocketEntRef[rocketIdx]);
 			if (!IsValidEntity(rocket))
 			{
 				// fake rocket jump, even with the firebomb
 				if (RMR_ChainExplosionStartedAt[rocketIdx] == 0.0 && IsLivingPlayer(RMR_RocketOwner[rocketIdx]) && RWI_Type[RMR_Spec[rocketIdx]] != RW_TYPE_GOD_MODE)
 				{
-					new type = RWI_Type[RMR_Spec[rocketIdx]];
+					int type = RWI_Type[RMR_Spec[rocketIdx]];
 				
-					new Float:bossOrigin[3];
+					float bossOrigin[3];
 					GetEntPropVector(RMR_RocketOwner[rocketIdx], Prop_Send, "m_vecOrigin", bossOrigin);
 					bossOrigin[2] += 80.0;
-					new Float:distance = GetVectorDistance(bossOrigin, RMR_LastPosition[rocketIdx]);
+					float distance = GetVectorDistance(bossOrigin, RMR_LastPosition[rocketIdx]);
 					if (distance < FAKE_RJ_MAX_DISTANCE)
 					{
-						new Float:knockbackVector[3];
+						float knockbackVector[3];
 						knockbackVector[0] = bossOrigin[0] - RMR_LastPosition[rocketIdx][0];
 						knockbackVector[1] = bossOrigin[1] - RMR_LastPosition[rocketIdx][1];
 						knockbackVector[2] = bossOrigin[2] - RMR_LastPosition[rocketIdx][2];
@@ -1792,8 +1717,8 @@ public OnGameFrame()
 						// will a RJ occur. 
 						if (knockbackVector[2] > 0.25 && (GetEntityFlags(RMR_RocketOwner[rocketIdx]) & FL_ONGROUND) == 0)
 						{
-							new Float:factorToUse = 1.0 + ((FAKE_RJ_DEFAULT_XY_FACTOR - 1.0) * RW_RJIntensityFactor);
-							new Float:intensityToUse = FAKE_RJ_DEFAULT_Z_INTENSITY * RW_RJIntensityFactor;
+							float factorToUse = 1.0 + ((FAKE_RJ_DEFAULT_XY_FACTOR - 1.0) * RW_RJIntensityFactor);
+							float intensityToUse = FAKE_RJ_DEFAULT_Z_INTENSITY * RW_RJIntensityFactor;
 							
 							if (type == RW_TYPE_SPLIT)
 							{
@@ -1808,7 +1733,7 @@ public OnGameFrame()
 								intensityToUse /= float(1 + RWI_AdditionalProjectiles[RMR_Spec[rocketIdx]]);
 							}
 						
-							new Float:vecVelocity[3];
+							float vecVelocity[3];
 							GetEntPropVector(RMR_RocketOwner[rocketIdx], Prop_Data, "m_vecVelocity", vecVelocity);
 							vecVelocity[0] *= factorToUse;
 							vecVelocity[1] *= factorToUse;
@@ -1854,24 +1779,24 @@ public OnGameFrame()
 					if (RMR_ChainExplosionStartedAt[rocketIdx] + (float(1 + RMR_FirebombsActivated[rocketIdx]) * RMR_FirebombInterval[rocketIdx]) <= curTime)
 					{
 						RMR_FirebombsActivated[rocketIdx]++;
-						new Float:minDistance = FIREBOMB_EXPLOSION_DISTANCE_BETWEEN * float(RMR_FirebombsActivated[rocketIdx]);
-						new Float:tmpVec[3];
-						new Float:firebombAngles[3];
+						float minDistance = FIREBOMB_EXPLOSION_DISTANCE_BETWEEN * float(RMR_FirebombsActivated[rocketIdx]);
+						float tmpVec[3];
+						float firebombAngles[3];
 						firebombAngles[0] = 0.0; // in ROTT 2013 and ROTT 1994, the firebomb's pitch was always 0.0
 						
-						for (new i = 0; i < 4; i++)
+						for (int i = 0; i < 4; i++)
 						{
 							firebombAngles[1] = fixAngle(RMR_LastAngle[rocketIdx][1] + (float(i) * 90.0));
-							new Handle:trace = TR_TraceRayFilterEx(RMR_LastPosition[rocketIdx], firebombAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+							Handle trace = TR_TraceRayFilterEx(RMR_LastPosition[rocketIdx], firebombAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 							TR_GetEndPosition(tmpVec, trace);
 							CloseHandle(trace);
-							new Float:distance = GetVectorDistance(RMR_LastPosition[rocketIdx], tmpVec);
+							float distance = GetVectorDistance(RMR_LastPosition[rocketIdx], tmpVec);
 							if (distance >= minDistance)
 							{
 								// test passed. constrain the distance and trigger an explosion.
 								constrainDistance(RMR_LastPosition[rocketIdx], tmpVec, distance, minDistance);
-								new firebomb = CreateEntityByName("env_explosion");
-								new String:intAsString[12];
+								int firebomb = CreateEntityByName("env_explosion");
+								char intAsString[12];
 								Format(intAsString, 12, "%d", RMR_FirebombDamage[rocketIdx]);
 								DispatchKeyValue(firebomb, "iMagnitude", intAsString);
 								DispatchKeyValueFloat(firebomb, "DamageForce", 1.0);
@@ -1906,7 +1831,7 @@ public OnGameFrame()
 			}
 			
 			// if this rocket has been airblasted, it becomes an ordinary RED rocket (...I know...)
-			new owner = GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity");
+			int owner = GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity");
 			if (!IsLivingPlayer(owner) || GetClientTeam(owner) != BossTeam)
 			{
 				RemoveRocketAt(rocketIdx, true);
@@ -1918,25 +1843,25 @@ public OnGameFrame()
 			//PrintToServer("deltaTime=%f    interval=%f    randomdev=%f   nda=%f", deltaTime, RW_HomingInterval, RMR_RandomDeviationPerSecond[rocketIdx], RMR_NextDeviationAt[rocketIdx]);
 			if (RMR_NextDeviationAt[rocketIdx] <= curTime)
 			{
-				new Float:deltaTime = (curTime - RMR_NextDeviationAt[rocketIdx]) + RW_HomingInterval;
+				float deltaTime = (curTime - RMR_NextDeviationAt[rocketIdx]) + RW_HomingInterval;
 				
 				// get the angles and mess with them first
-				static Float:rocketAngle[3];
+				static float rocketAngle[3];
 				GetEntPropVector(rocket, Prop_Send, "m_angRotation", rocketAngle);
 			
 				// missile homing
 				if (RMR_HomingPerSecond[rocketIdx] > 0.0)
 				{
-					static Float:targetOrigin[3];
-					static Float:rocketOrigin[3];
+					static float targetOrigin[3];
+					static float rocketOrigin[3];
 					GetEntPropVector(rocket, Prop_Send, "m_vecOrigin", rocketOrigin);
-					static Float:tmpAngles[3];
-					static Float:tmpOrigin[3];
+					static float tmpAngles[3];
+					static float tmpOrigin[3];
 				
 					// first, check if the current target is not out of homing range or dead
 					if (RMR_CurrentHomingTarget[rocketIdx] != -1)
 					{
-						new target = EntRefToEntIndex(RMR_CurrentHomingTarget[rocketIdx]);
+						int target = EntRefToEntIndex(RMR_CurrentHomingTarget[rocketIdx]);
 						if (!RW_IsValidHomingTarget(target))
 						{
 							if (PRINT_DEBUG_SPAM)
@@ -1950,7 +1875,7 @@ public OnGameFrame()
 							
 							// first do a ray trace. if that fails, target lost.
 							GetRayAngles(rocketOrigin, targetOrigin, tmpAngles);
-							new Handle:trace = TR_TraceRayFilterEx(rocketOrigin, tmpAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+							Handle trace = TR_TraceRayFilterEx(rocketOrigin, tmpAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 							TR_GetEndPosition(tmpOrigin, trace);
 							CloseHandle(trace);
 							if (GetVectorDistance(rocketOrigin, targetOrigin, true) > GetVectorDistance(rocketOrigin, tmpOrigin, true))
@@ -1976,12 +1901,12 @@ public OnGameFrame()
 					// see it homing can be (re)started
 					if (RMR_CurrentHomingTarget[rocketIdx] == -1 && !(!RMR_CanRetarget[rocketIdx] && RMR_HasTargeted[rocketIdx]))
 					{
-						new Float:nearestValidDistance = 9999.0 * 9999.0;
-						new Float:testDist = 0.0;
-						new nearestValidTarget = -1;
+						float nearestValidDistance = 9999.0 * 9999.0;
+						float testDist = 0.0;
+						int nearestValidTarget = -1;
 					
 						// find the closest target within tolerance
-						for (new target = 1; target < MAX_PLAYERS; target++)
+						for (int target = 1; target < MAX_PLAYERS; target++)
 						{
 							if (!RW_IsValidHomingTarget(target))
 								continue;
@@ -1994,7 +1919,7 @@ public OnGameFrame()
 							if (testDist < nearestValidDistance)
 							{
 								GetRayAngles(rocketOrigin, targetOrigin, tmpAngles);
-								new Handle:trace = TR_TraceRayFilterEx(rocketOrigin, tmpAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+								Handle trace = TR_TraceRayFilterEx(rocketOrigin, tmpAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 								TR_GetEndPosition(tmpOrigin, trace);
 								CloseHandle(trace);
 								
@@ -2022,9 +1947,9 @@ public OnGameFrame()
 					// now home! tmpAngles is already what we want it to be.
 					if (RMR_CurrentHomingTarget[rocketIdx] != -1)
 					{
-						new Float:maxAngleDeviation = deltaTime * RMR_HomingPerSecond[rocketIdx];
+						float maxAngleDeviation = deltaTime * RMR_HomingPerSecond[rocketIdx];
 						
-						for (new i = 0; i < 2; i++)
+						for (int i = 0; i < 2; i++)
 						{
 							if (fabs(rocketAngle[i] - tmpAngles[i]) <= RWI_HomeAngle[RMR_Spec[rocketIdx]])
 							{
@@ -2035,7 +1960,7 @@ public OnGameFrame()
 							}
 							else // it wrapped around
 							{
-								new Float:tmpRocketAngle = rocketAngle[i];
+								float tmpRocketAngle = rocketAngle[i];
 							
 								if (rocketAngle[i] - tmpAngles[i] < 0.0)
 									tmpRocketAngle += 360.0;
@@ -2056,13 +1981,13 @@ public OnGameFrame()
 				// random deviation for drunk missile
 				if (RMR_RandomDeviationPerSecond[rocketIdx] > 0.0)
 				{
-					new Float:maxAngleDeviation = deltaTime * RMR_RandomDeviationPerSecond[rocketIdx];
+					float maxAngleDeviation = deltaTime * RMR_RandomDeviationPerSecond[rocketIdx];
 					rocketAngle[0] = fixAngle(rocketAngle[0] + RandomNegative(GetRandomFloat(0.0, maxAngleDeviation)));
 					rocketAngle[1] = fixAngle(rocketAngle[1] + RandomNegative(GetRandomFloat(0.0, maxAngleDeviation)));
 				}
 				
-				// now use the old velocity and tweak it to match the new angles
-				new Float:vecVelocity[3];
+				// now use the old velocity and tweak it to match the int angles
+				float vecVelocity[3];
 				GetAngleVectors(rocketAngle, vecVelocity, NULL_VECTOR, NULL_VECTOR);
 				vecVelocity[0] *= RMR_RocketVelocity[rocketIdx];
 				vecVelocity[1] *= RMR_RocketVelocity[rocketIdx];
@@ -2082,12 +2007,12 @@ public OnGameFrame()
 			}
 		}
 		
-		// test new rockets
-		for (new i = 0; i < ROCKET_QUEUE_SIZE; i++)
+		// test int rockets
+		for (int i = 0; i < ROCKET_QUEUE_SIZE; i++)
 		{
 			if (RocketQueue[i] != -1)
 			{
-				new rocket = EntRefToEntIndex(RocketQueue[i]);
+				int rocket = EntRefToEntIndex(RocketQueue[i]);
 				if (IsValidEntity(rocket))
 					TestRocket(rocket);
 				RocketQueue[i] = -1;
@@ -2095,7 +2020,7 @@ public OnGameFrame()
 		}
 	}
 	
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
 			continue;
@@ -2105,7 +2030,7 @@ public OnGameFrame()
 		{
 			if (RIP_NextAwardTime[clientIdx] <= GetEngineTime())
 			{
-				new pistol = GetPlayerWeaponSlot(clientIdx, RIP_IsPrimary[clientIdx] ? TFWeaponSlot_Primary : TFWeaponSlot_Secondary);
+				int pistol = GetPlayerWeaponSlot(clientIdx, RIP_IsPrimary[clientIdx] ? TFWeaponSlot_Primary : TFWeaponSlot_Secondary);
 				if (IsValidEntity(pistol))
 				{
 					SetEntProp(pistol, Prop_Send, "m_iClip1", RIP_AwardAmmoCount[clientIdx]);
@@ -2132,18 +2057,18 @@ public OnGameFrame()
 					PrintToServer("[sarysapub1] Armor expired.");
 
 				// only change the user's active weapon if necessary
-				new bool:shouldChangeWeapon = false;
-				new oldWeapon = GetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon");
+				bool shouldChangeWeapon = false;
+				int oldWeapon = GetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon");
 				if (IsValidEntity(oldWeapon))
 				{
-					static String:oldClassname[MAX_WEAPON_NAME_LENGTH];
+					static char oldClassname[MAX_WEAPON_NAME_LENGTH];
 					GetEntityClassname(oldWeapon, oldClassname, MAX_WEAPON_NAME_LENGTH);
 					if (!strcmp(oldClassname, RFM_WeaponName[clientIdx]))
 						shouldChangeWeapon = true;
 				}
 
 				TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Melee);
-				new melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
+				int melee = SpawnWeapon(clientIdx, RFM_WeaponName[clientIdx], RFM_WeaponIdx[clientIdx], 101, 5, RFM_WeaponArgs[clientIdx], RFM_WeaponVisibility[clientIdx]);
 				if (IsValidEntity(melee) && shouldChangeWeapon)
 					SetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon", melee);
 				RW_ArmorActive[clientIdx] = false;
@@ -2164,8 +2089,8 @@ public OnGameFrame()
 			}
 			else if (RW_GodModeActive[clientIdx] && RW_NextGodModeSoundAt[clientIdx] <= GetEngineTime())
 			{
-				new highestSoundIndex = -1;
-				for (new i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
+				int highestSoundIndex = -1;
+				for (int i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
 				{
 					if (!(strlen(RW_GodModeSounds[i]) > 3))
 						break;
@@ -2174,7 +2099,7 @@ public OnGameFrame()
 
 				if (highestSoundIndex > -1)
 				{
-					new soundIdx = GetRandomInt(0, highestSoundIndex);
+					int soundIdx = GetRandomInt(0, highestSoundIndex);
 					EmitSoundToAll(RW_GodModeSounds[soundIdx]);
 					EmitSoundToAll(RW_GodModeSounds[soundIdx]);
 				}
@@ -2197,7 +2122,7 @@ public OnGameFrame()
 	}
 }
  
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float vel[3], float angles[3], int& weapon)
 {
 	if (!PluginActiveThisRound || !RoundInProgress || !IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
@@ -2229,22 +2154,22 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 /**
  * General helper stocks, some original, some taken/modified from other sources
  */
-stock PlaySoundLocal(clientIdx, String:soundPath[], bool:followPlayer = true, stack = 1)
+stock void PlaySoundLocal(int clientIdx, char[] soundPath, bool followPlayer = true, int stack = 1)
 {
 	// play a speech sound that travels normally, local from the player.
-	decl Float:playerPos[3];
+	static float playerPos[3];
 	GetClientEyePosition(clientIdx, playerPos);
 	//PrintToServer("eye pos=%f,%f,%f     sound=%s", playerPos[0], playerPos[1], playerPos[2], soundPath);
-	for (new i = 0; i < stack; i++)
+	for (int i = 0; i < stack; i++)
 		EmitAmbientSound(soundPath, playerPos, followPlayer ? clientIdx : SOUND_FROM_WORLD);
 }
 
-stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 0.1)
+stock int ParticleEffectAt(float position[3], char[] effectName, float duration = 0.1)
 {
 	if (IsEmptyString(effectName))
 		return -1; // nothing to display
 		
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
 		TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -2254,20 +2179,20 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
 
-stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	
 	if (!IsValidEntity(particle))
 		return -1;
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2] += offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -2290,17 +2215,16 @@ stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity = EntRefToEntIndex(entid);
+	int entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
 	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 	}
 }
 
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -2308,7 +2232,7 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock bool:IsValidBoss(clientIdx)
+stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
@@ -2316,12 +2240,12 @@ stock bool:IsValidBoss(clientIdx)
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
-stock FindRandomLivingMerc(team = 2, exclude = -1)
+stock int FindRandomLivingMerc(int team = 2, int exclude = -1)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (sanity < 100) // break inside
 	{
-		new i = GetRandomInt(1, 22);
+		int i = GetRandomInt(1, 22);
 		if (IsLivingPlayer(i) && GetClientTeam(i) == team && i != exclude)
 			return i;
 			
@@ -2331,25 +2255,15 @@ stock FindRandomLivingMerc(team = 2, exclude = -1)
 	return -1;
 }
 
-stock SwitchWeapon(bossClient, String:weaponName[], weaponIdx, String:weaponAttributes[], visible)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1)
 {
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Primary);
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Secondary);
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Melee);
-	new weapon;
-	weapon = SpawnWeapon(bossClient, weaponName, weaponIdx, 101, 5, weaponAttributes, visible);
-	SetEntPropEnt(bossClient, Prop_Data, "m_hActiveWeapon", weapon);
-}
-
-stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], visible = 1)
-{
-	new Handle:weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
 	TF2Items_SetItemIndex(weapon, index);
 	TF2Items_SetLevel(weapon, level);
 	TF2Items_SetQuality(weapon, quality);
-	new String:attributes[32][32];
-	new count = ExplodeString(attribute, ";", attributes, 32, 32);
+	char attributes[32][32];
+	int count = ExplodeString(attribute, ";", attributes, 32, 32);
 	if(count%2!=0)
 	{
 		count--;
@@ -2358,10 +2272,10 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(weapon, count/2);
-		new i2 = 0;
-		for(new i = 0; i < count; i += 2)
+		int i2 = 0;
+		for(int i = 0; i < count; i += 2)
 		{
-			new attrib = StringToInt(attributes[i]);
+			int attrib = StringToInt(attributes[i]);
 			if (attrib == 0)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
@@ -2382,7 +2296,7 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 		return -1;
 	}
 
-	new entity = TF2Items_GiveNamedItem(client, weapon);
+	int entity = TF2Items_GiveNamedItem(client, weapon);
 	CloseHandle(weapon);
 	EquipPlayerWeapon(client, entity);
 	
@@ -2396,20 +2310,12 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	return entity;
 }
 
-stock ParseFloatRange(String:rangeStr[MAX_RANGE_STRING_LENGTH], &Float:min, &Float:max)
+stock void ParseHull(char hullStr[MAX_HULL_STRING_LENGTH], float hull[2][3])
 {
-	new String:rangeStrs[2][32];
-	ExplodeString(rangeStr, ",", rangeStrs, 2, 32);
-	min = StringToFloat(rangeStrs[0]);
-	max = StringToFloat(rangeStrs[1]);
-}
-
-stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
-{
-	new String:hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
-	new String:vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
+	char hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
+	char vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
 	ExplodeString(hullStr, " ", hullStrs, 2, MAX_HULL_STRING_LENGTH / 2);
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		ExplodeString(hullStrs[i], ",", vectorStrs, 3, MAX_HULL_STRING_LENGTH / 6);
 		hull[i][0] = StringToFloat(vectorStrs[0]);
@@ -2418,50 +2324,50 @@ stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
 	}
 }
 
-stock ReadHull(bossIdx, const String:ability_name[], argInt, Float:hull[2][3])
+stock void ReadHull(int bossIdx, const char[] ability_name, int argInt, float hull[2][3])
 {
-	static String:hullStr[MAX_HULL_STRING_LENGTH];
+	static char hullStr[MAX_HULL_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, hullStr, MAX_HULL_STRING_LENGTH);
 	ParseHull(hullStr, hull);
 }
 
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char soundFile[MAX_SOUND_FILE_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		PrecacheSound(soundFile);
 }
 
-stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MODEL_FILE_LENGTH])
+stock void ReadModel(int bossIdx, const char[] ability_name, int argInt, char modelFile[MAX_MODEL_FILE_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		PrecacheModel(modelFile);
 }
 
-stock ReadModelToInt(bossIdx, const String:ability_name[], argInt)
+stock int ReadModelToInt(int bossIdx, const char[] ability_name, int argInt)
 {
-	static String:modelFile[MAX_MODEL_FILE_LENGTH];
+	static char modelFile[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		return PrecacheModel(modelFile);
 	return -1;
 }
 
-stock ReadCenterText(bossIdx, const String:ability_name[], argInt, String:centerText[MAX_CENTER_TEXT_LENGTH])
+stock void ReadCenterText(int bossIdx, const char[] ability_name, int argInt, char centerText[MAX_CENTER_TEXT_LENGTH])
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, centerText, MAX_CENTER_TEXT_LENGTH);
 	ReplaceString(centerText, MAX_CENTER_TEXT_LENGTH, "\\n", "\n");
 }
 
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-stock Float:fixAngle(Float:angle)
+stock float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -2470,125 +2376,62 @@ stock Float:fixAngle(Float:angle)
 	return angle;
 }
 
-stock Float:fixDamageForFF2(Float:damage)
+stock float fixDamageForFF2(float damage)
 {
 	if (damage <= 160.0)
 		return damage / 3.0;
 	return damage;
 }
 
-stock fixAngles(Float:angles[3])
+stock void fixAngles(float angles[3])
 {
-	for (new i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 		angles[i] = fixAngle(angles[i]);
 }
 
-stock abs(x)
+
+stock float fabs(float x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock Float:fabs(Float:x)
-{
-	return x < 0 ? -x : x;
-}
-
-stock min(n1, n2)
+stock int min(int n1, int n2)
 {
 	return n1 < n2 ? n1 : n2;
 }
 
-stock Float:fmin(Float:n1, Float:n2)
+stock float fmin(float n1, float n2)
 {
 	return n1 < n2 ? n1 : n2;
 }
 
-stock max(n1, n2)
+stock int max(int n1, int n2)
 {
 	return n1 > n2 ? n1 : n2;
 }
 
-stock Float:fmax(Float:n1, Float:n2)
+stock float fmax(float n1, float n2)
 {
 	return n1 > n2 ? n1 : n2;
 }
 
-stock Float:DEG2RAD(Float:n) { return n * 0.017453; }
-
-stock Float:RAD2DEG(Float:n) { return n * 57.29578; }
-
-stock bool:WithinBounds(Float:point[3], Float:min[3], Float:max[3])
+stock bool WithinBounds(float point[3], float min[3], float max[3])
 {
 	return point[0] >= min[0] && point[0] <= max[0] &&
 		point[1] >= min[1] && point[1] <= max[1] &&
 		point[2] >= min[2] && point[2] <= max[2];
 }
 
-stock ReadHexOrDecInt(String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH])
-{
-	if (StrContains(hexOrDecString, "0x") == 0)
-	{
-		new result = 0;
-		for (new i = 2; i < 10 && hexOrDecString[i] != 0; i++)
-		{
-			result = result<<4;
-				
-			if (hexOrDecString[i] >= '0' && hexOrDecString[i] <= '9')
-				result += hexOrDecString[i] - '0';
-			else if (hexOrDecString[i] >= 'a' && hexOrDecString[i] <= 'f')
-				result += hexOrDecString[i] - 'a' + 10;
-			else if (hexOrDecString[i] >= 'A' && hexOrDecString[i] <= 'F')
-				result += hexOrDecString[i] - 'A' + 10;
-		}
-		
-		return result;
-	}
-	else
-		return StringToInt(hexOrDecString);
-}
-
-stock ReadHexOrDecString(bossIdx, const String:ability_name[], argIdx)
-{
-	static String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argIdx, hexOrDecString, HEX_OR_DEC_STRING_LENGTH);
-	return ReadHexOrDecInt(hexOrDecString);
-}
-
-stock Float:ConformAxisValue(Float:src, Float:dst, Float:distCorrectionFactor)
-{
-	return src - ((src - dst) * distCorrectionFactor);
-}
-
-stock ConformLineDistance(Float:result[3], const Float:src[3], const Float:dst[3], Float:maxDistance, bool:canExtend = false)
-{
-	new Float:distance = GetVectorDistance(src, dst);
-	if (distance <= maxDistance && !canExtend)
-	{
-		// everything's okay.
-		result[0] = dst[0];
-		result[1] = dst[1];
-		result[2] = dst[2];
-	}
-	else
-	{
-		// need to find a point at roughly maxdistance. (FP irregularities aside)
-		new Float:distCorrectionFactor = maxDistance / distance;
-		result[0] = ConformAxisValue(src[0], dst[0], distCorrectionFactor);
-		result[1] = ConformAxisValue(src[1], dst[1], distCorrectionFactor);
-		result[2] = ConformAxisValue(src[2], dst[2], distCorrectionFactor);
-	}
-}
-
-stock bool:CylinderCollision(Float:cylinderOrigin[3], Float:colliderOrigin[3], Float:maxDistance, Float:zMin, Float:zMax)
+stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
 {
 	if (colliderOrigin[2] < zMin || colliderOrigin[2] > zMax)
 		return false;
 
-	static Float:tmpVec1[3];
+	static float tmpVec1[3];
 	tmpVec1[0] = cylinderOrigin[0];
 	tmpVec1[1] = cylinderOrigin[1];
 	tmpVec1[2] = 0.0;
-	static Float:tmpVec2[3];
+	static float tmpVec2[3];
 	tmpVec2[0] = colliderOrigin[0];
 	tmpVec2[1] = colliderOrigin[1];
 	tmpVec2[2] = 0.0;
@@ -2596,47 +2439,47 @@ stock bool:CylinderCollision(Float:cylinderOrigin[3], Float:colliderOrigin[3], F
 	return GetVectorDistance(tmpVec1, tmpVec2, true) <= maxDistance * maxDistance;
 }
 
-stock Float:getLinearVelocity(Float:vecVelocity[3])
+stock float getLinearVelocity(float vecVelocity[3])
 {
 	return SquareRoot((vecVelocity[0] * vecVelocity[0]) + (vecVelocity[1] * vecVelocity[1]) + (vecVelocity[2] * vecVelocity[2]));
 }
 
-stock Float:RandomNegative(Float:in)
+stock float RandomNegative(float val)
 {
-	return in * (GetRandomInt(0, 1) == 1 ? 1.0 : -1.0);
+	return val * (GetRandomInt(0, 1) == 1 ? 1.0 : -1.0);
 }
 
-stock Float:GetRayAngles(Float:startPoint[3], Float:endPoint[3], Float:angle[3])
+stock float GetRayAngles(float startPoint[3], float endPoint[3], float angle[3])
 {
-	static Float:tmpVec[3];
+	static float tmpVec[3];
 	tmpVec[0] = endPoint[0] - startPoint[0];
 	tmpVec[1] = endPoint[1] - startPoint[1];
 	tmpVec[2] = endPoint[2] - startPoint[2];
 	GetVectorAngles(tmpVec, angle);
 }
 
-stock bool:AngleWithinTolerance(Float:entityAngles[3], Float:targetAngles[3], Float:tolerance)
+stock bool AngleWithinTolerance(float entityAngles[3], float targetAngles[3], float tolerance)
 {
-	static bool:tests[2];
+	static bool tests[2];
 	
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 		tests[i] = fabs(entityAngles[i] - targetAngles[i]) <= tolerance || fabs(entityAngles[i] - targetAngles[i]) >= 360.0 - tolerance;
 	
 	return tests[0] && tests[1];
 }
 
-stock constrainDistance(const Float:startPoint[], Float:endPoint[], Float:distance, Float:maxDistance)
+stock void constrainDistance(const float[] startPoint, float[] endPoint, float distance, float maxDistance)
 {
 	if (distance <= maxDistance)
 		return; // nothing to do
 		
-	new Float:constrainFactor = maxDistance / distance;
+	float constrainFactor = maxDistance / distance;
 	endPoint[0] = ((endPoint[0] - startPoint[0]) * constrainFactor) + startPoint[0];
 	endPoint[1] = ((endPoint[1] - startPoint[1]) * constrainFactor) + startPoint[1];
 	endPoint[2] = ((endPoint[2] - startPoint[2]) * constrainFactor) + startPoint[2];
 }
 
-stock bool:signIsDifferent(const Float:one, const Float:two)
+stock bool signIsDifferent(const float one, const float two)
 {
 	return one < 0.0 && two > 0.0 || one > 0.0 && two < 0.0;
 }
