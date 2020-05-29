@@ -130,18 +130,17 @@
 	}
 */
 
-#pragma semicolon 1
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2items>
-#include <adt_array>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#tryinclude <freak_fortress_2_extras>
 
+#undef REQUIRE_PLUGIN
+#tryinclude <freak_fortress_2_extras>
+#define REQUIRE_PLUGIN
+
+#pragma semicolon 1
 #pragma newdecls required
 
 #define MANN_SND "ambient/siren.wav"
@@ -195,7 +194,7 @@ bool bEnableSuperDuperJump[MAXPLAYERS+1];
 bool DontSlay[MAXPLAYERS+1];
 bool minRestrict[MAXPLAYERS+1][2];
 int minToSpawn[MAXPLAYERS+1][2];
-Handle MinionKV[MAXPLAYERS+1]=null;
+KeyValues MinionKV[MAXPLAYERS + 1] =  { null, ... };
 int SummonerIndex[MAXPLAYERS+1];
 VoiceMode VOMode[MAXPLAYERS+1];
 MoveType mMoveType[MAXPLAYERS+1];
@@ -278,31 +277,36 @@ public void PrepareAbilities()
         int boss=FF2_GetBossIndex(client);
         if(boss>=0)
         {
-            // Initialize if using AMS for these abilities
-            if(FF2_HasAbility(boss, this_plugin_name, RSALMON))
-            {
-                minRestrict[client][1]=view_as<bool>(FF2_GetAbilityArgument(boss,this_plugin_name,RSALMON, 24));
-                minToSpawn[client][1]=FF2_GetAbilityArgument(boss,this_plugin_name,RSALMON, 25);
-                AMSOnly[client]=AMS_IsSubabilityReady(boss, this_plugin_name, RSALMON);
-                if(AMSOnly[client])
-                {
-                    AMS_InitSubability(boss, client, this_plugin_name, RSALMON, "SMN");
-                }
-            }    
+             if(FF2_HasAbility(boss, this_plugin_name, RSALMON))
+			{
+				minRestrict[client][1]=view_as<bool>(FF2_GetAbilityArgument(boss,this_plugin_name,RSALMON, 24));
+				minToSpawn[client][1]=FF2_GetAbilityArgument(boss,this_plugin_name,RSALMON, 25);
+			}  
         }
         
     }
 }
 
+public void FF2AMS_PreRoundStart(int client)
+{
+	if(FF2_HasAbility(FF2_GetBossIndex(client), this_plugin_name, RSALMON))
+	{
+		if(FF2AMS_IsAMSActivatedFor(client))
+		{
+			AMSOnly[client] = FF2AMS_PushToAMS(client, this_plugin_name, RSALMON, "SMN");
+		}
+	} 
+}
+
 public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	int client=GetClientOfUserId(GetEventInt(event, "userid"));
-	int boss=FF2_GetBossIndex(client); // Boss is an attacker
-	
-	if((GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER))
+	if((event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
 		return;
 	}
+	
+	int client=GetClientOfUserId(event.GetInt("userid"));
+	int boss=FF2_GetBossIndex(client); // Boss is an attacker
 	
 	if(TF2_GetClientTeam(client)==view_as<TFTeam>(FF2_GetBossTeam()) && SummonerIndex[client]==boss)
 	{
@@ -361,13 +365,13 @@ public void PrepareSalmon(int boss, int client, const char[] ability_name, int a
 	Salmon(boss, client, ability_name, sound, qty, ratio, modeltype, model, playerClass, stripWearables, vline, pickups, teletoboss, scale, gravity, moveType, pColor, pConds, pHealth, disableOverHeal, noslayminions, notify, notifyType, summoned, summoner, merc, wepmode, wepset, pParticle, pDuration, follow);
 }
 
-public bool SMN_CanInvoke(int client)
+public AMSResult SMN_CanInvoke(int client, int index)
 {
-	if(minRestrict[client][1] && GetMinionCount()>minToSpawn[client][1]) return false;
-	return true;
+	if(minRestrict[client][1] && GetMinionCount()>minToSpawn[client][1]) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public void SMN_Invoke(int client)
+public void SMN_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	if(minRestrict[client][1] && GetMinionCount()>=minToSpawn[client][1])
@@ -509,7 +513,7 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 		qty=(ratio ? RoundToCeil(GetAlivePlayerCount((view_as<TFTeam>(FF2_GetBossTeam())==TFTeam_Blue) ? (TFTeam_Red) : (TFTeam_Blue))*ratio) : MaxClients);
 	}
 	
-	Handle bossKV=GetRandomBossKV(boss);
+	KeyValues bossKV=GetRandomBossKV(boss);
 	
 	int ii;
 	GetEntPropVector(client, Prop_Data, "m_vecOrigin", position);
@@ -539,7 +543,7 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 			{	
 				if(modeltype==3)
 				{
-					bossKV=FF2_GetSpecialKV(boss, false);
+					bossKV=view_as<KeyValues>(FF2_GetSpecialKV(boss, false));
 				}
 				if(modeltype>=2)
 				{
@@ -566,7 +570,7 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 				{
 					MinionKV[client]=bossKV;
 					char taunt[PLATFORM_MAX_PATH];
-					if(KvGetNum(bossKV, "sound_block_vo", 0))
+					if(bossKV.GetNum("sound_block_vo", 0))
 					{
 						VOMode[ii]=((!HasSection("catch_phrase", taunt, sizeof(taunt), bossKV)) ? VoiceMode_None : VoiceMode_RandomBossCatchPhrase);
 					}
@@ -578,7 +582,7 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 				case 3: // clone of boss
 				{
 					char taunt[PLATFORM_MAX_PATH];
-					if(KvGetNum(bossKV, "sound_block_vo", 0))
+					if(bossKV.GetNum("sound_block_vo", 0))
 					{
 						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), boss)) ? VoiceMode_None : VoiceMode_BossCatchPhrase);
 					}
@@ -1901,17 +1905,17 @@ stock int GetRandomDeadPlayer()
 	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
 }
 
-stock bool HasSection(const char[] sound, char[] file, int length, Handle bossKV)
+stock bool HasSection(const char[] sound, char[] file, int length, KeyValues bossKV)
 {
 	if(!bossKV)
 	{
 		return false;
 	}
-
-	KvRewind(bossKV);
-	if(!KvJumpToKey(bossKV, sound))
+	
+	bossKV.Rewind();
+	if(!bossKV.JumpToKey(sound))
 	{
-		KvRewind(bossKV);
+		bossKV.Rewind();
 		return false;  //Requested sound not implemented for this boss
 	}
 
@@ -1919,7 +1923,7 @@ stock bool HasSection(const char[] sound, char[] file, int length, Handle bossKV
 	int sounds;
 	while(++sounds)  //Just keep looping until there's no keys left
 	{
-		IntToString(sounds, key, sizeof(key));
+		bossKV.GetString(key, file, length);
 		KvGetString(bossKV, key, file, length);
 		if(!file[0])
 		{
@@ -1934,11 +1938,11 @@ stock bool HasSection(const char[] sound, char[] file, int length, Handle bossKV
 	}
 
 	IntToString(GetRandomInt(1, sounds), key, sizeof(key));
-	KvGetString(bossKV, key, file, length);  //Populate file
+	bossKV.GetString(key, file, length);
 	return true;
 }
 
-public Handle GetRandomBossKV(int boss)
+public KeyValues GetRandomBossKV(int boss)
 {
 	int index=-1;
 	for(int config=0; FF2_GetSpecialKV(config, true)!=null; config++)
@@ -1948,8 +1952,8 @@ public Handle GetRandomBossKV(int boss)
 	
 	int position=GetRandomInt(0, index);
 	Handle BossKV=FF2_GetSpecialKV(position, true);
-	if(BossKV!=null) return BossKV;
-	return FF2_GetSpecialKV(boss, false);
+	if(BossKV!=null) return view_as<KeyValues>(BossKV);
+	return view_as<KeyValues>(FF2_GetSpecialKV(boss, false));
 }
 
 public void FF2_OnAbility2(int boss,const char[] plugin_name, const char[] ability_name, int action)
@@ -1975,6 +1979,6 @@ public void FF2_OnAbility2(int boss,const char[] plugin_name, const char[] abili
 		{
 			return;
 		}
-		SMN_Invoke(client);
+		SMN_Invoke(client, 0);
 	}	
 }
