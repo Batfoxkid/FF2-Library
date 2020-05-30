@@ -1749,7 +1749,7 @@ public void Rage_ImprovedStun(const char[] ability_name, int bossIdx)
 			{
 				int itemIndex = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
 				bool ubering = (GetEntProp(weapon, Prop_Send, "m_bChargeRelease") & 0x1) == 1;
-				int partner = GetEntProp(weapon, Prop_Send, "m_hHealingTarget") & 0x3ff;
+				int partner = GetEntPropEnt(weapon, Prop_Send, "m_hHealingTarget");
 				
 				int userImmune = medigunUserImmune;
 				int partnerImmune = medigunPartnerImmune;
