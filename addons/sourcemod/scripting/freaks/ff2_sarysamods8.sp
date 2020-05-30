@@ -3047,7 +3047,7 @@ public void MM_Tick(float curTime)
 			if (IsValidEntity(medigun) && IsInstanceOf(medigun, "tf_weapon_medigun"))
 			{
 				bool ubering = (GetEntProp(medigun, Prop_Send, "m_bChargeRelease") & 0x1) == 1;
-				int partner = GetEntProp(medigun, Prop_Send, "m_hHealingTarget") & 0x3ff;
+				int partner = GetEntPropEnt(medigun, Prop_Send, "m_hHealingTarget");
 				if (partner == clientIdx)
 				{
 					if (ubering)
@@ -5382,7 +5382,7 @@ public void PT_Tick(float curTime)
 				int medigun = GetPlayerWeaponSlot(medic, TFWeaponSlot_Secondary);
 				if (IsValidEntity(medigun) && IsInstanceOf(medigun, "tf_weapon_medigun"))
 				{
-					int partner = GetEntProp(medigun, Prop_Send, "m_hHealingTarget") & 0x3ff;
+					int partner = GetEntPropEnt(medigun, Prop_Send, "m_hHealingTarget");
 					if (IsLivingPlayer(partner))
 						medicHealCount[partner]++;
 				}
