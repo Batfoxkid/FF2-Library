@@ -1,16 +1,13 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <ff2_dynamic_defaults>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 /**
  * My fifth VSP rage pack, rages for Daring Do. It's so massive because of the rope which is a super jump replacement.
@@ -43,63 +40,13 @@
  * Known Issues: Do not include uber with ice totem with a boss that can get uber from some other means. It will cause issues.
  *		 Players remain slow after round ends if the boss dies while victim is in ice totem space. Round change fixes it.
  */
+
  
-// copied from tf2 sdk
-// solid types
-#define SOLID_NONE 0 // no solid model
-#define SOLID_BSP 1 // a BSP tree
-#define SOLID_BBOX 2 // an AABB
-#define SOLID_OBB 3 // an OBB (not implemented yet)
-#define SOLID_OBB_YAW 4 // an OBB, constrained so that it can only yaw
-#define SOLID_CUSTOM 5 // Always call into the entity for tests
-#define SOLID_VPHYSICS 6 // solid vphysics object, get vcollide from the model and collide with that
-
-#define FSOLID_CUSTOMRAYTEST 0x0001 // Ignore solid type + always call into the entity for ray tests
-#define FSOLID_CUSTOMBOXTEST 0x0002 // Ignore solid type + always call into the entity for swept box tests
-#define FSOLID_NOT_SOLID 0x0004 // Are we currently not solid?
-#define FSOLID_TRIGGER 0x0008 // This is something may be collideable but fires touch functions
-#define FSOLID_NOT_STANDABLE 0x0010 // You can't stand on this
-#define FSOLID_VOLUME_CONTENTS 0x0020 // Contains volumetric contents (like water)
-#define FSOLID_FORCE_WORLD_ALIGNED 0x0040 // Forces the collision rep to be world-aligned even if it's SOLID_BSP or SOLID_VPHYSICS
-#define FSOLID_USE_TRIGGER_BOUNDS 0x0080 // Uses a special trigger bounds separate from the normal OBB
-#define FSOLID_ROOT_PARENT_ALIGNED 0x0100 // Collisions are defined in root parent's local coordinate space
-#define FSOLID_TRIGGER_TOUCH_DEBRIS 0x0200 // This trigger will touch debris objects
-
-enum // Collision_Group_t in const.h
-{
-	COLLISION_GROUP_NONE  = 0,
-	COLLISION_GROUP_DEBRIS,			// Collides with nothing but world and static stuff
-	COLLISION_GROUP_DEBRIS_TRIGGER, // Same as debris, but hits triggers
-	COLLISION_GROUP_INTERACTIVE_DEBRIS,	// Collides with everything except other interactive debris or debris
-	COLLISION_GROUP_INTERACTIVE,	// Collides with everything except interactive debris or debris
-	COLLISION_GROUP_PLAYER,
-	COLLISION_GROUP_BREAKABLE_GLASS,
-	COLLISION_GROUP_VEHICLE,
-	COLLISION_GROUP_PLAYER_MOVEMENT,  // For HL2, same as Collision_Group_Player, for
-										// TF2, this filters out other players and CBaseObjects
-	COLLISION_GROUP_NPC,			// Generic NPC group
-	COLLISION_GROUP_IN_VEHICLE,		// for any entity inside a vehicle
-	COLLISION_GROUP_WEAPON,			// for any weapons that need collision detection
-	COLLISION_GROUP_VEHICLE_CLIP,	// vehicle clip brush to restrict vehicle movement
-	COLLISION_GROUP_PROJECTILE,		// Projectiles!
-	COLLISION_GROUP_DOOR_BLOCKER,	// Blocks entities not permitted to get near moving doors
-	COLLISION_GROUP_PASSABLE_DOOR,	// ** sarysa TF2 note: Must be scripted, not passable on physics prop (Doors that the player shouldn't collide with)
-	COLLISION_GROUP_DISSOLVING,		// Things that are dissolving are in this group
-	COLLISION_GROUP_PUSHAWAY,		// ** sarysa TF2 note: I could swear the collision detection is better for this than NONE. (Nonsolid on client and server, pushaway in player code)
-
-	COLLISION_GROUP_NPC_ACTOR,		// Used so NPCs in scripts ignore the player.
-	COLLISION_GROUP_NPC_SCRIPTED,	// USed for NPCs in scripts that should not collide with each other
-
-	LAST_SHARED_COLLISION_GROUP
-};
- 
-new bool:DEBUG_FORCE_RAGE = false;
+bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
-new bool:PRINT_DEBUG_INFO = true;
-new bool:PRINT_DEBUG_SPAM = false;
-
-new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
+bool PRINT_DEBUG_INFO = true;
+bool PRINT_DEBUG_SPAM = false;
 
 #define NOPE_AVI "vo/engineer_no01.mp3" // DO NOT DELETE FROM FUTURE PACKS
 
@@ -107,12 +54,9 @@ new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 #define MAX_SOUND_FILE_LENGTH 80
 #define MAX_MODEL_FILE_LENGTH 128
 #define MAX_MATERIAL_FILE_LENGTH 128
-#define MAX_WEAPON_NAME_LENGTH 64
-#define MAX_WEAPON_ARG_LENGTH 256
 #define MAX_EFFECT_NAME_LENGTH 48
 #define MAX_ENTITY_CLASSNAME_LENGTH 48
 #define MAX_CENTER_TEXT_LENGTH 128
-#define MAX_RANGE_STRING_LENGTH 66
 #define MAX_HULL_STRING_LENGTH 197
 #define MAX_ATTACHMENT_NAME_LENGTH 48
 #define COLOR_BUFFER_SIZE 12
@@ -121,13 +65,12 @@ new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
-//new MercTeam = _:TFTeam_Red;
-new BossTeam = _:TFTeam_Blue;
+int BossTeam = view_as<int>(TFTeam_Blue);
 
-new RoundInProgress = false;
-new bool:PluginActiveThisRound = false;
+int RoundInProgress = false;
+bool PluginActiveThisRound = false;
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods, fifth pack",
 	author = "sarysa",
 	version = "1.1.1",
@@ -149,38 +92,38 @@ public Plugin:myinfo = {
 #define HS_HUD_TEXT_LENGTH (MAX_CENTER_TEXT_LENGTH*2)
 #define HS_FLAG_COOLDOWN_ON_UNHOOK 0x0001
 #define HS_FLAG_GLOW_HACK 0x0002
-new bool:HS_ActiveThisRound = false; // internal
-new bool:HS_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new Float:HS_LastUpdateAt[MAX_PLAYERS_ARRAY]; // internal
-new bool:HS_AltFireDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:HS_DuckKeyDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:HS_JumpKeyDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:HS_HookshotOut[MAX_PLAYERS_ARRAY]; // internal
-new Float:HS_HookshotReelDistance[MAX_PLAYERS_ARRAY]; // internal
-new HS_HUDErrorIdx[MAX_PLAYERS_ARRAY];
-new String:HS_HUDText[MAX_PLAYERS_ARRAY][HS_HUD_TEXT_LENGTH]; // internal, yeah this is about 10k data usage. ouch.
-new Float:HS_HudRefreshAt[MAX_PLAYERS_ARRAY]; // internal
-new Float:HS_HudErrorClearAt[MAX_PLAYERS_ARRAY]; // internal
-new Float:HS_HookPosition[MAX_PLAYERS_ARRAY][3]; // internal, position of the hook when it's out
-new Float:HS_LastCheckAt[MAX_PLAYERS_ARRAY]; // internal, we won't adjust player motion on every tick
-new Float:HS_HookshotFiredAt[MAX_PLAYERS_ARRAY]; // internal
-new Float:HS_UsableAt[MAX_PLAYERS_ARRAY]; // internal (cooldown related)
-new HS_HookEntRef[MAX_PLAYERS_ARRAY]; // internal
-new HS_BeamEntRef[MAX_PLAYERS_ARRAY][2]; // internal
-new Float:HS_ReelInSpeed[MAX_PLAYERS_ARRAY]; // arg1, speed of going up on rope
-new Float:HS_ReelOutSpeed[MAX_PLAYERS_ARRAY]; // arg2, speed of going down on rope
-new Float:HS_Cooldown[MAX_PLAYERS_ARRAY]; // arg3
-new Float:HS_RageCost[MAX_PLAYERS_ARRAY]; // arg4
-new Float:HS_MaxFiringAngle[MAX_PLAYERS_ARRAY]; // arg5
-new String:HS_RopeTextureStr[MAX_MATERIAL_FILE_LENGTH]; // arg6, assumed both bosses in multi-boss would share this
-new String:HS_HookModel[MAX_MODEL_FILE_LENGTH]; // arg7, assumed both bosses in multi-boss would share this
-new String:HS_HookFiringSound[MAX_SOUND_FILE_LENGTH]; // arg8, assumed both bosses in multi-boss would share this
-new Float:HS_ElasticityModifier[MAX_PLAYERS_ARRAY]; // arg9
-new Float:HS_MaxSwingSpeed[MAX_PLAYERS_ARRAY]; // arg10
-new Float:HS_MaxSwingDuration[MAX_PLAYERS_ARRAY]; // arg11
-new Float:HS_NegativeZDegradationFactor[MAX_PLAYERS_ARRAY]; // arg12
-new Float:HS_HorizontalMotionFactor[MAX_PLAYERS_ARRAY]; // arg13
-new HS_Flags[MAX_PLAYERS_ARRAY]; // arg19
+bool HS_ActiveThisRound = false; // internal
+bool HS_CanUse[MAX_PLAYERS_ARRAY]; // internal
+float HS_LastUpdateAt[MAX_PLAYERS_ARRAY]; // internal
+bool HS_AltFireDown[MAX_PLAYERS_ARRAY]; // internal
+bool HS_DuckKeyDown[MAX_PLAYERS_ARRAY]; // internal
+bool HS_JumpKeyDown[MAX_PLAYERS_ARRAY]; // internal
+bool HS_HookshotOut[MAX_PLAYERS_ARRAY]; // internal
+float HS_HookshotReelDistance[MAX_PLAYERS_ARRAY]; // internal
+int HS_HUDErrorIdx[MAX_PLAYERS_ARRAY];
+char HS_HUDText[MAX_PLAYERS_ARRAY][HS_HUD_TEXT_LENGTH]; // internal, yeah this is about 10k data usage. ouch.
+float HS_HudRefreshAt[MAX_PLAYERS_ARRAY]; // internal
+float HS_HudErrorClearAt[MAX_PLAYERS_ARRAY]; // internal
+float HS_HookPosition[MAX_PLAYERS_ARRAY][3]; // internal, position of the hook when it's out
+float HS_LastCheckAt[MAX_PLAYERS_ARRAY]; // internal, we won't adjust player motion on every tick
+float HS_HookshotFiredAt[MAX_PLAYERS_ARRAY]; // internal
+float HS_UsableAt[MAX_PLAYERS_ARRAY]; // internal (cooldown related)
+int HS_HookEntRef[MAX_PLAYERS_ARRAY]; // internal
+int HS_BeamEntRef[MAX_PLAYERS_ARRAY][2]; // internal
+float HS_ReelInSpeed[MAX_PLAYERS_ARRAY]; // arg1, speed of going up on rope
+float HS_ReelOutSpeed[MAX_PLAYERS_ARRAY]; // arg2, speed of going down on rope
+float HS_Cooldown[MAX_PLAYERS_ARRAY]; // arg3
+float HS_RageCost[MAX_PLAYERS_ARRAY]; // arg4
+float HS_MaxFiringAngle[MAX_PLAYERS_ARRAY]; // arg5
+char HS_RopeTextureStr[MAX_MATERIAL_FILE_LENGTH]; // arg6, assumed both bosses in multi-boss would share this
+char HS_HookModel[MAX_MODEL_FILE_LENGTH]; // arg7, assumed both bosses in multi-boss would share this
+char HS_HookFiringSound[MAX_SOUND_FILE_LENGTH]; // arg8, assumed both bosses in multi-boss would share this
+float HS_ElasticityModifier[MAX_PLAYERS_ARRAY]; // arg9
+float HS_MaxSwingSpeed[MAX_PLAYERS_ARRAY]; // arg10
+float HS_MaxSwingDuration[MAX_PLAYERS_ARRAY]; // arg11
+float HS_NegativeZDegradationFactor[MAX_PLAYERS_ARRAY]; // arg12
+float HS_HorizontalMotionFactor[MAX_PLAYERS_ARRAY]; // arg13
+int HS_Flags[MAX_PLAYERS_ARRAY]; // arg19
 // strings, all assumed to be shared by multi-bosses. also, don't want to balloon the data size.
 #define HSS_STRING "rope_strings"
 #define HS_ERROR_NONE 0
@@ -192,18 +135,18 @@ new HS_Flags[MAX_PLAYERS_ARRAY]; // arg19
 #define HS_ERROR_BAD_ANGLE 6
 #define HS_ERROR_INSUFFICIENT_RAGE 7
 #define HS_ERROR_WEIGHDOWN_ACTIVE 8
-new String:HS_RopeSnappedStr[MAX_CENTER_TEXT_LENGTH]; // arg1
-new String:HS_TimeLimitReachedStr[MAX_CENTER_TEXT_LENGTH]; // arg2
-new String:HS_HitGroundOrWaterStr[MAX_CENTER_TEXT_LENGTH]; // arg3, 
-new String:HS_InstructionHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg4
-new String:HS_InUseHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg5
-new String:HS_CooldownHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg6
-new String:HS_RageCostHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg7
-new String:HS_StunnedStr[MAX_CENTER_TEXT_LENGTH]; // arg8
-new String:HS_OnGroundStr[MAX_CENTER_TEXT_LENGTH]; // arg9
-new String:HS_BadAngleStr[MAX_CENTER_TEXT_LENGTH]; // arg10
-new String:HS_NotEnoughRageStr[MAX_CENTER_TEXT_LENGTH]; // arg11
-new String:HS_WeighdownActiveStr[MAX_CENTER_TEXT_LENGTH]; // arg12
+char HS_RopeSnappedStr[MAX_CENTER_TEXT_LENGTH]; // arg1
+char HS_TimeLimitReachedStr[MAX_CENTER_TEXT_LENGTH]; // arg2
+char HS_HitGroundOrWaterStr[MAX_CENTER_TEXT_LENGTH]; // arg3, 
+char HS_InstructionHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg4
+char HS_InUseHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg5
+char HS_CooldownHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg6
+char HS_RageCostHUDTemplate[MAX_CENTER_TEXT_LENGTH]; // arg7
+char HS_StunnedStr[MAX_CENTER_TEXT_LENGTH]; // arg8
+char HS_OnGroundStr[MAX_CENTER_TEXT_LENGTH]; // arg9
+char HS_BadAngleStr[MAX_CENTER_TEXT_LENGTH]; // arg10
+char HS_NotEnoughRageStr[MAX_CENTER_TEXT_LENGTH]; // arg11
+char HS_WeighdownActiveStr[MAX_CENTER_TEXT_LENGTH]; // arg12
 
 /**
  * Sapphire Stone
@@ -223,47 +166,47 @@ new String:HS_WeighdownActiveStr[MAX_CENTER_TEXT_LENGTH]; // arg12
 #define SS_FLAG_ROCK_HARD_STUN 0x020000 // stuns also affect the boss
 #define SS_FLAG_SPAWN_ON_CP 0x100000 // not recommended if CP is cappable
 #define SS_FLAG_SPAWN_ON_PICKUP 0x200000
-new bool:SS_ActiveThisRound = false;
-new bool:SS_IsRage; // depends on which string above was used for the ability
-new SS_EntRef; // internal
-new Float:SS_ActivePosition[3]; // internal, since the statue doesn't move
-new Float:SS_NextSpawnAt; // internal
-new Float:SS_EventInterval; // arg1, only used for event version
-new String:SS_MainModel[MAX_MODEL_FILE_LENGTH]; // arg2, model name for sapphire stone
-new Float:SS_StoneCollisionRadius; // arg3, radius for the stone
-new SS_MinPlayersToUse; // arg4, only works if players can use
-new Float:SS_PlayersForStoneFactor; // arg5
-new Float:SS_RockDamage; // arg6, if drop rocks used, 
-new SS_RockMax; // arg7, maximum number of rocks to drop on peoples' heads
-new Float:SS_RockKnockbackIntensity; // arg8, intensity of rock knockback.
-new String:SS_RockModel[MAX_MODEL_FILE_LENGTH]; // arg9
-new Float:SS_RockAreaRect[2][3]; // arg10, area rect for the rocks
-new Float:SS_RockCollisionRect[2][3]; // arg10 child, collision rect for the rocks
-new Float:SS_RockStunDuration; // arg11
-new Float:SS_RockTimeToLive; // arg12
-new Float:SS_RockMinSpeedEffective; // arg13
-new Float:SS_QuakeDuration; // arg14
-new Float:SS_QuakeDamage; // arg15
-new Float:SS_BossDamageMultiplier; // arg16
-new SS_Flags; // arg19
+bool SS_ActiveThisRound = false;
+bool SS_IsRage; // depends on which string above was used for the ability
+int SS_EntRef; // internal
+float SS_ActivePosition[3]; // internal, since the statue doesn't move
+float SS_NextSpawnAt; // internal
+float SS_EventInterval; // arg1, only used for event version
+char SS_MainModel[MAX_MODEL_FILE_LENGTH]; // arg2, model name for sapphire stone
+float SS_StoneCollisionRadius; // arg3, radius for the stone
+int SS_MinPlayersToUse; // arg4, only works if players can use
+float SS_PlayersForStoneFactor; // arg5
+float SS_RockDamage; // arg6, if drop rocks used, 
+int SS_RockMax; // arg7, maximum number of rocks to drop on peoples' heads
+float SS_RockKnockbackIntensity; // arg8, intensity of rock knockback.
+char SS_RockModel[MAX_MODEL_FILE_LENGTH]; // arg9
+float SS_RockAreaRect[2][3]; // arg10, area rect for the rocks
+float SS_RockCollisionRect[2][3]; // arg10 child, collision rect for the rocks
+float SS_RockStunDuration; // arg11
+float SS_RockTimeToLive; // arg12
+float SS_RockMinSpeedEffective; // arg13
+float SS_QuakeDuration; // arg14
+float SS_QuakeDamage; // arg15
+float SS_BossDamageMultiplier; // arg16
+int SS_Flags; // arg19
 
 // second set of parameters, mostly aesthetics
 //#define SSA_STRING "sapphire_stone_aesthetics" // I chose the word order carefully here
 #define SSA_STRING "sapphire_stone2"
 // strings
-new String:SS_StrStoneAppeared[MAX_CENTER_TEXT_LENGTH]; // arg1
-new String:SS_BossGotStone[MAX_CENTER_TEXT_LENGTH]; // arg2
-new String:SS_PlayersGotStone[MAX_CENTER_TEXT_LENGTH]; // arg3
-new String:SS_MercStoneDisplayStr[MAX_CENTER_TEXT_LENGTH]; // arg4
+char SS_StrStoneAppeared[MAX_CENTER_TEXT_LENGTH]; // arg1
+char SS_BossGotStone[MAX_CENTER_TEXT_LENGTH]; // arg2
+char SS_PlayersGotStone[MAX_CENTER_TEXT_LENGTH]; // arg3
+char SS_MercStoneDisplayStr[MAX_CENTER_TEXT_LENGTH]; // arg4
 // sounds
-new String:SS_RockHitSound[MAX_SOUND_FILE_LENGTH]; // arg7
-new String:SS_QuakeSound[MAX_SOUND_FILE_LENGTH]; // arg8
-new String:SS_BossGotStoneSound[MAX_SOUND_FILE_LENGTH]; // arg9
-new String:SS_MercsGotStoneSound[MAX_SOUND_FILE_LENGTH]; // arg10
-new String:SS_StoneSpawnSound[MAX_SOUND_FILE_LENGTH]; // arg10
+char SS_RockHitSound[MAX_SOUND_FILE_LENGTH]; // arg7
+char SS_QuakeSound[MAX_SOUND_FILE_LENGTH]; // arg8
+char SS_BossGotStoneSound[MAX_SOUND_FILE_LENGTH]; // arg9
+char SS_MercsGotStoneSound[MAX_SOUND_FILE_LENGTH]; // arg10
+char SS_StoneSpawnSound[MAX_SOUND_FILE_LENGTH]; // arg10
 // particles
-new String:SS_RockHitParticle[MAX_EFFECT_NAME_LENGTH]; // arg13
-new String:SS_QuakeParticle[MAX_EFFECT_NAME_LENGTH]; // arg14
+char SS_RockHitParticle[MAX_EFFECT_NAME_LENGTH]; // arg13
+char SS_QuakeParticle[MAX_EFFECT_NAME_LENGTH]; // arg14
 
 // individual rocks
 #define MAX_ROCKS 20
@@ -275,21 +218,21 @@ new String:SS_QuakeParticle[MAX_EFFECT_NAME_LENGTH]; // arg14
 #define ROCK_HEIGHT_CAP 1000.0
 #define ROCK_FIRING_ANGLE_NEAR 45.0
 #define ROCK_FIRING_ANGLE_FAR 80.0
-new RockEntRef[MAX_ROCKS];
-new Float:RockSpawnedAt[MAX_ROCKS];
-new Float:RockCollisionCheckAt[MAX_ROCKS]; // I'm going simpler with this than I did with Maud's rocks and Thi's props
-new Float:RockLastPosition[MAX_ROCKS][3];
-new Float:RockLastCollisionCheckAt[MAX_ROCKS];
-new Float:RockNextSpawnAt;
-new RocksPendingSpawn;
-new bool:RocksAreBossTeam;
+int RockEntRef[MAX_ROCKS];
+float RockSpawnedAt[MAX_ROCKS];
+float RockCollisionCheckAt[MAX_ROCKS]; // I'm going simpler with this than I did with Maud's rocks and Thi's props
+float RockLastPosition[MAX_ROCKS][3];
+float RockLastCollisionCheckAt[MAX_ROCKS];
+float RockNextSpawnAt;
+int RocksPendingSpawn;
+bool RocksAreBossTeam;
 
 // safe spawning
 #define SS_MAX_SPAWNS 50
-new SS_SpawnLocationCount = 0;
-new Float:SS_Spawn[SS_MAX_SPAWNS][3];
+int SS_SpawnLocationCount = 0;
+float SS_Spawn[SS_MAX_SPAWNS][3];
 #define SS_MAX_PICKUPS 4
-new String:SS_Pickups[SS_MAX_PICKUPS][48] = { "item_ammopack_small", "item_healthkit_small", "item_healthkit_medium", "item_healthkit_large" };
+char SS_Pickups[SS_MAX_PICKUPS][48] = { "item_ammopack_small", "item_healthkit_small", "item_healthkit_medium", "item_healthkit_large" };
 
 // hud management
 #define SS_HUD_POSITION 0.60
@@ -300,18 +243,18 @@ new String:SS_Pickups[SS_MAX_PICKUPS][48] = { "item_ammopack_small", "item_healt
 #define SS_HUD_MSG_BOSS_FOUND 2
 #define SS_HUD_MSG_MERCS_FOUND 3
 #define SS_HUD_MSG_NUM_MERCS_ON_STONE 4
-new Float:SS_HUDNextCheck;
-new SS_HUDMessageIdx = 0;
-new Float:SS_HUDMessageExpirationTime;
-new SS_HUDNumMercs;
-new SS_HUDMercsRequired;
+float SS_HUDNextCheck;
+int SS_HUDMessageIdx = 0;
+float SS_HUDMessageExpirationTime;
+int SS_HUDNumMercs;
+int SS_HUDMercsRequired;
 
 // beacon
 #define SS_BEACON_DELAY 1.0
 #define SS_BEACON_SOUND "buttons/blip1.wav"
-new Float:SS_NextBeaconAt;
-new BEACON_BEAM;
-new BEACON_HALO;
+float SS_NextBeaconAt;
+int BEACON_BEAM;
+int BEACON_HALO;
 
 /**
  * Elemental totems
@@ -324,40 +267,40 @@ new BEACON_HALO;
 #define ET_WIND 2
 #define ET_ELECTRIC 3
 #define ET_TYPE_COUNT 4
-new bool:ET_ActiveThisRound = false;
-new bool:ET_CanUse[MAX_PLAYERS_ARRAY];
-new bool:ET_ReloadDown[MAX_PLAYERS_ARRAY]; // internal
-new ET_CurrentSelection[MAX_PLAYERS_ARRAY]; // internal, initialized as arg5
-new Float:ET_UpdateHUDAt[MAX_PLAYERS_ARRAY]; // internal
-new Float:ET_ExpectedSpeed[MAX_PLAYERS_ARRAY]; // internal, related to slowdown
-new bool:ET_IsSpeedAdjusted[MAX_PLAYERS_ARRAY]; // internal
-new Float:ET_SpeedAdjust[MAX_PLAYERS_ARRAY]; // internal
-new Float:ET_RemoveAfterburnAt[MAX_PLAYERS_ARRAY]; // internal
-new bool:ET_FireEnabled[MAX_PLAYERS_ARRAY]; // arg1
-new bool:ET_IceEnabled[MAX_PLAYERS_ARRAY]; // arg2
-new bool:ET_WindEnabled[MAX_PLAYERS_ARRAY]; // arg3
-new bool:ET_ElectricEnabled[MAX_PLAYERS_ARRAY]; // arg4
+bool ET_ActiveThisRound = false;
+bool ET_CanUse[MAX_PLAYERS_ARRAY];
+bool ET_ReloadDown[MAX_PLAYERS_ARRAY]; // internal
+int ET_CurrentSelection[MAX_PLAYERS_ARRAY]; // internal, initialized as arg5
+float ET_UpdateHUDAt[MAX_PLAYERS_ARRAY]; // internal
+float ET_ExpectedSpeed[MAX_PLAYERS_ARRAY]; // internal, related to slowdown
+bool ET_IsSpeedAdjusted[MAX_PLAYERS_ARRAY]; // internal
+float ET_SpeedAdjust[MAX_PLAYERS_ARRAY]; // internal
+float ET_RemoveAfterburnAt[MAX_PLAYERS_ARRAY]; // internal
+bool ET_FireEnabled[MAX_PLAYERS_ARRAY]; // arg1
+bool ET_IceEnabled[MAX_PLAYERS_ARRAY]; // arg2
+bool ET_WindEnabled[MAX_PLAYERS_ARRAY]; // arg3
+bool ET_ElectricEnabled[MAX_PLAYERS_ARRAY]; // arg4
 // arg5 is not stored. it is the default totem, before RELOAD is pressed
 // arg6-9 aren't stored, they're models for the totems
-new String:ET_FireHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg10
-new String:ET_IceHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg11
-new String:ET_WindHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg12
-new String:ET_ElectricHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg13
-new String:ET_InstructionHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg14
+char ET_FireHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg10
+char ET_IceHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg11
+char ET_WindHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg12
+char ET_ElectricHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg13
+char ET_InstructionHUDStr[MAX_CENTER_TEXT_LENGTH]; // arg14
 
 // pertaining to the fog controller
 #define ET_FOG_TRANSITION_INTERVAL 0.025
 #define ET_FOG_TRANSITION_TIME 1.0
 #define ET_FOG_DEFAULT_COLOR 0x000000
-new Float:ET_FogExpiresAt; // when this happens, a detransition occurs.
-new Float:ET_FogLastCheckAt = 0.0;
-new Float:ET_FogTransitionElapsed = ET_FOG_TRANSITION_TIME;
-new Float:ET_FogCurrentDensity = 0.0;
-new Float:ET_FogStartingDensity = 0.0;
-new Float:ET_FogTargetDensity;
-new ET_FogCurrentColor = ET_FOG_DEFAULT_COLOR;
-new ET_FogStartingColor = ET_FOG_DEFAULT_COLOR;
-new ET_FogTargetColor;
+float ET_FogExpiresAt; // when this happens, a detransition occurs.
+float ET_FogLastCheckAt = 0.0;
+float ET_FogTransitionElapsed = ET_FOG_TRANSITION_TIME;
+float ET_FogCurrentDensity = 0.0;
+float ET_FogStartingDensity = 0.0;
+float ET_FogTargetDensity;
+int ET_FogCurrentColor = ET_FOG_DEFAULT_COLOR;
+int ET_FogStartingColor = ET_FOG_DEFAULT_COLOR;
+int ET_FogTargetColor;
 
 // fire totem
 #define FET_STRING "fire_elemental_totem"
@@ -382,41 +325,41 @@ new ET_FogTargetColor;
 #define EET_STRING "electric_elemental_totem"
 #define EET_FLAG_DRAIN_SPIES 0x0001
 #define EET_FLAG_SPEED_ON_MINOR_HIT 0x0002
-new EET_BoltMaterial;
+int EET_BoltMaterial;
 
 // active totems
 #define MAX_TOTEMS 10
-new Totem_Type[MAX_TOTEMS];
-new Totem_EntRef[MAX_TOTEMS];
-new Totem_Owner[MAX_TOTEMS];
-new Float:Totem_ExpiresAt[MAX_TOTEMS];
-new Float:Totem_VisualEffectRadius[MAX_TOTEMS];
-new Float:Totem_VisualEffectInterval[MAX_TOTEMS];
-new Float:Totem_VisualEffectDamage[MAX_TOTEMS];
-new String:Totem_VisualEffectParticle[MAX_TOTEMS][MAX_EFFECT_NAME_LENGTH];
-new Float:Totem_DamageEffectRadius[MAX_TOTEMS];
-new Float:Totem_DamageEffectInterval[MAX_TOTEMS];
-new Float:Totem_DamageEffectDamage[MAX_TOTEMS];
-new Float:Totem_SkyDarkenPercent[MAX_TOTEMS];
-new String:Totem_RepeatingSound[MAX_TOTEMS][MAX_SOUND_FILE_LENGTH];
-new Float:Totem_SoundRepeatInterval[MAX_TOTEMS];
-new String:Totem_DamageSound[MAX_TOTEMS][MAX_SOUND_FILE_LENGTH];
-new Totem_Flags[MAX_TOTEMS];
-new bool:Totem_Victims[MAX_TOTEMS][MAX_PLAYERS_ARRAY];
-new Float:Totem_KnockbackIntensity[MAX_TOTEMS];
-new Float:Totem_NextInternalAt[MAX_TOTEMS];
-new Float:Totem_DamageCylinderHeight[MAX_TOTEMS];
-new Float:Totem_AfterburnDuration[MAX_TOTEMS];
-new Float:Totem_SlowdownFactor[MAX_TOTEMS];
-new String:Totem_TotemParticle[MAX_TOTEMS][MAX_EFFECT_NAME_LENGTH];
-new Float:Totem_TotemParticleInterval[MAX_TOTEMS];
-new Totem_DynamicLight[MAX_TOTEMS];
+int Totem_Type[MAX_TOTEMS];
+int Totem_EntRef[MAX_TOTEMS];
+int Totem_Owner[MAX_TOTEMS];
+float Totem_ExpiresAt[MAX_TOTEMS];
+float Totem_VisualEffectRadius[MAX_TOTEMS];
+float Totem_VisualEffectInterval[MAX_TOTEMS];
+float Totem_VisualEffectDamage[MAX_TOTEMS];
+char Totem_VisualEffectParticle[MAX_TOTEMS][MAX_EFFECT_NAME_LENGTH];
+float Totem_DamageEffectRadius[MAX_TOTEMS];
+float Totem_DamageEffectInterval[MAX_TOTEMS];
+float Totem_DamageEffectDamage[MAX_TOTEMS];
+float Totem_SkyDarkenPercent[MAX_TOTEMS];
+char Totem_RepeatingSound[MAX_TOTEMS][MAX_SOUND_FILE_LENGTH];
+float Totem_SoundRepeatInterval[MAX_TOTEMS];
+char Totem_DamageSound[MAX_TOTEMS][MAX_SOUND_FILE_LENGTH];
+int Totem_Flags[MAX_TOTEMS];
+bool Totem_Victims[MAX_TOTEMS][MAX_PLAYERS_ARRAY];
+float Totem_KnockbackIntensity[MAX_TOTEMS];
+float Totem_NextInternalAt[MAX_TOTEMS];
+float Totem_DamageCylinderHeight[MAX_TOTEMS];
+float Totem_AfterburnDuration[MAX_TOTEMS];
+float Totem_SlowdownFactor[MAX_TOTEMS];
+char Totem_TotemParticle[MAX_TOTEMS][MAX_EFFECT_NAME_LENGTH];
+float Totem_TotemParticleInterval[MAX_TOTEMS];
+int Totem_DynamicLight[MAX_TOTEMS];
 // the variables below are internal, used for intervals
-new Float:Totem_NextVisualAt[MAX_TOTEMS];
-new Float:Totem_NextDamageAt[MAX_TOTEMS];
-new Float:Totem_NextSoundPlayAt[MAX_TOTEMS];
-new Float:Totem_NextSpecialAt[MAX_TOTEMS];
-new Float:Totem_NextParticleAt[MAX_TOTEMS];
+float Totem_NextVisualAt[MAX_TOTEMS];
+float Totem_NextDamageAt[MAX_TOTEMS];
+float Totem_NextSoundPlayAt[MAX_TOTEMS];
+float Totem_NextSpecialAt[MAX_TOTEMS];
+float Totem_NextParticleAt[MAX_TOTEMS];
 
 /**
  * Teleport to spawn
@@ -424,19 +367,19 @@ new Float:Totem_NextParticleAt[MAX_TOTEMS];
  * Since hookshot doesn't have any decent Super Duper Jump equivalent and the unlucky person could take lots of damage.
  */
 #define TTS_STRING "ff2_teleport_to_spawn"
-new bool:TTS_ActiveThisRound;
-new bool:TTS_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new Float:TTS_RedSpawn[3]; // internal
-new Float:TTS_BluSpawn[3]; // internal
-new Float:TTS_MinimumDamage[MAX_PLAYERS_ARRAY]; // arg1
-new bool:TTS_AlsoUseRedSpawn[MAX_PLAYERS_ARRAY]; // arg2
-new Float:TTS_AllowRedSpawnAt[MAX_PLAYERS_ARRAY]; // arg3 + roundstarttime
-new bool:TTS_OverrideVSPMethod[MAX_PLAYERS_ARRAY]; // arg4
+bool TTS_ActiveThisRound;
+bool TTS_CanUse[MAX_PLAYERS_ARRAY]; // internal
+//float TTS_RedSpawn[3]; // internal
+//float TTS_BluSpawn[3]; // internal
+float TTS_MinimumDamage[MAX_PLAYERS_ARRAY]; // arg1
+bool TTS_AlsoUseRedSpawn[MAX_PLAYERS_ARRAY]; // arg2
+float TTS_AllowRedSpawnAt[MAX_PLAYERS_ARRAY]; // arg3 + roundstarttime
+bool TTS_OverrideVSPMethod[MAX_PLAYERS_ARRAY]; // arg4
 
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
-PrintRageWarning()
+void PrintRageWarning()
 {
 	PrintToServer("*********************************************************************");
 	PrintToServer("*                             WARNING                               *");
@@ -447,7 +390,7 @@ PrintRageWarning()
 }
  
 #define CMD_FORCE_RAGE "rage"
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
@@ -464,7 +407,7 @@ public OnPluginStart2()
 	PrecacheSound(NOPE_AVI); // DO NOT DELETE IN FUTURE MOD PACKS
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = true;
 	PluginActiveThisRound = false;
@@ -475,7 +418,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	SS_ActiveThisRound = false;
 	TTS_ActiveThisRound = false;
 	SS_EntRef = 0;
-	for (new i = 0; i < MAX_ROCKS; i++)
+	for (int i = 0; i < MAX_ROCKS; i++)
 	{
 		RockEntRef[i] = 0;
 		RockSpawnedAt[i] = FAR_FUTURE;
@@ -484,7 +427,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	SS_HUDNextCheck = GetEngineTime() + SS_HUD_CHECK_INTERVAL;
 	SS_HUDMessageIdx = SS_HUD_MSG_NONE;
 	RocksPendingSpawn = 0;
-	for (new i = 0; i < MAX_TOTEMS; i++)
+	for (int i = 0; i < MAX_TOTEMS; i++)
 		Totem_Type[i] = -1;
 		
 	// fog controller variable init
@@ -495,7 +438,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	ET_FogStartingColor = ET_FOG_DEFAULT_COLOR;
 	
 	// initialize arrays
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// all client inits
 		HS_CanUse[clientIdx] = false;
@@ -516,7 +459,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		TTS_CanUse[clientIdx] = false;
 	
 		// boss-only inits
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
@@ -586,7 +529,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			SS_ActiveThisRound = true; // not set outside in case this is used in a multi-boss, i.e. RBD and Daring Do
 			PluginActiveThisRound = true;
 			
-			new String:abilityName[30] = ESS_STRING;
+			char abilityName[30] = ESS_STRING;
 			SS_IsRage = FF2_HasAbility(bossIdx, this_plugin_name, RSS_STRING);
 			if (SS_IsRage)
 			{
@@ -673,7 +616,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			ET_CurrentSelection[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ET_STRING, 5);
 			
 			// precache models
-			for (new i = 0; i < ET_TYPE_COUNT; i++)
+			for (int i = 0; i < ET_TYPE_COUNT; i++)
 				ReadModelToInt(bossIdx, ET_STRING, 6 + i);
 			
 			// 2014-12-11, lets precache this again just in case
@@ -687,7 +630,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			ReadCenterText(bossIdx, ET_STRING, 14, ET_InstructionHUDStr);
 			
 			// verify required abilities exist, and precache sounds
-			new String:soundFile[MAX_SOUND_FILE_LENGTH];
+			char soundFile[MAX_SOUND_FILE_LENGTH];
 			if (ET_FireEnabled[clientIdx])
 			{
 				if (FF2_HasAbility(bossIdx, this_plugin_name, FET_STRING))
@@ -774,7 +717,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		if (TTS_CanUse[clientIdx])
 		{
 			// messing with this to only allow it to work on Volcanic
-			static String:mapName[64];
+			static char mapName[64];
 			GetCurrentMap(mapName, 64);
 		
 			if (StrContains(mapName, "volcanic") >= 0)
@@ -793,7 +736,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	SS_SpawnLocationCount = 0;
 	if (SS_ActiveThisRound)
 	{
-		new entity = 0;
+		int entity = 0;
 		
 		// first, the control points
 		if (SS_Flags & SS_FLAG_SPAWN_ON_CP)
@@ -809,7 +752,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		// second, item pickups
 		if (SS_Flags & SS_FLAG_SPAWN_ON_PICKUP)
 		{
-			for (new i = 0; i < SS_MAX_PICKUPS; i++)
+			for (int i = 0; i < SS_MAX_PICKUPS; i++)
 			{
 				entity = 0;
 				while ((entity = FindEntityByClassname(entity, SS_Pickups[i])) != -1 && SS_SpawnLocationCount < SS_MAX_SPAWNS)
@@ -833,12 +776,12 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		// final (required) is player spawn points, but we only take four from each team to keep CP's from being chosen too often
 		// the reason I'm making it 4 is some maps have a variety of spawn points. i.e. vsh_west_fix has a ton for BLU
 		// it's unlikely that RED's would be spaced apart, since even with multiple spawn hubs they're usually clumped together.
-		new redCount = 0;
-		new bluCount = 0;
+		int redCount = 0;
+		int bluCount = 0;
 		entity = 0;
 		while ((entity = FindEntityByClassname(entity, "info_player_teamspawn")) != -1 && SS_SpawnLocationCount < SS_MAX_SPAWNS)
 		{
-			new teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
+			int teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
 			if (teamNum == BossTeam)
 			{
 				if (bluCount >= 4)
@@ -870,9 +813,12 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	
 	if (TTS_ActiveThisRound)
 	{
+		/*
+		01Pollux: don't need it? remove it! those packs are already very full of unneeded things
+		
 		// find a random red spawn and BLU spawn by finding living players in each
-		new randomRed = FindRandomPlayer(false);
-		new randomBlu = FindRandomPlayer(true);
+		int randomRed = FindRandomPlayer(false);
+		int randomBlu = FindRandomPlayer(true);
 		if (IsValidEntity(randomRed))
 		{
 			GetEntPropVector(randomRed, Prop_Send, "m_vecOrigin", TTS_RedSpawn);
@@ -894,8 +840,9 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			TTS_BluSpawn[1] = OFF_THE_MAP[1];
 			TTS_BluSpawn[2] = OFF_THE_MAP[2];
 		}
-	
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		*/
+		
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsLivingPlayer(clientIdx) || !TTS_CanUse[clientIdx])
 				continue;
@@ -904,7 +851,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	}
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = false;
 	
@@ -941,7 +888,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	if (TTS_ActiveThisRound)
 	{
 		TTS_ActiveThisRound = false;
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!TTS_CanUse[clientIdx])
 				continue;
@@ -950,7 +897,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	}
 }
 
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (strcmp(plugin_name, this_plugin_name) != 0)
 		return Plugin_Continue;
@@ -973,10 +920,10 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Debug Only!
  */
-public Action:CmdForceRage(user, argsInt)
+public Action CmdForceRage(int user, int argsInt)
 {
 	// get actual args
-	new String:unparsedArgs[ARG_LENGTH];
+	char[] unparsedArgs = new char[ARG_LENGTH];
 	GetCmdArgString(unparsedArgs, ARG_LENGTH);
 	
 	// gotta do this
@@ -1020,15 +967,15 @@ public Action:CmdForceRage(user, argsInt)
 	}
 	
 	PrintToServer("[sarysamods5] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
+	return Plugin_Handled;
 }
 
 /**
  * Hookshot
  */
-public bool:HS_IsValidHookshotState(clientIdx)
+public bool HS_IsValidHookshotState(int clientIdx)
 {
-	new flags = GetEntityFlags(clientIdx);
+	int flags = GetEntityFlags(clientIdx);
 	if (flags & FL_ONGROUND)
 		return false;
 	if (flags & (FL_SWIM | FL_INWATER))
@@ -1036,7 +983,7 @@ public bool:HS_IsValidHookshotState(clientIdx)
 	return true;
 }
  
-public CancelHookshot(clientIdx, bool:ropeSnapped, errorIdx)
+public void CancelHookshot(int clientIdx, bool ropeSnapped, int errorIdx)
 {
 	// 2015-10-03, this can now be called outside this plugin. so this is necessary.
 	if (!HS_CanUse[clientIdx])
@@ -1071,10 +1018,10 @@ public CancelHookshot(clientIdx, bool:ropeSnapped, errorIdx)
 	UpdateHookshotHUD(clientIdx, errorIdx);
 }
 
-public UpdateHookshotHUD(clientIdx, errorIdx)
+public void UpdateHookshotHUD(int clientIdx, int errorIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
-	new Float:currentRage = FF2_GetBossCharge(bossIdx, 0);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
+	float currentRage = FF2_GetBossCharge(bossIdx, 0);
 	
 	if (errorIdx != -1)
 	{
@@ -1082,7 +1029,7 @@ public UpdateHookshotHUD(clientIdx, errorIdx)
 		HS_HudErrorClearAt[clientIdx] = GetEngineTime() + 5.0;
 	}
 		
-	new String:hudError[HS_HUD_TEXT_LENGTH] = "";
+	char hudError[HS_HUD_TEXT_LENGTH];
 	if (HS_HUDErrorIdx[clientIdx] == HS_ERROR_ROPE_SNAPPED)
 		hudError = HS_RopeSnappedStr;
 	else if (HS_HUDErrorIdx[clientIdx] == HS_ERROR_TIME_LIMIT)
@@ -1124,9 +1071,9 @@ public UpdateHookshotHUD(clientIdx, errorIdx)
 		HS_HudErrorClearAt[clientIdx] = GetEngineTime() + 5.0;
 }
 
-//public HS_AdjustVelocity(clientIdx, Float:xAdjust, Float:yAdjust, Float:zAdjust, bool:zeroZ)
+//public HS_AdjustVelocity(clientIdx, float xAdjust, float yAdjust, float zAdjust, bool zeroZ)
 //{
-//	new Float:velocity[3];
+//	float velocity[3];
 //	GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", velocity);
 //	
 //	if (zeroZ)
@@ -1143,13 +1090,13 @@ public UpdateHookshotHUD(clientIdx, errorIdx)
 /**
  * Sapphire Stone
  */
-public SS_SetHUDMessage(messageIdx)
+public void SS_SetHUDMessage(int messageIdx)
 {
 	SS_HUDMessageIdx = messageIdx;
 	SS_HUDMessageExpirationTime = GetEngineTime() + (messageIdx == SS_HUD_MSG_NUM_MERCS_ON_STONE ? 9999.0 : SS_HUD_DURATION);
 }
 
-public SS_RefreshHUD(Float:curTime)
+public void SS_RefreshHUD(float curTime)
 {
 	if (curTime >= SS_HUDNextCheck)
 	{
@@ -1158,7 +1105,7 @@ public SS_RefreshHUD(Float:curTime)
 	
 		// going with the FF2 timer values, since I'd like it to be fairly responsive
 		SetHudTextParams(-1.0, SS_HUD_POSITION, SS_HUD_CHECK_INTERVAL + 0.05, 255, 64, 64, 192);
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsLivingPlayer(clientIdx))
 			{
@@ -1177,30 +1124,30 @@ public SS_RefreshHUD(Float:curTime)
 	}
 }
 
-public SS_FindAttacker(bool:bossTriggered)
+public int SS_FindAttacker(bool bossTriggered)
 {
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		if (IsLivingPlayer(clientIdx) && ((bossTriggered && GetClientTeam(clientIdx) == BossTeam) || (!bossTriggered && GetClientTeam(clientIdx) != BossTeam)))
 			return clientIdx;
 			
 	return -1;
 }
 
-public SS_StartEvent(bool:bossTriggered)
+public void SS_StartEvent(bool bossTriggered)
 {
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods5] Starting Sapphire Stone event. bossTriggered=%d", bossTriggered);
 		
 	// earthquake. I've modified it to optionally not mess with physics props.
 	// too many potential issues
-	env_shake(Float:{0.0, 0.0, 0.0}, 120.0, 10000.0, SS_QuakeDuration, 250.0, (SS_Flags & SS_FLAG_EARTHQUAKE_HAS_PHYSICS) == 0);
+	env_shake(view_as<float>({0.0, 0.0, 0.0}), 120.0, 10000.0, SS_QuakeDuration, 250.0, (SS_Flags & SS_FLAG_EARTHQUAKE_HAS_PHYSICS) == 0);
 	if (SS_QuakeDamage > 0.0)
 	{
 		// find an attacker for the event damage
-		new attacker = SS_FindAttacker(bossTriggered);
+		int attacker = SS_FindAttacker(bossTriggered);
 		
 		// do event damage to all potential victims
-		if (attacker != -1) for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		if (attacker != -1) for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (IsLivingPlayer(victim) && ((bossTriggered && GetClientTeam(victim) != BossTeam) || (!bossTriggered && GetClientTeam(victim) == BossTeam)))
 			{
@@ -1209,7 +1156,7 @@ public SS_StartEvent(bool:bossTriggered)
 				// particle effect on player
 				if (!IsEmptyString(SS_RockHitParticle))
 				{
-					new Float:playerOrigin[3];
+					float playerOrigin[3];
 					GetEntPropVector(victim, Prop_Data, "m_vecOrigin", playerOrigin);
 					ParticleEffectAt(playerOrigin, SS_QuakeParticle);
 				}
@@ -1252,37 +1199,37 @@ public SS_StartEvent(bool:bossTriggered)
 	}
 	
 	// remove the entity
-	RemoveEntityTele(SS_EntRef);
+	Timer_RemoveEntity(null, SS_EntRef);
 	SS_EntRef = 0;
 }
 
 #define ROCK_TRACE_FLAGS (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE)
-public SS_SpawnRocks(Float:curTime)
+public void SS_SpawnRocks(float curTime)
 {
 	// checking if it's necessary in here
 	if (RocksPendingSpawn <= 0 || RockNextSpawnAt > curTime)
 		return;
 		
 	// only make 5 passes at finding a suitable spawn location, and then give up.
-	for (new pass = 0; pass < 5; pass++)
+	for (int pass = 0; pass < 5; pass++)
 	{
 		// find a suitable victim
-		new victim = FindRandomPlayer(!RocksAreBossTeam);
+		int victim = FindRandomPlayer(!RocksAreBossTeam);
 		
 		// if it's -1 it'll never be valid
 		if (victim == -1)
 			break;
 			
 		// do a simple floor/ceiling check to ensure there's enough space
-		new Handle:trace;
-		new Float:victimPos[3];
-		new Float:ceilingPos[3];
-		new Float:floorPos[3];
+		Handle trace;
+		float victimPos[3];
+		float ceilingPos[3];
+		float floorPos[3];
 		GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimPos);
-		trace = TR_TraceRayFilterEx(victimPos, Float:{90.0, 0.0, 0.0}, ROCK_TRACE_FLAGS, RayType_Infinite, TraceWallsOnly);
+		trace = TR_TraceRayFilterEx(victimPos, view_as<float>({90.0, 0.0, 0.0}), ROCK_TRACE_FLAGS, RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(floorPos, trace);
 		CloseHandle(trace);
-		trace = TR_TraceRayFilterEx(victimPos, Float:{-90.0, 0.0, 0.0}, ROCK_TRACE_FLAGS, RayType_Infinite, TraceWallsOnly);
+		trace = TR_TraceRayFilterEx(victimPos, view_as<float>({-90.0, 0.0, 0.0}), ROCK_TRACE_FLAGS, RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(ceilingPos, trace);
 		CloseHandle(trace);
 		
@@ -1290,9 +1237,9 @@ public SS_SpawnRocks(Float:curTime)
 			continue; // failed. not enough room
 		
 		// success, lets get ready to spawn it
-		new bool:useSafetySpace = ((ceilingPos[2] - floorPos[2]) - SS_RockAreaRect[1][2]) > ROCK_SPAWN_SAFETY_SPACE;
-		new Float:randomYaw = GetRandomFloat(-179.9, 179.9);
-		new Float:startingPos[3];
+		bool useSafetySpace = ((ceilingPos[2] - floorPos[2]) - SS_RockAreaRect[1][2]) > ROCK_SPAWN_SAFETY_SPACE;
+		float randomYaw = GetRandomFloat(-179.9, 179.9);
+		float startingPos[3];
 		startingPos[0] = ceilingPos[0];
 		startingPos[1] = ceilingPos[1];
 		startingPos[2] = ceilingPos[2] - SS_RockAreaRect[1][2] - (useSafetySpace ? ROCK_SPAWN_SAFETY_SPACE : 0.0);
@@ -1301,14 +1248,14 @@ public SS_SpawnRocks(Float:curTime)
 		startingPos[2] = fmin(startingPos[2], floorPos[2] + ROCK_HEIGHT_CAP);
 		
 		// angle depends on distance from the floor to the spawn point
-		new Float:zDist = startingPos[2] - floorPos[2];
-		new Float:startingAngle[3];
+		float zDist = startingPos[2] - floorPos[2];
+		float startingAngle[3];
 		startingAngle[0] = ROCK_FIRING_ANGLE_NEAR + ((ROCK_FIRING_ANGLE_FAR - ROCK_FIRING_ANGLE_NEAR) * (zDist / ROCK_HEIGHT_CAP));
 		startingAngle[1] = randomYaw;
 		
 		// velocity
-		new Float:startingVel[3];
-		new Float:tmpVec[3];
+		float startingVel[3];
+		float tmpVec[3];
 		trace = TR_TraceRayFilterEx(startingPos, startingAngle, ROCK_TRACE_FLAGS, RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(tmpVec, trace);
 		CloseHandle(trace);
@@ -1320,7 +1267,7 @@ public SS_SpawnRocks(Float:curTime)
 		
 		// it'll be a prop physics override. hopefully this should remove any player-like collision data for Friagram's tom rock.
 		// if not will have to use a generic TF2 rock.
-		new rock = CreateEntityByName("prop_physics_override"); //CreateEntityByName("gib");
+		int rock = CreateEntityByName("prop_physics_override"); //CreateEntityByName("gib");
 		if (IsValidEntity(rock))
 		{
 			// the actual spawning process
@@ -1337,7 +1284,7 @@ public SS_SpawnRocks(Float:curTime)
 
 			// find a free entity slot. I'm just going to assume the user isn't careless enough
 			// to allow this to overflow. otherwise there'll be a useless rock hanging around until round ends.
-			for (new i = 0; i < MAX_ROCKS; i++)
+			for (int i = 0; i < MAX_ROCKS; i++)
 			{
 				if (RockEntRef[i] == 0)
 				{
@@ -1364,18 +1311,18 @@ public SS_SpawnRocks(Float:curTime)
 	RocksPendingSpawn--;
 }
 
-public SS_TickRocks(Float:curTime)
+public void SS_TickRocks(float curTime)
 {
 	// first lets see what rocks we need to destroy
-	for (new i = MAX_ROCKS - 1; i >= 0; i--)
+	for (int i = MAX_ROCKS - 1; i >= 0; i--)
 	{
 		if (RockEntRef[i] != 0 && curTime >= RockSpawnedAt[i] + SS_RockTimeToLive)
 		{
-			RemoveEntityTele(RockEntRef[i]);
+			Timer_RemoveEntity(null, RockEntRef[i]);
 			RockEntRef[i] = 0;
 			RockSpawnedAt[i] = FAR_FUTURE;
 			RockCollisionCheckAt[i] = FAR_FUTURE;
-			for (new j = i; j < MAX_ROCKS - 2; j++)
+			for (int j = i; j < MAX_ROCKS - 2; j++)
 			{
 				RockEntRef[j] = RockEntRef[j+1];
 				RockSpawnedAt[j] = RockSpawnedAt[j+1];
@@ -1388,33 +1335,33 @@ public SS_TickRocks(Float:curTime)
 	if (RockEntRef[0] != 0)
 	{
 		// find an attacker 
-		new attacker = SS_FindAttacker(RocksAreBossTeam);
+		int attacker = SS_FindAttacker(RocksAreBossTeam);
 
-		if (attacker != -1) for (new i = 0; i < MAX_ROCKS; i++)
+		if (attacker != -1) for (int i = 0; i < MAX_ROCKS; i++)
 		{
 			if (RockEntRef[i] != 0 && curTime >= RockCollisionCheckAt[i])
 			{
-				new rockEntity = EntRefToEntIndex(RockEntRef[i]);
+				int rockEntity = EntRefToEntIndex(RockEntRef[i]);
 				if (!IsValidEntity(rockEntity))
 					continue;
 
-				static Float:rockOrigin[3];
+				static float rockOrigin[3];
 				GetEntPropVector(rockEntity, Prop_Data, "m_vecOrigin", rockOrigin);
-				new Float:rockVelocity = GetVelocityFromPointsAndInterval(rockOrigin, RockLastPosition[i], curTime - RockLastCollisionCheckAt[i]);
+				float rockVelocity = GetVelocityFromPointsAndInterval(rockOrigin, RockLastPosition[i], curTime - RockLastCollisionCheckAt[i]);
 				if (rockVelocity >= SS_RockMinSpeedEffective)
 				{
-					static Float:rockHull[2][3];
+					static float rockHull[2][3];
 					rockHull[0][0] = rockOrigin[0] + SS_RockCollisionRect[0][0];
 					rockHull[0][1] = rockOrigin[1] + SS_RockCollisionRect[0][1];
 					rockHull[0][2] = rockOrigin[2] + SS_RockCollisionRect[0][2];
 					rockHull[1][0] = rockOrigin[0] + SS_RockCollisionRect[1][0];
 					rockHull[1][1] = rockOrigin[1] + SS_RockCollisionRect[1][1];
 					rockHull[1][2] = rockOrigin[2] + SS_RockCollisionRect[1][2];
-					for (new victim = 1; victim < MAX_PLAYERS; victim++)
+					for (int victim = 1; victim < MAX_PLAYERS; victim++)
 					{
 						if (IsLivingPlayer(victim) && ((RocksAreBossTeam && GetClientTeam(victim) != BossTeam) || (!RocksAreBossTeam && GetClientTeam(victim) == BossTeam)))
 						{
-							static Float:clientOrigin[3];
+							static float clientOrigin[3];
 							GetEntPropVector(victim, Prop_Data, "m_vecOrigin", clientOrigin);
 							if (RectangleCollision(rockHull, clientOrigin))
 							{
@@ -1440,7 +1387,7 @@ public SS_TickRocks(Float:curTime)
 								// next, the knockback. make it additive so it's more likely the victim gets knocked away and not demolished (unless it's a corner, then they should get demolished)
 								if (SS_RockKnockbackIntensity > 0.0)
 								{
-									new Float:knockbackVelocity[3];
+									float knockbackVelocity[3];
 									MakeVectorFromPoints(rockOrigin, clientOrigin, knockbackVelocity);
 									NormalizeVector(knockbackVelocity, knockbackVelocity);
 									knockbackVelocity[0] *= SS_RockKnockbackIntensity;
@@ -1450,7 +1397,7 @@ public SS_TickRocks(Float:curTime)
 										knockbackVelocity[2] = 275.0;
 										
 									// overwrite the victim's velocity (I originally added it onto and that had problems)
-									//new Float:vecVelocity[3];
+									//float vecVelocity[3];
 									//GetEntPropVector(victim, Prop_Data, "m_vecVelocity", vecVelocity);
 									//vecVelocity[0] += knockbackVelocity[0];
 									//vecVelocity[1] += knockbackVelocity[1];
@@ -1478,15 +1425,15 @@ public SS_TickRocks(Float:curTime)
 	}
 }
 
-public SS_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public void SS_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	SS_HUDMercsRequired = SS_GetNumPlayersRequired();
 }
 
-public SS_GetNumPlayersRequired()
+public int SS_GetNumPlayersRequired()
 {
-	new livingMercCount = GetLivingMercCount();
-	new count = RoundFloat(livingMercCount * SS_PlayersForStoneFactor);
+	int livingMercCount = GetLivingMercCount();
+	int count = RoundFloat(livingMercCount * SS_PlayersForStoneFactor);
 	if (count < SS_MinPlayersToUse)
 		count = SS_MinPlayersToUse;
 	if (count > livingMercCount)
@@ -1497,19 +1444,19 @@ public SS_GetNumPlayersRequired()
 /**
  * Elemental Totems
  */
-new Float:TE_TmpDamage = 0.0;
-new TE_TmpAttacker = -1;
-new bool:TE_GiveSpeed = false;
-new Float:TE_MaxDistance = 0.0;
-new Float:TE_TotemPos[3];
-public bool:TraceElectric(entity, contentsMask)
+float TE_TmpDamage = 0.0;
+int TE_TmpAttacker = -1;
+bool TE_GiveSpeed = false;
+float TE_MaxDistance = 0.0;
+float TE_TotemPos[3];
+public bool TraceElectric(int entity, int contentsMask)
 {
 	// must be valid player
 	if (!IsLivingPlayer(entity) || GetClientTeam(entity) == BossTeam)
 		return false;
 		
 	// verify distance
-	new Float:victimPos[3];
+	float victimPos[3];
 	GetEntPropVector(entity, Prop_Data, "m_vecOrigin", victimPos);
 	if (GetVectorDistance(TE_TotemPos, victimPos) > TE_MaxDistance)
 		return false;
@@ -1529,19 +1476,19 @@ public bool:TraceElectric(entity, contentsMask)
 	return false;
 }
  
-public DrawTotemHUD(clientIdx)
+public void DrawTotemHUD(int clientIdx)
 {
 	if (GetEngineTime() >= ET_UpdateHUDAt[clientIdx])
 	{
-		static String:hudMessage[(MAX_CENTER_TEXT_LENGTH * 2) + 2];
+		static char hudMessage[(MAX_CENTER_TEXT_LENGTH * 2) + 2];
 		if (ET_CurrentSelection[clientIdx] == ET_FIRE)
-			Format(hudMessage, sizeof(hudMessage), "%s\n%s", ET_FireHUDStr, ET_InstructionHUDStr);
+			FormatEx(hudMessage, sizeof(hudMessage), "%s\n%s", ET_FireHUDStr, ET_InstructionHUDStr);
 		else if (ET_CurrentSelection[clientIdx] == ET_ICE)
-			Format(hudMessage, sizeof(hudMessage), "%s\n%s", ET_IceHUDStr, ET_InstructionHUDStr);
+			FormatEx(hudMessage, sizeof(hudMessage), "%s\n%s", ET_IceHUDStr, ET_InstructionHUDStr);
 		else if (ET_CurrentSelection[clientIdx] == ET_WIND)
-			Format(hudMessage, sizeof(hudMessage), "%s\n%s", ET_WindHUDStr, ET_InstructionHUDStr);
+			FormatEx(hudMessage, sizeof(hudMessage), "%s\n%s", ET_WindHUDStr, ET_InstructionHUDStr);
 		else if (ET_CurrentSelection[clientIdx] == ET_ELECTRIC)
-			Format(hudMessage, sizeof(hudMessage), "%s\n%s", ET_ElectricHUDStr, ET_InstructionHUDStr);
+			FormatEx(hudMessage, sizeof(hudMessage), "%s\n%s", ET_ElectricHUDStr, ET_InstructionHUDStr);
 			
 		SetHudTextParams(-1.0, ET_HUD_POSITION, ET_HUD_CHECK_INTERVAL + 0.05, 64, 255, 64, 192);
 		ShowHudText(clientIdx, -1, hudMessage);
@@ -1549,26 +1496,26 @@ public DrawTotemHUD(clientIdx)
 	}
 }
 
-public WindTotemKnockPlayerUp(totemIdx, victim, Float:intensityOverride)
+public void WindTotemKnockPlayerUp(int totemIdx, int victim, float intensityOverride)
 {
 	// overwrite the player's Z
-	new Float:vecVelocity[3];
+	float vecVelocity[3];
 	GetEntPropVector(victim, Prop_Data, "m_vecVelocity", vecVelocity);
 	vecVelocity[2] = Totem_KnockbackIntensity[totemIdx] * intensityOverride;
 	SetEntPropVector(victim, Prop_Data, "m_vecVelocity", vecVelocity);
 	TeleportEntity(victim, NULL_VECTOR, NULL_VECTOR, vecVelocity);
 }
 
-public WindTotemFindNewVictims(totemIdx, Float:totemPos[3])
+public void WindTotemFindNewVictims(int totemIdx, float totemPos[3])
 {
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
 			continue;
 		else if (Totem_Victims[totemIdx][victim]) // already a victim?
 			continue;
 			
-		new Float:playerPos[3];
+		float playerPos[3];
 		GetEntPropVector(victim, Prop_Data, "m_vecOrigin", playerPos);
 		if (CylinderCollision(totemPos, playerPos, Totem_DamageEffectRadius[totemIdx], totemPos[2] - 103.0, totemPos[2] + 1000.0))
 		{
@@ -1581,13 +1528,13 @@ public WindTotemFindNewVictims(totemIdx, Float:totemPos[3])
 	}
 }
 
-public SetFog(color, Float:density)
+public void SetFog(int color, float density)
 {
-	new fog = FindEntityByClassname(-1, "env_fog_controller");
+	int fog = FindEntityByClassname(-1, "env_fog_controller");
 	if (IsValidEntity(fog))
 	{
 		// hex color to "255 0 0" etc.
-		static String:colorBuffer[COLOR_BUFFER_SIZE];
+		static char colorBuffer[COLOR_BUFFER_SIZE];
 		ColorToDecimalString(colorBuffer, color);
 		
 		// mess with the fog controller
@@ -1603,9 +1550,9 @@ public SetFog(color, Float:density)
 	}
 }
 
-public TickFog(Float:curTime)
+public void TickFog(float curTime)
 {
-	// setup a new transition for expiration
+	// setup a int transition for expiration
 	if (curTime > ET_FogExpiresAt && (ET_FogTargetColor != ET_FOG_DEFAULT_COLOR || ET_FogTargetDensity != 0.0))
 	{
 		ET_FogTransitionElapsed = 0.0;
@@ -1618,11 +1565,11 @@ public TickFog(Float:curTime)
 	if (curTime < ET_FogLastCheckAt + ET_FOG_TRANSITION_INTERVAL)
 		return;
 	
-	new fog = FindEntityByClassname(-1, "env_fog_controller");
+	int fog = FindEntityByClassname(-1, "env_fog_controller");
 	// ensure a transition is in progress, and that a fog controller exists
 	if (ET_FogTransitionElapsed < ET_FOG_TRANSITION_TIME && IsValidEntity(fog))
 	{
-		new Float:deltaTime = fmin(ET_FOG_TRANSITION_INTERVAL * 2, curTime - ET_FogLastCheckAt);
+		float deltaTime = fmin(ET_FOG_TRANSITION_INTERVAL * 2, curTime - ET_FogLastCheckAt);
 		
 		// get current density and color
 		ET_FogTransitionElapsed += deltaTime;
@@ -1633,8 +1580,8 @@ public TickFog(Float:curTime)
 		}
 		else
 		{
-			new Float:newWeight = (ET_FogTransitionElapsed / ET_FOG_TRANSITION_TIME);
-			new Float:oldWeight = 1.0 - newWeight;
+			float newWeight = (ET_FogTransitionElapsed / ET_FOG_TRANSITION_TIME);
+			float oldWeight = 1.0 - newWeight;
 			ET_FogCurrentDensity = (ET_FogStartingDensity * oldWeight) + (ET_FogTargetDensity * newWeight);
 			ET_FogCurrentColor = BlendColorsRGB(ET_FogStartingColor, oldWeight, ET_FogTargetColor, newWeight);
 		}
@@ -1645,18 +1592,18 @@ public TickFog(Float:curTime)
 	}
 }
 
-public TickTotems(Float:curTime)
+public void TickTotems(float curTime)
 {
-	new Float:speedAdjust[MAX_PLAYERS_ARRAY];
-	new bool:shouldUber[MAX_PLAYERS_ARRAY];
-	for (new i = 1; i < MAX_PLAYERS; i++)
+	float speedAdjust[MAX_PLAYERS_ARRAY];
+	bool shouldUber[MAX_PLAYERS_ARRAY];
+	for (int i = 1; i < MAX_PLAYERS; i++)
 	{
 		speedAdjust[i] = 1.0;
 		shouldUber[i] = false;
 	}
 
 	// tick the totems
-	for (new totemIdx = 0; totemIdx < MAX_TOTEMS; totemIdx++)
+	for (int totemIdx = 0; totemIdx < MAX_TOTEMS; totemIdx++)
 	{
 		if (Totem_EntRef[totemIdx] == 0 || Totem_Type[totemIdx] < 0)
 			continue;
@@ -1672,7 +1619,7 @@ public TickTotems(Float:curTime)
 		}
 		
 		// get universally important things
-		new totem = EntRefToEntIndex(Totem_EntRef[totemIdx]);
+		int totem = EntRefToEntIndex(Totem_EntRef[totemIdx]);
 		if (!IsValidEntity(totem))
 		{
 			if (PRINT_DEBUG_INFO)
@@ -1682,32 +1629,32 @@ public TickTotems(Float:curTime)
 			totemIdx--;
 			continue;
 		}
-		static Float:totemPos[3];
+		static float totemPos[3];
 		GetEntPropVector(totem, Prop_Data, "m_vecOrigin", totemPos);
 		
 		// need no Z for a couple things
-		static Float:totemPosNoZ[3];
+		static float totemPosNoZ[3];
 		totemPosNoZ[0] = totemPos[0];
 		totemPosNoZ[1] = totemPos[1];
 		totemPosNoZ[2] = 0.0;
 				
-		// special for wind: find new victims every tick
+		// special for wind: find int victims every tick
 		if (Totem_Type[totemIdx] == ET_WIND)
 			WindTotemFindNewVictims(totemIdx, totemPos);
 		
 		// special for ice, slowdown and uber
 		if (Totem_SlowdownFactor[totemIdx] != 1.0 || Totem_Type[totemIdx] == ET_ICE)
 		{
-			new Float:distanceSquared = Totem_VisualEffectRadius[totemIdx] * Totem_VisualEffectRadius[totemIdx];
+			float distanceSquared = Totem_VisualEffectRadius[totemIdx] * Totem_VisualEffectRadius[totemIdx];
 		
 			// effects for players and the hale
-			for (new targetPlayer = 1; targetPlayer < MAX_PLAYERS; targetPlayer++)
+			for (int targetPlayer = 1; targetPlayer < MAX_PLAYERS; targetPlayer++)
 			{
 				if (!IsLivingPlayer(targetPlayer))
 					continue;
 			
 				// player in range?
-				static Float:playerOriginNoZ[3];
+				static float playerOriginNoZ[3];
 				GetEntPropVector(targetPlayer, Prop_Data, "m_vecOrigin", playerOriginNoZ);
 				playerOriginNoZ[2] = 0.0;
 				if (GetVectorDistance(playerOriginNoZ, totemPosNoZ, true) > distanceSquared)
@@ -1725,7 +1672,7 @@ public TickTotems(Float:curTime)
 		{
 			if (Totem_Type[totemIdx] == ET_WIND)
 			{
-				for (new victim = 1; victim < MAX_PLAYERS; victim++)
+				for (int victim = 1; victim < MAX_PLAYERS; victim++)
 				{
 					// valid?
 					if (!IsLivingPlayer(victim) || !Totem_Victims[totemIdx][victim])
@@ -1735,9 +1682,9 @@ public TickTotems(Float:curTime)
 						WindTotemKnockPlayerUp(totemIdx, victim, WET_KNOCK_UP_INTENSITY * 0.75);
 				
 					// need the victim's position, and then the angle from our difference. (yaw only is important)
-					static Float:victimOrigin[3];
+					static float victimOrigin[3];
 					GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimOrigin);
-					static Float:flightAngles[3];
+					static float flightAngles[3];
 					GetVectorAnglesTwoPoints(victimOrigin, totemPos, flightAngles);
 					flightAngles[0] = 0.0; // toss out pitch
 				
@@ -1745,27 +1692,27 @@ public TickTotems(Float:curTime)
 					flightAngles[1] = fixAngle(flightAngles[1] - WET_TORNADO_ANGLE);
 					
 					// trace and then get our velocity vector
-					static Float:tmpPos[3];
-					new Handle:trace = TR_TraceRayFilterEx(victimOrigin, flightAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+					static float tmpPos[3];
+					Handle trace = TR_TraceRayFilterEx(victimOrigin, flightAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 					TR_GetEndPosition(tmpPos, trace);
 					CloseHandle(trace);
-					static Float:vortexVelocity[3];
+					static float vortexVelocity[3];
 					MakeVectorFromPoints(victimOrigin, tmpPos, vortexVelocity);
 					NormalizeVector(vortexVelocity, vortexVelocity);
 					
 					// get actual velocity now
-					static Float:victimVelocity[3];
+					static float victimVelocity[3];
 					GetEntPropVector(victim, Prop_Data, "m_vecVelocity", victimVelocity);
 					
 					// get adjusted velocity modifier
-					static Float:victimOriginNoZ[3];
+					static float victimOriginNoZ[3];
 					victimOriginNoZ[0] = victimOrigin[0];
 					victimOriginNoZ[1] = victimOrigin[1];
 					victimOriginNoZ[2] = 0.0;
-					new Float:velFactor = WET_VORTEX_INTENSITY * Totem_KnockbackIntensity[totemIdx] * WET_TORNADO_INTERVAL;
-					new Float:adjustedFactor = 1.0;
-					new Float:noZDistance = GetVectorDistance(victimOriginNoZ, totemPosNoZ);
-					new Float:radiusLimit = (Totem_DamageEffectRadius[totemIdx] * WET_EXCESS_DISTANCE_RADIUS_FACTOR);
+					float velFactor = WET_VORTEX_INTENSITY * Totem_KnockbackIntensity[totemIdx] * WET_TORNADO_INTERVAL;
+					float adjustedFactor = 1.0;
+					float noZDistance = GetVectorDistance(victimOriginNoZ, totemPosNoZ);
+					float radiusLimit = (Totem_DamageEffectRadius[totemIdx] * WET_EXCESS_DISTANCE_RADIUS_FACTOR);
 					if (noZDistance > radiusLimit)
 					{
 						// will completely adjust the player's velocity to ensure they get back on track
@@ -1799,7 +1746,7 @@ public TickTotems(Float:curTime)
 					}
 					
 					// cap the player's velocity
-					new Float:vel = getLinearVelocity(victimVelocity);
+					float vel = getLinearVelocity(victimVelocity);
 					if (vel > WET_MAX_VELOCITY)
 					{
 						victimVelocity[0] *= WET_MAX_VELOCITY / vel;
@@ -1825,16 +1772,16 @@ public TickTotems(Float:curTime)
 				// TODO: Create a local fog controller and manipulate it.
 			
 				// find a distance and a random yaw for positioning the hellfire visual effect.
-				new Float:maxHellfireDistance = Totem_DamageEffectRadius[totemIdx] - FET_HELLFIRE_RADIUS;
-				new Float:hellfireDistance = (maxHellfireDistance <= 0.0 ? 0.0 : GetRandomFloat(0.0, maxHellfireDistance));
-				static Float:randomAngle[3];
+				float maxHellfireDistance = Totem_DamageEffectRadius[totemIdx] - FET_HELLFIRE_RADIUS;
+				float hellfireDistance = (maxHellfireDistance <= 0.0 ? 0.0 : GetRandomFloat(0.0, maxHellfireDistance));
+				static float randomAngle[3];
 				randomAngle[0] = 0.0;
 				randomAngle[1] = GetRandomFloat(-179.9, 179.9);
 				randomAngle[2] = 0.0;
 				
 				// find the actual point to place the effect
-				static Float:endPos[3];
-				new Handle:trace = TR_TraceRayFilterEx(totemPos, randomAngle, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+				static float endPos[3];
+				Handle trace = TR_TraceRayFilterEx(totemPos, randomAngle, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(endPos, trace);
 				CloseHandle(trace);
 				ConformLineDistance(endPos, totemPos, endPos, hellfireDistance, true);
@@ -1859,12 +1806,12 @@ public TickTotems(Float:curTime)
 				// TODO: Manipulate the global fog controller.
 				
 				// do a random angle trace
-				new Float:endPos[3];
-				new Float:randomAngle[3];
+				float endPos[3];
+				float randomAngle[3];
 				randomAngle[0] = GetRandomFloat(-10.0, -1.0);
 				randomAngle[1] = GetRandomFloat(-179.9, 179.9);
 				randomAngle[2] = 0.0;
-				new Handle:trace = TR_TraceRayFilterEx(totemPos, randomAngle, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+				Handle trace = TR_TraceRayFilterEx(totemPos, randomAngle, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(endPos, trace);
 				CloseHandle(trace);
 				
@@ -1896,12 +1843,12 @@ public TickTotems(Float:curTime)
 			if (Totem_Type[totemIdx] == ET_FIRE)
 			{
 				// just iterate through living trapped players in range and do damage
-				for (new victim = 1; victim < MAX_PLAYERS; victim++)
+				for (int victim = 1; victim < MAX_PLAYERS; victim++)
 				{
 					if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
 						continue;
 				
-					static Float:victimOrigin[3];
+					static float victimOrigin[3];
 					GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimOrigin);
 					
 					if (CylinderCollision(totemPos, victimOrigin, Totem_DamageEffectRadius[totemIdx], totemPos[2] - 83.0, totemPos[2] + Totem_DamageCylinderHeight[totemIdx]))
@@ -1921,7 +1868,7 @@ public TickTotems(Float:curTime)
 			else if (Totem_Type[totemIdx] == ET_WIND)
 			{
 				// just iterate through living trapped players and do damage
-				for (new i = 1; i < MAX_PLAYERS; i++)
+				for (int i = 1; i < MAX_PLAYERS; i++)
 				{
 					if (Totem_Victims[totemIdx][i])
 					{
@@ -1935,14 +1882,14 @@ public TickTotems(Float:curTime)
 			else if (Totem_Type[totemIdx] == ET_ELECTRIC)
 			{
 				// find a victim
-				new victim = FindRandomPlayer(false, totemPos, Totem_DamageEffectRadius[totemIdx]);
+				int victim = FindRandomPlayer(false, totemPos, Totem_DamageEffectRadius[totemIdx]);
 				
 				if (IsLivingPlayer(victim))
 				{
 					// get a good position way above the victim to start our lightning bolt
-					new Float:victimPos[3];
+					float victimPos[3];
 					GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimPos);
-					new Float:boltStartPos[3];
+					float boltStartPos[3];
 					boltStartPos[0] = victimPos[0] + GetRandomFloat(-650.0, 650.0);
 					boltStartPos[1] = victimPos[1] + GetRandomFloat(-650.0, 650.0);
 					boltStartPos[2] = victimPos[2] + 1500.0;
@@ -1996,7 +1943,7 @@ public TickTotems(Float:curTime)
 		}
 	}
 	
-	for (new targetPlayer = 1; targetPlayer < MAX_PLAYERS; targetPlayer++)
+	for (int targetPlayer = 1; targetPlayer < MAX_PLAYERS; targetPlayer++)
 	{
 		if (!IsLivingPlayer(targetPlayer))
 			continue;
@@ -2036,7 +1983,7 @@ public TickTotems(Float:curTime)
 				ET_IsSpeedAdjusted[targetPlayer] = false;
 				if (ET_SpeedAdjust[targetPlayer] > 0.0 && ET_SpeedAdjust[targetPlayer] < 1.0)
 				{
-					new Float:maxspeed = GetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed");
+					float maxspeed = GetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed");
 					if (maxspeed == ET_ExpectedSpeed[targetPlayer]) // without this there'd be a super-rare potential glitch where target gets huge speed boost
 						SetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed", GetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed") * (1.0 / ET_SpeedAdjust[targetPlayer]));
 				}
@@ -2045,12 +1992,12 @@ public TickTotems(Float:curTime)
 			}
 			else if (speedAdjust[targetPlayer] != 1.0)
 			{
-				new bool:readjust = false;
+				bool readjust = false;
 				if (ET_SpeedAdjust[targetPlayer] == 1.0)
 					readjust = true;
 				ET_SpeedAdjust[targetPlayer] = speedAdjust[targetPlayer];
 				
-				new Float:maxspeed = GetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed");
+				float maxspeed = GetEntPropFloat(targetPlayer, Prop_Send, "m_flMaxspeed");
 				if (maxspeed != ET_ExpectedSpeed[targetPlayer])
 					readjust = true;
 					
@@ -2066,11 +2013,11 @@ public TickTotems(Float:curTime)
 	}
 }
 
-public IncrementTotemSelection(clientIdx)
+public void IncrementTotemSelection(int clientIdx)
 {
-	for (new i = 1; i <= ET_TYPE_COUNT; i++)
+	for (int i = 1; i <= ET_TYPE_COUNT; i++)
 	{
-		new nextSelection = (ET_CurrentSelection[clientIdx] + i) % ET_TYPE_COUNT;
+		int nextSelection = (ET_CurrentSelection[clientIdx] + i) % ET_TYPE_COUNT;
 		if (nextSelection == ET_FIRE && ET_FireEnabled[clientIdx])
 		{
 			ET_CurrentSelection[clientIdx] = nextSelection;
@@ -2094,14 +2041,14 @@ public IncrementTotemSelection(clientIdx)
 	}
 }
 
-public RemoveTotemAt(totemIdx)
+public void RemoveTotemAt(int totemIdx)
 {
 	if (Totem_EntRef[totemIdx] != 0)
-		RemoveEntityTele(Totem_EntRef[totemIdx]);
+		Timer_RemoveEntity(null, Totem_EntRef[totemIdx]);
 	if (Totem_DynamicLight[totemIdx] != 0)
-		RemoveEntityTele(Totem_DynamicLight[totemIdx]);
+		Timer_RemoveEntity(null, Totem_DynamicLight[totemIdx]);
 
-	for (new i = totemIdx; i < MAX_TOTEMS - 1; i++)
+	for (int i = totemIdx; i < MAX_TOTEMS - 1; i++)
 	{
 		Totem_Type[i] = Totem_Type[i+1];
 		Totem_EntRef[i] = Totem_EntRef[i+1];
@@ -2129,7 +2076,7 @@ public RemoveTotemAt(totemIdx)
 		Totem_AfterburnDuration[i] = Totem_AfterburnDuration[i+1];
 		Totem_SlowdownFactor[i] = Totem_SlowdownFactor[i+1];
 		Totem_DynamicLight[i] = Totem_DynamicLight[i+1];
-		for (new j = 1; j < MAX_PLAYERS; j++)
+		for (int j = 1; j < MAX_PLAYERS; j++)
 			Totem_Victims[i][j] = Totem_Victims[i+1][j];
 	}
 	
@@ -2137,15 +2084,15 @@ public RemoveTotemAt(totemIdx)
 	Totem_EntRef[MAX_TOTEMS - 1] = 0;
 }
 
-public Rage_ElementalTotem(const String:ability_name[], bossIdx)
+public void Rage_ElementalTotem(const char[] ability_name, int bossIdx)
 {
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	if (!ET_CanUse[clientIdx]) // got disabled for some reason
 		return;
 	
 	// find a free totem
-	new totemIdx = -1;
-	for (new i = 0; i < MAX_TOTEMS; i++)
+	int totemIdx = -1;
+	for (int i = 0; i < MAX_TOTEMS; i++)
 	{
 		if (Totem_Type[i] == -1)
 		{
@@ -2165,11 +2112,11 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 	}
 	
 	// initialize certain things where there's no checking if a particular totem supports it
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 6 + ET_CurrentSelection[clientIdx], modelName, MAX_MODEL_FILE_LENGTH);
-	new Float:duration = 0.0;
-	new Float:sentryStunRadius = 0.0;
-	new Float:buildingDestroyRadius = 0.0;
+	float duration = 0.0;
+	float sentryStunRadius = 0.0;
+	float buildingDestroyRadius = 0.0;
 	Totem_SkyDarkenPercent[totemIdx] = 0.0;
 	Totem_RepeatingSound[totemIdx] = "";
 	Totem_DamageSound[totemIdx] = "";
@@ -2180,22 +2127,22 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 	Totem_NextInternalAt[totemIdx] = GetEngineTime();
 	Totem_DynamicLight[totemIdx] = 0;
 	Totem_Flags[totemIdx] = 0;
-	for (new j = 1; j < MAX_PLAYERS; j++)
+	for (int j = 1; j < MAX_PLAYERS; j++)
 		Totem_Victims[totemIdx][j] = false;
 		
 	// need boss pos, and the no Z version for sentry manipulation
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", bossOrigin);
-	new Float:bossPosNoZ[3];
+	float bossPosNoZ[3];
 	bossPosNoZ[0] = bossOrigin[0];
 	bossPosNoZ[1] = bossOrigin[1];
 	bossPosNoZ[2] = 0.0;
 	
 	// fog and extra particle which is intended for weather
-	new Float:targetDensity = 0.0;
-	new targetColor = ET_FOG_DEFAULT_COLOR;
-	new String:weatherEffect[MAX_EFFECT_NAME_LENGTH] = "";
-	new Float:weatherZOffset = 0.0;
+	float targetDensity = 0.0;
+	int targetColor = ET_FOG_DEFAULT_COLOR;
+	char weatherEffect[MAX_EFFECT_NAME_LENGTH];
+	float weatherZOffset = 0.0;
 		
 	if (ET_CurrentSelection[clientIdx] == ET_FIRE)
 	{
@@ -2337,8 +2284,8 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 		ET_FogExpiresAt = fmax(ET_FogExpiresAt, Totem_ExpiresAt[totemIdx]);
 		
 		// use a trace to determine where to spawn it
-		new Float:spawnPos[3];
-		new Handle:trace = TR_TraceRayFilterEx(bossOrigin, Float:{90.0,0.0,0.0}, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+		float spawnPos[3];
+		Handle trace = TR_TraceRayFilterEx(bossOrigin, view_as<float>({90.0,0.0,0.0}), (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(spawnPos, trace);
 		CloseHandle(trace);
 		spawnPos[2] += 10.0; // lift it up a little in case of uneven ground
@@ -2346,7 +2293,7 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 		// extra particle
 		if (!IsEmptyString(weatherEffect))
 		{
-			new Float:weatherSpawnPos[3];
+			float weatherSpawnPos[3];
 			weatherSpawnPos[0] = spawnPos[0];
 			weatherSpawnPos[1] = spawnPos[1];
 			weatherSpawnPos[2] = spawnPos[2] + weatherZOffset;
@@ -2354,18 +2301,18 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 		}
 		
 		// drop a totem at the boss' position, same collision properties as the rocks
-		new totem = CreateEntityByName("prop_physics_override");
+		int totem = CreateEntityByName("prop_physics_override");
 		if (IsValidEntity(totem))
 		{
 			// the actual spawning process
 			SetEntityModel(totem, modelName);
 			DispatchSpawn(totem);
-			TeleportEntity(totem, spawnPos, Float:{0.0,0.0,0.0}, Float:{0.0,0.0,0.0});
+			TeleportEntity(totem, spawnPos, view_as<float>({0.0,0.0,0.0}), view_as<float>({0.0,0.0,0.0}));
 			SetEntProp(totem, Prop_Data, "m_takedamage", 0);
 
 			// spawn it immobile
 			SetEntityMoveType(totem, MOVETYPE_NONE);
-			SetEntProp(totem, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_NONE);
+			SetEntProp(totem, Prop_Send, "m_CollisionGroup", 0);
 			SetEntProp(totem, Prop_Send, "m_usSolidFlags", 4); // not solid
 			SetEntProp(totem, Prop_Send, "m_nSolidType", 0); // not solid
 			
@@ -2376,11 +2323,11 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 			if (ET_CurrentSelection[clientIdx] == ET_FIRE || ET_CurrentSelection[clientIdx] == ET_ICE)
 			{
 				// need to find a suitable spawn position. spawning low looks like shit in a hilly situation.
-				new Float:tracePos[3];
-				trace = TR_TraceRayFilterEx(bossOrigin, Float:{-90.0,0.0,0.0}, MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
+				float tracePos[3];
+				trace = TR_TraceRayFilterEx(bossOrigin, view_as<float>({-90.0,0.0,0.0}), MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(tracePos, trace);
 				CloseHandle(trace);
-				new Float:lightingPos[3];
+				float lightingPos[3];
 				lightingPos[0] = spawnPos[0];
 				lightingPos[1] = spawnPos[1];
 				lightingPos[2] = spawnPos[2] + fmin(400.0, (tracePos[2] - spawnPos[2]) * 0.5);
@@ -2423,20 +2370,20 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 		// destroy buildings in a cylinder, in other words ignore Z
 		if (buildingDestroyRadius > 0.0)
 		{
-			for (new i = 0; i < 3; i++)
+			for (int i = 0; i < 3; i++)
 			{
-				new String:destroyType[32] = "obj_sentrygun";
+				char destroyType[32] = "obj_sentrygun";
 				if (i == 1) destroyType = "obj_dispenser";
 				else if (i == 2) destroyType = "obj_teleporter";
 				
-				new building = -1;
+				int building = -1;
 				while ((building = FindEntityByClassname(building, destroyType)) != -1)
 				{
 					// ensure the building is in range
-					static Float:buildingPosNoZ[3];
+					static float buildingPosNoZ[3];
 					GetEntPropVector(building, Prop_Send, "m_vecOrigin", buildingPosNoZ);
 					buildingPosNoZ[2] = 0.0;
-					new Float:distance = GetVectorDistance(bossPosNoZ, buildingPosNoZ);
+					float distance = GetVectorDistance(bossPosNoZ, buildingPosNoZ);
 					if (distance > buildingDestroyRadius)
 						continue;
 
@@ -2452,11 +2399,11 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 			// taken directly from default_abilities, shrunk, ...and fixed. lol guess 1.9.2 was buggy.
 			// this iteration is the same that whooves uses, but with a radius limitation
 			// note that Z is tossed away
-			new sentry = -1;
+			int sentry = -1;
 			while ((sentry = FindEntityByClassname(sentry, "obj_sentrygun")) != -1)
 			{
-				new Float:sentryPos[3];
-				new Float:sentryPosNoZ[3];
+				float sentryPos[3];
+				float sentryPosNoZ[3];
 				GetEntPropVector(sentry, Prop_Data, "m_vecOrigin", sentryPos);
 				GetEntPropVector(sentry, Prop_Data, "m_vecOrigin", sentryPosNoZ);
 				sentryPosNoZ[2] = 0.0;
@@ -2474,14 +2421,16 @@ public Rage_ElementalTotem(const String:ability_name[], bossIdx)
 /**
  * Teleport to Spawn
  */
-public Action:TTS_OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action TTS_OnTakeDamage(int victim, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(victim)) // wtf
 		return Plugin_Continue;
 
 	if (attacker <= 0 || attacker >= MAX_PLAYERS)
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		if (attacker >= MAX_PLAYERS)
 			GetEntityClassname(attacker, classname, sizeof(classname));
 	
@@ -2490,28 +2439,23 @@ public Action:TTS_OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &da
 			if (damage > TTS_MinimumDamage[victim])
 			{
 				// find a random spawn point
-				//new spawn = FindRandomSpawn(true, TTS_AlsoUseRedSpawn[victim] && GetEngineTime() >= TTS_AllowRedSpawnAt[victim]);
+				//int spawn = FindRandomSpawn(true, TTS_AlsoUseRedSpawn[victim] && GetEngineTime() >= TTS_AllowRedSpawnAt[victim]);
 				//if (!IsValidEntity(spawn))
 				//{
 				//	PrintToServer("[sarysamods5] TTS failed to find a player spawn?!");
 				//	return Plugin_Continue;
 				//}
-				//new Float:spawnOrigin[3];
+				//float spawnOrigin[3];
 				//GetEntPropVector(spawn, Prop_Data, "m_vecOrigin", spawnOrigin);
-				//TeleportEntity(victim, spawnOrigin, NULL_VECTOR, Float:{0.0,0.0,0.0}); // teleport needs to remove velocity
-				new bool:toRedSpawn = GetRandomInt(0,1) == 0 && GetEngineTime() >= TTS_AllowRedSpawnAt[victim];
-				if (toRedSpawn && TTS_RedSpawn[0] != OFF_THE_MAP[0])
-					TeleportEntity(victim, TTS_RedSpawn, NULL_VECTOR, Float:{0.0,0.0,0.0}); // teleport needs to remove velocity
-				else if (TTS_BluSpawn[0] != OFF_THE_MAP[0])
-					TeleportEntity(victim, TTS_BluSpawn, NULL_VECTOR, Float:{0.0,0.0,0.0}); // teleport needs to remove velocity
+				//TeleportEntity(victim, spawnOrigin, NULL_VECTOR, view_as<float>({0.0,0.0,0.0})); // teleport needs to remove velocity
 				
 				// reassign damage to a random player?
 				if (TTS_OverrideVSPMethod[victim])
 				{
-					new randomMerc = SS_FindAttacker(false);
+					int randomMerc = SS_FindAttacker(false);
 					if (IsValidEntity(randomMerc))
 					{
-						SemiHookedDamage(victim, randomMerc, randomMerc, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
+						SemiHookedDamage(victim, randomMerc, randomMerc, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE);
 						return Plugin_Handled;
 					}
 				}
@@ -2526,12 +2470,12 @@ public Action:TTS_OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &da
  * OnPlayerRunCmd/OnGameFrame
  */
 #define IMPERFECT_FLIGHT_FACTOR 25
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 		
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 
 	if (SS_ActiveThisRound)
 	{
@@ -2539,7 +2483,7 @@ public OnGameFrame()
 		{
 			if (SS_EntRef != 0)
 			{
-				RemoveEntityTele(SS_EntRef);
+				Timer_RemoveEntity(null, SS_EntRef);
 				SS_EntRef = 0;
 				
 				if (PRINT_DEBUG_SPAM)
@@ -2547,8 +2491,8 @@ public OnGameFrame()
 			}
 		
 			// spawn the sapphire statue somewhere on the map
-			new spawnIdx = GetRandomInt(0, SS_SpawnLocationCount - 1);
-			new stoneEntity = CreateEntityByName("prop_physics_override");
+			int spawnIdx = GetRandomInt(0, SS_SpawnLocationCount - 1);
+			int stoneEntity = CreateEntityByName("prop_physics_override");
 			if (IsValidEntity(stoneEntity))
 			{
 				SS_ActivePosition[0] = SS_Spawn[spawnIdx][0];
@@ -2562,7 +2506,7 @@ public OnGameFrame()
 				SetEntProp(stoneEntity, Prop_Data, "m_takedamage", 0);
 
 				SetEntityMoveType(stoneEntity, MOVETYPE_NONE);
-				SetEntProp(stoneEntity, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_NONE);
+				SetEntProp(stoneEntity, Prop_Send, "m_CollisionGroup", 0);
 				SetEntProp(stoneEntity, Prop_Send, "m_usSolidFlags", 4);
 				SetEntProp(stoneEntity, Prop_Send, "m_nSolidType", 0);
 				
@@ -2596,18 +2540,18 @@ public OnGameFrame()
 		else if (SS_EntRef != 0) // intentionally withhold this until the next tick
 		{
 			// check everyone's location and compare it with the hale's
-			new nearBossCount = 0;
-			new nearMercCount = 0;
-			new livingMercCount = 0;
+			int nearBossCount = 0;
+			int nearMercCount = 0;
+			int livingMercCount = 0;
 			
-			for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+			for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 			{
 				if (IsLivingPlayer(clientIdx))
 				{
 					if (GetClientTeam(clientIdx) != BossTeam)
 						livingMercCount++;
 						
-					static Float:clientOrigin[3];
+					static float clientOrigin[3];
 					GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", clientOrigin);
 					if (CylinderCollision(SS_ActivePosition, clientOrigin, SS_StoneCollisionRadius, SS_ActivePosition[2] - 103.0, SS_ActivePosition[2] + 150.0))
 					{
@@ -2620,7 +2564,7 @@ public OnGameFrame()
 			}
 			
 			// how many players are required to activate?
-			new requiredPlayers = SS_GetNumPlayersRequired();
+			int requiredPlayers = SS_GetNumPlayersRequired();
 			
 			// priority goes to the boss
 			if (nearBossCount > 0)
@@ -2661,7 +2605,7 @@ public OnGameFrame()
 				SS_NextBeaconAt = curTime + SS_BEACON_DELAY;
 				
 				// ripped straight from RTD beacon, since it's the kind everyone's familiar with already
-				new Float:beaconPos[3];
+				float beaconPos[3];
 				beaconPos[0] = SS_ActivePosition[0];
 				beaconPos[1] = SS_ActivePosition[1];
 				beaconPos[2] = SS_ActivePosition[2] + 10.0;
@@ -2671,7 +2615,7 @@ public OnGameFrame()
 				TE_SetupBeamRingPoint(beaconPos, 10.0, SS_StoneCollisionRadius, BEACON_BEAM, BEACON_HALO, 0, 10, 0.6, 10.0, 0.5, {75,75,255,255}, 10, 0);
 				TE_SendToAll();
 
-				new stoneEntity = EntRefToEntIndex(SS_EntRef);
+				int stoneEntity = EntRefToEntIndex(SS_EntRef);
 				if (IsValidEntity(stoneEntity))
 				{
 					EmitSoundToAll(SS_BEACON_SOUND, stoneEntity);
@@ -2693,7 +2637,7 @@ public OnGameFrame()
 		TickFog(curTime);
 		
 		// remove afterburn, since messing with OnFire duration doesn't work
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsLivingPlayer(clientIdx) && ET_RemoveAfterburnAt[clientIdx] <= curTime)
 			{
@@ -2705,7 +2649,9 @@ public OnGameFrame()
 	}
 }
  
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:unusedangles[3], &weapon)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
+							float vel[3], float ang[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!PluginActiveThisRound || !RoundInProgress || !IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
@@ -2713,7 +2659,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 	if (ET_ActiveThisRound && ET_CanUse[clientIdx])
 	{
 		// reload key increments totem selection
-		new bool:reloadDown = (buttons & IN_RELOAD) != 0;
+		bool reloadDown = (buttons & IN_RELOAD) != 0;
 		if (reloadDown && !ET_ReloadDown[clientIdx])
 			IncrementTotemSelection(clientIdx);
 		ET_ReloadDown[clientIdx] = reloadDown;
@@ -2725,44 +2671,44 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 	// since hookshot reacts mainly to player commands, it's managed here
 	if (HS_ActiveThisRound && HS_CanUse[clientIdx])
 	{
-		new Float:curTime = GetEngineTime();
-		new Float:deltaTime = curTime - HS_LastUpdateAt[clientIdx];
+		float curTime = GetEngineTime();
+		float deltaTime = curTime - HS_LastUpdateAt[clientIdx];
 		if (deltaTime >= 0.01) // ignore extremely small updates
 		{
-			new bossIdx = FF2_GetBossIndex(clientIdx);
+			int bossIdx = FF2_GetBossIndex(clientIdx);
 		
-			new bool:altFireDown = ((buttons & IN_ATTACK2) != 0);
-			new bool:altFirePressed = !HS_AltFireDown[clientIdx] && altFireDown;
-			//new bool:altFireReleased = HS_AltFireDown[clientIdx] && !altFireDown;
-			new bool:duckDown = ((buttons & IN_DUCK) != 0);
-			//new bool:duckPressed = !HS_DuckKeyDown[clientIdx] && duckDown;
-			//new bool:duckReleased = HS_DuckKeyDown[clientIdx] && !duckDown;
-			new bool:jumpDown = ((buttons & IN_JUMP) != 0);
-			new bool:jumpPressed = !HS_JumpKeyDown[clientIdx] && jumpDown;
-			//new bool:jumpReleased = HS_JumpKeyDown[clientIdx] && !jumpDown;
-			new bool:forwardDown = ((buttons & IN_FORWARD) != 0);
-			new bool:backDown = ((buttons & IN_BACK) != 0);
-			new bool:validHSState = HS_IsValidHookshotState(clientIdx); //(GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
+			bool altFireDown = ((buttons & IN_ATTACK2) != 0);
+			bool altFirePressed = !HS_AltFireDown[clientIdx] && altFireDown;
+			//bool altFireReleased = HS_AltFireDown[clientIdx] && !altFireDown;
+			bool duckDown = ((buttons & IN_DUCK) != 0);
+			//bool duckPressed = !HS_DuckKeyDown[clientIdx] && duckDown;
+			//bool duckReleased = HS_DuckKeyDown[clientIdx] && !duckDown;
+			bool jumpDown = ((buttons & IN_JUMP) != 0);
+			bool jumpPressed = !HS_JumpKeyDown[clientIdx] && jumpDown;
+			//bool jumpReleased = HS_JumpKeyDown[clientIdx] && !jumpDown;
+			bool forwardDown = ((buttons & IN_FORWARD) != 0);
+			bool backDown = ((buttons & IN_BACK) != 0);
+			bool validHSState = HS_IsValidHookshotState(clientIdx); //(GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
 
-			new bool:ignoreBossActions = TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed);
+			bool ignoreBossActions = TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed);
 
-			new Float:currentRage = FF2_GetBossCharge(bossIdx, 0);
+			float currentRage = FF2_GetBossCharge(bossIdx, 0);
 
 			if (HS_HookshotOut[clientIdx])
 			{
 				// ensure their eyes still have line of sight with the hook
-				static Float:eyeOrigin[3];
+				static float eyeOrigin[3];
 				GetClientEyePosition(clientIdx, eyeOrigin);
-				static Float:angles[3];
+				static float angles[3];
 				GetVectorAnglesTwoPoints(eyeOrigin, HS_HookPosition[clientIdx], angles);
 
-				new Handle:trace = TR_TraceRayFilterEx(eyeOrigin, angles, MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
-				static Float:tmpPos[3];
+				Handle trace = TR_TraceRayFilterEx(eyeOrigin, angles, MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
+				static float tmpPos[3];
 				TR_GetEndPosition(tmpPos, trace);
 				CloseHandle(trace);
 
 				// actual line-of-sight test
-				new bool:losTestFailed = false;
+				bool losTestFailed = false;
 				losTestFailed = losTestFailed || (fabs(tmpPos[0] - HS_HookPosition[clientIdx][0]) > HS_ROPE_TOP_DISCREPANCY_ALLOWANCE);
 				losTestFailed = losTestFailed || (fabs(tmpPos[1] - HS_HookPosition[clientIdx][1]) > HS_ROPE_TOP_DISCREPANCY_ALLOWANCE);
 				losTestFailed = losTestFailed || (fabs(tmpPos[2] - HS_HookPosition[clientIdx][2]) > HS_ROPE_TOP_DISCREPANCY_ALLOWANCE);
@@ -2795,12 +2741,12 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 				if (HS_HookshotOut[clientIdx])
 				{
 					// need our check delta, not main update delta
-					new Float:checkDelta = curTime - HS_LastCheckAt[clientIdx];
+					float checkDelta = curTime - HS_LastCheckAt[clientIdx];
 
 					// need the current distance
-					static Float:clientOrigin[3];
+					static float clientOrigin[3];
 					GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", clientOrigin);
-					new Float:distance = GetVectorDistance(clientOrigin, HS_HookPosition[clientIdx]);
+					float distance = GetVectorDistance(clientOrigin, HS_HookPosition[clientIdx]);
 
 					// reel in?
 					if (altFireDown && !ignoreBossActions)
@@ -2810,14 +2756,14 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 					if (duckDown && !ignoreBossActions)
 						HS_HookshotReelDistance[clientIdx] = HS_HookshotReelDistance[clientIdx] + (deltaTime * HS_ReelInSpeed[clientIdx]);
 
-					new Float:excessDistance = distance - HS_HookshotReelDistance[clientIdx];
-					new Float:limpDistance = HS_HookshotReelDistance[clientIdx] - distance;
+					float excessDistance = distance - HS_HookshotReelDistance[clientIdx];
+					float limpDistance = HS_HookshotReelDistance[clientIdx] - distance;
 
 					// we do a number of checks in here. however, if the rope is limp, none of these checks apply.
 					if (checkDelta >= HS_CHECK_INTERVAL && limpDistance < HS_LIMP_MIN_DISTANCE)
 					{
 						// get the player's current velocity
-						static Float:bossVelocity[3];
+						static float bossVelocity[3];
 						GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", bossVelocity);
 
 						// degrade excess negative z, but only if there's excess distance
@@ -2829,23 +2775,23 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 						// though this always executes
 						{
 							// need adjust positions of things that 
-							static Float:adjustedBossPos[3];
+							static float adjustedBossPos[3];
 							adjustedBossPos[0] = clientOrigin[0];
 							adjustedBossPos[1] = clientOrigin[1];
 							adjustedBossPos[2] = 0.0;
-							static Float:adjustedHookPos[3];
+							static float adjustedHookPos[3];
 							adjustedHookPos[0] = HS_HookPosition[clientIdx][0];
 							adjustedHookPos[1] = HS_HookPosition[clientIdx][1];
 							adjustedHookPos[2] = 0.0;
 
 							// get our velocity vector and normalize it
-							static Float:elasticVelocity[3];
+							static float elasticVelocity[3];
 							MakeVectorFromPoints(clientOrigin, HS_HookPosition[clientIdx], elasticVelocity);
 							NormalizeVector(elasticVelocity, elasticVelocity);
 
 							// the pull in HUPS factors in the length of the rope. if I used a static speed,
 							// the physics would seem screwy with long vs. short ropes
-							for (new axis = 0; axis <= 1; axis++)
+							for (int axis = 0; axis <= 1; axis++)
 							{
 								elasticVelocity[axis] *= ((HS_HorizontalMotionFactor[clientIdx] * HS_HookshotReelDistance[clientIdx]) * checkDelta);
 
@@ -2856,12 +2802,12 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 
 						// player can use forward and back keys to speed up or slow down the rope's movement
 						// getting a bit lazy with the math here, 
-						new bool:moveForward = (forwardDown && !backDown);
-						new bool:moveBack = (backDown && !forwardDown);
+						bool moveForward = (forwardDown && !backDown);
+						bool moveBack = (backDown && !forwardDown);
 						if ((moveForward || moveBack) && !ignoreBossActions)
 						{
 							// need player view angle, but we only care about the yaw
-							static Float:eyeAngles[3];
+							static float eyeAngles[3];
 							GetClientEyeAngles(clientIdx, eyeAngles);
 							eyeAngles[0] = 0.0; // throw the pitch away
 
@@ -2871,13 +2817,13 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 
 							// to simplify things we'll just persuade the velocity in a straight line
 							// gravity or elasticity will eventually pick up the slack
-							static Float:playerMotionVelocity[3];
-							static Float:velocityValuesLimit[3];
+							static float playerMotionVelocity[3];
+							static float velocityValuesLimit[3];
 							//getBaseVelocityFromYaw(eyeAngles, playerMotionVelocity);
 
 							// going to cheap out and do a trace since my maths skills are failing
 							// (well, that, and the fact source engine scoffs at my unit circle)
-							static Float:tmpEnd[3];
+							static float tmpEnd[3];
 							trace = TR_TraceRayFilterEx(clientOrigin, eyeAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 							TR_GetEndPosition(tmpEnd, trace);
 							CloseHandle(trace);
@@ -2891,7 +2837,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 							playerMotionVelocity[1] *= (HS_MaxSwingSpeed[clientIdx] * checkDelta);
 
 							// now tweak the player's velocity if appropriate
-							for (new axis = 0; axis <= 1; axis++)
+							for (int axis = 0; axis <= 1; axis++)
 							{
 								if (velocityValuesLimit[axis] > 0 && bossVelocity[axis] < velocityValuesLimit[axis])
 									bossVelocity[axis] = fmin(velocityValuesLimit[axis], bossVelocity[axis] + playerMotionVelocity[axis]);
@@ -2906,12 +2852,12 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 						{
 							// persuade the boss' position in the direction of the hook
 							// unlike the player motion velocity, there are no limits.
-							static Float:elasticVelocity[3];
+							static float elasticVelocity[3];
 							MakeVectorFromPoints(clientOrigin, HS_HookPosition[clientIdx], elasticVelocity);
 							NormalizeVector(elasticVelocity, elasticVelocity);
 
 							// our fun little equation for the velocity modifier
-							for (new axis = 0; axis <= 2; axis++)
+							for (int axis = 0; axis <= 2; axis++)
 							{
 								elasticVelocity[axis] *= HS_ElasticityModifier[clientIdx] * ((excessDistance / HS_ELASTIC_BASE_DISTANCE) * checkDelta * HS_DEFAULT_ELASTIC_INTENSITY);
 
@@ -2931,7 +2877,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 			}
 			else if (!HS_HookshotOut[clientIdx] && altFirePressed && !ignoreBossActions)
 			{
-				if (TF2_IsPlayerInCondition(clientIdx, TFCond:86))
+				if (TF2_IsPlayerInCondition(clientIdx, TFCond_SwimmingCurse))
 				{
 					if (PRINT_DEBUG_SPAM)
 						PrintToServer("[sarysamods5] Client %d attempted to hookshot in jarate water. Silent failure.", clientIdx);
@@ -2976,8 +2922,8 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 				}
 				else
 				{
-					new Float:eyeOrigin[3];
-					new Float:eyeAngles[3];
+					float eyeOrigin[3];
+					float eyeAngles[3];
 					GetClientEyePosition(clientIdx, eyeOrigin);
 					GetClientEyeAngles(clientIdx, eyeAngles);
 
@@ -2991,14 +2937,14 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 					}
 					else
 					{
-						new Handle:trace = TR_TraceRayFilterEx(eyeOrigin, eyeAngles, MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
+						Handle trace = TR_TraceRayFilterEx(eyeOrigin, eyeAngles, MASK_PLAYERSOLID, RayType_Infinite, TraceWallsOnly);
 						TR_GetEndPosition(HS_HookPosition[clientIdx], trace);
 						CloseHandle(trace);
 
 						// set some other things we need to know. motion will be established in a future tick.
 						// for distance, we need to use the player origin and not their eye origin.
 						// this is because eye origin can shift around simply when the user turns their head.
-						new Float:clientOrigin[3];
+						float clientOrigin[3];
 						GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", clientOrigin);
 						HS_HookshotReelDistance[clientIdx] = GetVectorDistance(clientOrigin, HS_HookPosition[clientIdx]);
 						HS_HookshotOut[clientIdx] = true;
@@ -3027,7 +2973,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 						// create hook entity
 						if (strlen(HS_HookModel) > 3)
 						{
-							new hookEntity = CreateEntityByName("prop_physics_override");
+							int hookEntity = CreateEntityByName("prop_physics_override");
 							if (IsValidEntity(hookEntity))
 							{
 								// the actual spawning process
@@ -3037,7 +2983,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 								SetEntProp(hookEntity, Prop_Data, "m_takedamage", 0);
 
 								SetEntityMoveType(hookEntity, MOVETYPE_NONE);
-								SetEntProp(hookEntity, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_NONE);
+								SetEntProp(hookEntity, Prop_Send, "m_CollisionGroup", 0);
 								SetEntProp(hookEntity, Prop_Send, "m_usSolidFlags", 4);
 								SetEntProp(hookEntity, Prop_Send, "m_nSolidType", 0);
 
@@ -3045,7 +2991,7 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 								HS_HookEntRef[clientIdx] = EntIndexToEntRef(hookEntity);
 								
 								// create the beam
-								SpawnBeamRope(HS_BeamEntRef[clientIdx], clientIdx, hookEntity, Float:{75.0, 0.0}, HS_RopeTextureStr, 1.0);
+								SpawnBeamRope(HS_BeamEntRef[clientIdx], clientIdx, hookEntity, view_as<float>({75.0, 0.0}), HS_RopeTextureStr, 1.0);
 
 								if (PRINT_DEBUG_SPAM)
 									PrintToServer("[sarysamods5] Spawned a hook entity! %d", hookEntity);
@@ -3096,22 +3042,12 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 /**
  * General helper stocks, some original, some taken/modified from other sources
  */
-stock PlaySoundLocal(clientIdx, String:soundPath[], bool:followPlayer = true, stack = 1)
-{
-	// play a speech sound that travels normally, local from the player.
-	decl Float:playerPos[3];
-	GetClientEyePosition(clientIdx, playerPos);
-	//PrintToServer("[sarysamods5] eye pos=%f,%f,%f     sound=%s", playerPos[0], playerPos[1], playerPos[2], soundPath);
-	for (new i = 0; i < stack; i++)
-		EmitAmbientSound(soundPath, playerPos, followPlayer ? clientIdx : SOUND_FROM_WORLD);
-}
-
-stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 0.1)
+stock int ParticleEffectAt(float position[3], char[] effectName, float duration = 0.1)
 {
 	if (!IsEmptyString(effectName))
 		return -1; // nothing to display
 		
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
 		TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -3121,95 +3057,19 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, Timer_RemoveEntityTele, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }
 
-stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool:attach=true)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new particle = CreateEntityByName("info_particle_system");
-	
-	if (!IsValidEntity(particle))
-		return -1;
-
-	decl String:targetName[128];
-	decl Float:position[3];
-	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
-	position[2] += offset;
-	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
-
-	Format(targetName, sizeof(targetName), "target%i", entity);
-	DispatchKeyValue(entity, "targetname", targetName);
-
-	DispatchKeyValue(particle, "targetname", "tf2particle");
-	DispatchKeyValue(particle, "parentname", targetName);
-	DispatchKeyValue(particle, "effect_name", particleType);
-	DispatchSpawn(particle);
-	SetVariantString(targetName);
-	if (attach)
-	{
-		AcceptEntityInput(particle, "SetParent", particle, particle, 0);
-		SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", entity);
-	}
-	ActivateEntity(particle);
-	AcceptEntityInput(particle, "start");
-	return particle;
+	int entity = EntRefToEntIndex(entid);
+	if (IsValidEntity(entity))
+		RemoveEntity(entity);
 }
 
-// adapted from the above and Friagram's halloween 2013 (which standing alone did not work for me)
-stock AttachParticleToAttachment(entity, const String:particleType[], const String:attachmentPoint[])
-{
-	new particle = CreateEntityByName("info_particle_system");
-	
-	if (!IsValidEntity(particle))
-		return -1;
-
-	decl String:targetName[128];
-	decl Float:position[3];
-	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
-	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
-
-	Format(targetName, sizeof(targetName), "target%i", entity);
-	DispatchKeyValue(entity, "targetname", targetName);
-
-	DispatchKeyValue(particle, "targetname", "tf2particle");
-	DispatchKeyValue(particle, "parentname", targetName);
-	DispatchKeyValue(particle, "effect_name", particleType);
-	DispatchSpawn(particle);
-	SetVariantString(targetName);
-	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
-	SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", entity);
-	
-	SetVariantString(attachmentPoint);
-	AcceptEntityInput(particle, "SetParentAttachment");
-
-	ActivateEntity(particle);
-	AcceptEntityInput(particle, "start");
-	return particle;
-}
-
-public Action:Timer_RemoveEntityTele(Handle:timer, any:entid)
-{
-	new entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
-	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
-	}
-}
-
-public RemoveEntityTele(any:entid)
-{
-	new entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
-	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
-	}
-}
-
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -3217,7 +3077,7 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock bool:IsValidBoss(clientIdx)
+stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
@@ -3225,25 +3085,25 @@ stock bool:IsValidBoss(clientIdx)
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
-stock SwitchWeapon(bossClient, String:weaponName[], weaponIdx, String:weaponAttributes[], visible)
+stock void SwitchWeapon(int bossClient, char[] weaponName, int weaponIdx, char[] weaponAttributes, int visible)
 {
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Primary);
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Secondary);
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Melee);
-	new weapon;
+	int weapon;
 	weapon = SpawnWeapon(bossClient, weaponName, weaponIdx, 101, 5, weaponAttributes, visible);
 	SetEntPropEnt(bossClient, Prop_Data, "m_hActiveWeapon", weapon);
 }
 
-stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], visible = 1)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1)
 {
-	new Handle:weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
 	TF2Items_SetItemIndex(weapon, index);
 	TF2Items_SetLevel(weapon, level);
 	TF2Items_SetQuality(weapon, quality);
-	new String:attributes[32][32];
-	new count = ExplodeString(attribute, ";", attributes, 32, 32);
+	char attributes[32][32];
+	int count = ExplodeString(attribute, ";", attributes, 32, 32);
 	if(count%2!=0)
 	{
 		count--;
@@ -3252,10 +3112,10 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(weapon, count/2);
-		new i2 = 0;
-		for(new i = 0; i < count; i += 2)
+		int i2 = 0;
+		for(int i = 0; i < count; i += 2)
 		{
-			new attrib = StringToInt(attributes[i]);
+			int attrib = StringToInt(attributes[i]);
 			if (attrib == 0)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
@@ -3276,7 +3136,7 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 		return -1;
 	}
 
-	new entity = TF2Items_GiveNamedItem(client, weapon);
+	int entity = TF2Items_GiveNamedItem(client, weapon);
 	CloseHandle(weapon);
 	EquipPlayerWeapon(client, entity);
 	
@@ -3290,22 +3150,22 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	return entity;
 }
 
-stock bool:IsPlayerInRange(player, Float:position[3], Float:maxDistance)
+stock bool IsPlayerInRange(int player, float position[3], float maxDistance)
 {
 	maxDistance *= maxDistance;
 	
-	static Float:playerPos[3];
+	static float playerPos[3];
 	GetEntPropVector(player, Prop_Data, "m_vecOrigin", playerPos);
 	return GetVectorDistance(position, playerPos, true) <= maxDistance;
 }
 
-stock FindRandomPlayer(bool:isBossTeam, Float:position[3] = NULL_VECTOR, Float:maxDistance = 0.0)
+stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, float maxDistance = 0.0)
 {
-	new player = -1;
+	int player = -1;
 
 	// first, get a player count for the team we care about
-	new playerCount = 0;
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	int playerCount = 0;
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -3322,9 +3182,9 @@ stock FindRandomPlayer(bool:isBossTeam, Float:position[3] = NULL_VECTOR, Float:m
 		return -1;
 
 	// now randomly choose our victim
-	new rand = GetRandomInt(0, playerCount - 1);
+	int rand = GetRandomInt(0, playerCount - 1);
 	playerCount = 0;
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -3351,16 +3211,16 @@ stock FindRandomPlayer(bool:isBossTeam, Float:position[3] = NULL_VECTOR, Float:m
 	return player;
 }
 			
-stock FindRandomSpawn(bool:bluSpawn, bool:redSpawn)
+stock int FindRandomSpawn(bool bluSpawn, bool redSpawn)
 {
-	new spawn = -1;
+	int spawn = -1;
 
 	// first, get a spawn count for the team(s) we care about
-	new spawnCount = 0;
-	new entity = -1;
+	int spawnCount = 0;
+	int entity = -1;
 	while ((entity = FindEntityByClassname(entity, "info_player_teamspawn")) != -1)
 	{
-		new teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
+		int teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
 		if ((teamNum == BossTeam && bluSpawn) || (teamNum != BossTeam && redSpawn))
 			spawnCount++;
 	}
@@ -3370,11 +3230,11 @@ stock FindRandomSpawn(bool:bluSpawn, bool:redSpawn)
 		return -1;
 
 	// now randomly choose our spawn
-	new rand = GetRandomInt(0, spawnCount - 1);
+	int rand = GetRandomInt(0, spawnCount - 1);
 	spawnCount = 0;
 	while ((entity = FindEntityByClassname(entity, "info_player_teamspawn")) != -1)
 	{
-		new teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
+		int teamNum = GetEntProp(entity, Prop_Send, "m_iTeamNum");
 		if ((teamNum == BossTeam && bluSpawn) || (teamNum != BossTeam && redSpawn))
 		{
 			if (spawnCount == rand)
@@ -3388,31 +3248,31 @@ stock FindRandomSpawn(bool:bluSpawn, bool:redSpawn)
 	return spawn;
 }
 
-stock GetLivingMercCount()
+stock int GetLivingMercCount()
 {
 	// recalculate living players
-	new livingMercCount = 0;
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	int livingMercCount = 0;
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
 			livingMercCount++;
 	
 	return livingMercCount;
 }
 	
-stock ParseFloatRange(String:rangeStr[MAX_RANGE_STRING_LENGTH], &Float:min, &Float:max)
+stock void ParseFloatRange(char[] rangeStr, float& min, float& max)
 {
-	new String:rangeStrs[2][32];
+	char rangeStrs[2][32];
 	ExplodeString(rangeStr, ",", rangeStrs, 2, 32);
 	min = StringToFloat(rangeStrs[0]);
 	max = StringToFloat(rangeStrs[1]);
 }
 
-stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
+stock void ParseHull(char[] hullStr, float hull[2][3])
 {
-	new String:hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
-	new String:vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
+	char hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
+	char vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
 	ExplodeString(hullStr, " ", hullStrs, 2, MAX_HULL_STRING_LENGTH / 2);
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		ExplodeString(hullStrs[i], ",", vectorStrs, 3, MAX_HULL_STRING_LENGTH / 6);
 		hull[i][0] = StringToFloat(vectorStrs[0]);
@@ -3421,55 +3281,55 @@ stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
 	}
 }
 
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char[] soundFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		PrecacheSound(soundFile);
 }
 
-stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MODEL_FILE_LENGTH])
+stock void ReadModel(int bossIdx, const char[] ability_name, int argInt, char[] modelFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		PrecacheModel(modelFile);
 }
 
-stock ReadModelToInt(bossIdx, const String:ability_name[], argInt)
+stock int ReadModelToInt(int bossIdx, const char[] ability_name, int argInt)
 {
-	static String:modelFile[MAX_MODEL_FILE_LENGTH];
+	static char modelFile[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		return PrecacheModel(modelFile);
 	return -1;
 }
 
-stock ReadMaterial(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MATERIAL_FILE_LENGTH])
+stock void ReadMaterial(int bossIdx, const char[] ability_name, int argInt, char[] modelFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MATERIAL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		PrecacheModel(modelFile);
 }
 
-stock ReadCenterText(bossIdx, const String:ability_name[], argInt, String:centerText[MAX_CENTER_TEXT_LENGTH])
+stock void ReadCenterText(int bossIdx, const char[] ability_name, int argInt, char[] centerText)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, centerText, MAX_CENTER_TEXT_LENGTH);
 	ReplaceString(centerText, MAX_CENTER_TEXT_LENGTH, "\\n", "\n");
 }
 
-stock ReadHull(bossIdx, const String:ability_name[], argInt, Float:hull[2][3])
+stock void ReadHull(int bossIdx, const char[] ability_name, int argInt, float hull[2][3])
 {
-	static String:hullStr[MAX_HULL_STRING_LENGTH];
+	static char hullStr[MAX_HULL_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, hullStr, MAX_HULL_STRING_LENGTH);
 	ParseHull(hullStr, hull);
 }
 
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-public bool:TraceRedPlayers(entity, contentsMask)
+public bool TraceRedPlayers(int entity, int contentsMask)
 {
 	if (IsLivingPlayer(entity) && GetClientTeam(entity) != BossTeam)
 	{
@@ -3481,9 +3341,9 @@ public bool:TraceRedPlayers(entity, contentsMask)
 	return false;
 }
 
-stock Float:fixAngle(Float:angle)
+stock float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -3493,9 +3353,9 @@ stock Float:fixAngle(Float:angle)
 }
 
 // really wish that the original GetVectorAngles() worked this way.
-stock Float:GetVectorAnglesTwoPoints(const Float:startPos[3], const Float:endPos[3], Float:angles[3])
+stock float GetVectorAnglesTwoPoints(const float startPos[3], const float endPos[3], float angles[3])
 {
-	static Float:tmpVec[3];
+	static float tmpVec[3];
 	//tmpVec[0] = startPos[0] - endPos[0];
 	//tmpVec[1] = startPos[1] - endPos[1];
 	//tmpVec[2] = startPos[2] - endPos[2];
@@ -3505,7 +3365,7 @@ stock Float:GetVectorAnglesTwoPoints(const Float:startPos[3], const Float:endPos
 	GetVectorAngles(tmpVec, angles);
 }
 
-stock Float:GetVelocityFromPointsAndInterval(Float:pointA[3], Float:pointB[3], Float:deltaTime)
+stock float GetVelocityFromPointsAndInterval(float pointA[3], float pointB[3], float deltaTime)
 {
 	if (deltaTime <= 0.0)
 		return 0.0;
@@ -3513,7 +3373,7 @@ stock Float:GetVelocityFromPointsAndInterval(Float:pointA[3], Float:pointB[3], F
 	return GetVectorDistance(pointA, pointB) * (1.0 / deltaTime);
 }
 
-stock Float:fixDamageForFF2(Float:damage)
+stock float fixDamageForFF2(float damage)
 {
 	if (damage <= 160.0)
 		return damage / 3.0;
@@ -3521,17 +3381,17 @@ stock Float:fixDamageForFF2(Float:damage)
 }
 
 // for when damage to a hale needs to be recognized
-stock SemiHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DMG_GENERIC, weapon=-1)
+stock void SemiHookedDamage(int victim, int inflictor, int attacker, float damage, int damageType=DMG_GENERIC, int weapon=-1)
 {
 	if (GetClientTeam(victim) != BossTeam)
 		SDKHooks_TakeDamage(victim, inflictor, attacker, damage, damageType, weapon);
 	else
 	{
-		new String:dmgStr[16];
+		char dmgStr[16];
 		IntToString(RoundFloat(damage), dmgStr, sizeof(dmgStr));
 	
 		// took this from war3...I hope it doesn't double damage like I've heard old versions do
-		new pointHurt = CreateEntityByName("point_hurt");
+		int pointHurt = CreateEntityByName("point_hurt");
 		if (IsValidEntity(pointHurt))
 		{
 			DispatchKeyValue(victim, "targetname", "halevictim");
@@ -3543,19 +3403,19 @@ stock SemiHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DMG
 			AcceptEntityInput(pointHurt, "Hurt", attacker);
 			DispatchKeyValue(pointHurt, "classname", "point_hurt");
 			DispatchKeyValue(victim, "targetname", "noonespecial");
-			RemoveEntityTele(EntIndexToEntRef(pointHurt));
+			Timer_RemoveEntity(null, EntIndexToEntRef(pointHurt));
 		}
 	}
 }
 
 // this version ignores obstacles
 #define PSEUDO_AMBIENT_SOUND_DISTANCE 1000.0
-stock PseudoAmbientSound(clientIdx, String:soundPath[], count=1)
+stock void PseudoAmbientSound(int clientIdx, char[] soundPath, int count=1)
 {
-	decl Float:emitterPos[3];
-	decl Float:listenerPos[3];
+	static float emitterPos[3];
+	static float listenerPos[3];
 	GetClientEyePosition(clientIdx, emitterPos);
-	for (new listener = 1; listener < MAX_PLAYERS; listener++)
+	for (int listener = 1; listener < MAX_PLAYERS; listener++)
 	{
 		if (!IsClientInGame(listener))
 			continue;
@@ -3564,15 +3424,15 @@ stock PseudoAmbientSound(clientIdx, String:soundPath[], count=1)
 		// but I'm pretty sure decibal dropoff is best done logarithmically.
 		// so I'm doing that here.
 		GetClientEyePosition(listener, listenerPos);
-		new Float:distance = GetVectorDistance(emitterPos, listenerPos);
+		float distance = GetVectorDistance(emitterPos, listenerPos);
 		if (distance >= PSEUDO_AMBIENT_SOUND_DISTANCE)
 			continue;
 		
-		new Float:logMe = (PSEUDO_AMBIENT_SOUND_DISTANCE - distance) / (PSEUDO_AMBIENT_SOUND_DISTANCE / 10.0);
+		float logMe = (PSEUDO_AMBIENT_SOUND_DISTANCE - distance) / (PSEUDO_AMBIENT_SOUND_DISTANCE / 10.0);
 		if (logMe <= 0.0) // just a precaution, since EVERYTHING tosses an exception in this game
 			continue;
 			
-		new Float:volume = Logarithm(logMe);
+		float volume = Logarithm(logMe);
 		if (volume <= 0.0)
 			continue;
 		else if (volume > 1.0)
@@ -3581,64 +3441,48 @@ stock PseudoAmbientSound(clientIdx, String:soundPath[], count=1)
 			volume = 1.0;
 		}
 		
-		for (new i = 0; i < count; i++)
+		for (int i = 0; i < count; i++)
 			EmitSoundToClient(listener, soundPath, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume);
 	}
 }
 
-stock fixAngles(Float:angles[3])
+stock void fixAngles(float angles[3])
 {
-	for (new i = 0; i < 3; i++)
+	for (int i = 0; i < 3; i++)
 		angles[i] = fixAngle(angles[i]);
 }
 
-stock abs(x)
+stock int abs(int x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock Float:fabs(Float:x)
+stock float fabs(float x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock min(n1, n2)
+stock int min(int n1, int n2)
 {
 	return n1 < n2 ? n1 : n2;
 }
 
-stock Float:fmin(Float:n1, Float:n2)
+stock float fmin(float n1, float n2)
 {
 	return n1 < n2 ? n1 : n2;
 }
 
-stock max(n1, n2)
+stock float fmax(float n1, float n2)
 {
 	return n1 > n2 ? n1 : n2;
 }
 
-stock Float:fmax(Float:n1, Float:n2)
-{
-	return n1 > n2 ? n1 : n2;
-}
-
-stock Float:DEG2RAD(Float:n) { return n * 0.017453; }
-
-stock Float:RAD2DEG(Float:n) { return n * 57.29578; }
-
-stock bool:WithinBounds(Float:point[3], Float:min[3], Float:max[3])
-{
-	return point[0] >= min[0] && point[0] <= max[0] &&
-		point[1] >= min[1] && point[1] <= max[1] &&
-		point[2] >= min[2] && point[2] <= max[2];
-}
-
-stock ReadHexOrDecInt(String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH])
+stock int ReadHexOrDecInt(char[] hexOrDecString)
 {
 	if (StrContains(hexOrDecString, "0x") == 0)
 	{
-		new result = 0;
-		for (new i = 2; i < 10 && hexOrDecString[i] != 0; i++)
+		int result = 0;
+		for (int i = 2; i < 10 && hexOrDecString[i] != 0; i++)
 		{
 			result = result<<4;
 				
@@ -3656,21 +3500,21 @@ stock ReadHexOrDecInt(String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH])
 		return StringToInt(hexOrDecString);
 }
 
-stock ReadHexOrDecString(bossIdx, const String:ability_name[], argIdx)
+stock int ReadHexOrDecString(int bossIdx, const char[] ability_name, int argIdx)
 {
-	static String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH];
+	static char hexOrDecString[HEX_OR_DEC_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argIdx, hexOrDecString, HEX_OR_DEC_STRING_LENGTH);
 	return ReadHexOrDecInt(hexOrDecString);
 }
 
-stock Float:ConformAxisValue(Float:src, Float:dst, Float:distCorrectionFactor)
+stock float ConformAxisValue(float src, float dst, float distCorrectionFactor)
 {
 	return src - ((src - dst) * distCorrectionFactor);
 }
 
-stock ConformLineDistance(Float:result[3], const Float:src[3], const Float:dst[3], Float:maxDistance, bool:canExtend = false)
+stock void ConformLineDistance(float result[3], const float src[3], const float dst[3], float maxDistance, bool canExtend = false)
 {
-	new Float:distance = GetVectorDistance(src, dst);
+	float distance = GetVectorDistance(src, dst);
 	if (distance <= maxDistance && !canExtend)
 	{
 		// everything's okay.
@@ -3681,23 +3525,23 @@ stock ConformLineDistance(Float:result[3], const Float:src[3], const Float:dst[3
 	else
 	{
 		// need to find a point at roughly maxdistance. (FP irregularities aside)
-		new Float:distCorrectionFactor = maxDistance / distance;
+		float distCorrectionFactor = maxDistance / distance;
 		result[0] = ConformAxisValue(src[0], dst[0], distCorrectionFactor);
 		result[1] = ConformAxisValue(src[1], dst[1], distCorrectionFactor);
 		result[2] = ConformAxisValue(src[2], dst[2], distCorrectionFactor);
 	}
 }
 
-stock bool:CylinderCollision(Float:cylinderOrigin[3], Float:colliderOrigin[3], Float:maxDistance, Float:zMin, Float:zMax)
+stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
 {
 	if (colliderOrigin[2] < zMin || colliderOrigin[2] > zMax)
 		return false;
 
-	static Float:tmpVec1[3];
+	static float tmpVec1[3];
 	tmpVec1[0] = cylinderOrigin[0];
 	tmpVec1[1] = cylinderOrigin[1];
 	tmpVec1[2] = 0.0;
-	static Float:tmpVec2[3];
+	static float tmpVec2[3];
 	tmpVec2[0] = colliderOrigin[0];
 	tmpVec2[1] = colliderOrigin[1];
 	tmpVec2[2] = 0.0;
@@ -3705,19 +3549,19 @@ stock bool:CylinderCollision(Float:cylinderOrigin[3], Float:colliderOrigin[3], F
 	return GetVectorDistance(tmpVec1, tmpVec2, true) <= maxDistance * maxDistance;
 }
 
-stock bool:RectangleCollision(Float:hull[2][3], Float:point[3])
+stock bool RectangleCollision(float hull[2][3], float point[3])
 {
 	return (point[0] >= hull[0][0] && point[0] <= hull[1][0]) &&
 		(point[1] >= hull[0][1] && point[1] <= hull[1][1]) &&
 		(point[2] >= hull[0][2] && point[2] <= hull[1][2]);
 }
 
-stock Float:getLinearVelocity(Float:vecVelocity[3])
+stock float getLinearVelocity(float vecVelocity[3])
 {
 	return SquareRoot((vecVelocity[0] * vecVelocity[0]) + (vecVelocity[1] * vecVelocity[1]) + (vecVelocity[2] * vecVelocity[2]));
 }
 
-stock Float:getBaseVelocityFromYaw(const Float:angle[3], Float:vel[3])
+stock float getBaseVelocityFromYaw(const float angle[3], float vel[3])
 {
 	vel[0] = Cosine(angle[1]); // same as unit circle
 	//vel[1] = -Sine(angle[1]); // inverse of unit circle
@@ -3725,65 +3569,49 @@ stock Float:getBaseVelocityFromYaw(const Float:angle[3], Float:vel[3])
 	vel[2] = 0.0; // unaffected
 }
 
-stock Float:RandomNegative(Float:val)
+stock float RandomNegative(float val)
 {
 	return val * (GetRandomInt(0, 1) == 1 ? 1.0 : -1.0);
 }
 
-stock Float:GetRayAngles(Float:startPoint[3], Float:endPoint[3], Float:angle[3])
+stock float GetRayAngles(float startPoint[3], float endPoint[3], float angle[3])
 {
-	static Float:tmpVec[3];
+	static float tmpVec[3];
 	tmpVec[0] = endPoint[0] - startPoint[0];
 	tmpVec[1] = endPoint[1] - startPoint[1];
 	tmpVec[2] = endPoint[2] - startPoint[2];
 	GetVectorAngles(tmpVec, angle);
 }
 
-stock bool:AngleWithinTolerance(Float:entityAngles[3], Float:targetAngles[3], Float:tolerance)
+stock bool AngleWithinTolerance(float entityAngles[3], float targetAngles[3], float tolerance)
 {
-	static bool:tests[2];
+	static bool tests[2];
 	
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 		tests[i] = fabs(entityAngles[i] - targetAngles[i]) <= tolerance || fabs(entityAngles[i] - targetAngles[i]) >= 360.0 - tolerance;
 	
 	return tests[0] && tests[1];
 }
 
-stock constrainDistance(const Float:startPoint[], Float:endPoint[], Float:distance, Float:maxDistance)
+stock int GetA(int c) { return abs(c>>24); }
+stock int GetR(int c) { return abs((c>>16)&0xff); }
+stock int GetG(int c) { return abs((c>>8 )&0xff); }
+stock int GetB(int c) { return abs((c    )&0xff); }
+
+stock void ColorToDecimalString(char[] buffer, int rgb)
 {
-	if (distance <= maxDistance)
-		return; // nothing to do
-		
-	new Float:constrainFactor = maxDistance / distance;
-	endPoint[0] = ((endPoint[0] - startPoint[0]) * constrainFactor) + startPoint[0];
-	endPoint[1] = ((endPoint[1] - startPoint[1]) * constrainFactor) + startPoint[1];
-	endPoint[2] = ((endPoint[2] - startPoint[2]) * constrainFactor) + startPoint[2];
+	FormatEx(buffer, COLOR_BUFFER_SIZE, "%d %d %d", GetR(rgb), GetG(rgb), GetB(rgb));
 }
 
-stock bool:signIsDifferent(const Float:one, const Float:two)
+int BlendColorsRGB(int oldColor, float oldWeight, int newColor, float newWeight)
 {
-	return one < 0.0 && two > 0.0 || one > 0.0 && two < 0.0;
-}
-
-stock GetA(c) { return abs(c>>24); }
-stock GetR(c) { return abs((c>>16)&0xff); }
-stock GetG(c) { return abs((c>>8 )&0xff); }
-stock GetB(c) { return abs((c    )&0xff); }
-
-stock ColorToDecimalString(String:buffer[COLOR_BUFFER_SIZE], rgb)
-{
-	Format(buffer, COLOR_BUFFER_SIZE, "%d %d %d", GetR(rgb), GetG(rgb), GetB(rgb));
-}
-
-BlendColorsRGB(oldColor, Float:oldWeight, newColor, Float:newWeight)
-{
-	new r = min(RoundFloat((GetR(oldColor) * oldWeight) + (GetR(newColor) * newWeight)), 255);
-	new g = min(RoundFloat((GetG(oldColor) * oldWeight) + (GetG(newColor) * newWeight)), 255);
-	new b = min(RoundFloat((GetB(oldColor) * oldWeight) + (GetB(newColor) * newWeight)), 255);
+	int r = min(RoundFloat((GetR(oldColor) * oldWeight) + (GetR(newColor) * newWeight)), 255);
+	int g = min(RoundFloat((GetG(oldColor) * oldWeight) + (GetG(newColor) * newWeight)), 255);
+	int b = min(RoundFloat((GetB(oldColor) * oldWeight) + (GetB(newColor) * newWeight)), 255);
 	return (r<<16) + (g<<8) + b;
 }
 
-stock Nope(clientIdx)
+stock void Nope(int clientIdx)
 {
 	EmitSoundToClient(clientIdx, NOPE_AVI);
 }
@@ -3792,19 +3620,17 @@ stock Nope(clientIdx)
  * Based heavily on KissLick's beam code
  * https://forums.alliedmods.net/showthread.php?t=249891
  */
-SpawnBeamRope(beams[2], entity1, entity2, const Float:zOffsets[2], const String:BeamMaterial[], Float:width = 5.0, rgba[4] = { 255, 255, 255, 255 })
+void SpawnBeamRope(int beams[2], int entity1, int entity2, const float zOffsets[2], const char[] BeamMaterial, float width = 5.0, rgba[4] = { 255, 255, 255, 255 })
 {
-	new String:nodeNames[2][64];
-	nodeNames[0] = "rope1";
-	nodeNames[1] = "rope2";
+	static const char nodeNames[2][64] =  { "rope1", "rope2" };
 	
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		beams[i] = CreateEntityByName("env_beam");
 		if (!IsValidEntity(beams[i]))
 			return;
 			
-		new currentEntity = i == 0 ? entity1 : entity2;
+		int currentEntity = i == 0 ? entity1 : entity2;
 			
 		DispatchKeyValue(beams[i], "targetname", nodeNames[i]);
 		DispatchKeyValue(beams[i], "texture", BeamMaterial);
@@ -3816,12 +3642,12 @@ SpawnBeamRope(beams[2], entity1, entity2, const Float:zOffsets[2], const String:
 		DispatchKeyValue(beams[i], "LightningStart", nodeNames[i]);
 		DispatchKeyValue(beams[i], "LightningEnd", nodeNames[(i+1)%2]);
 		
-		static Float:node[3];
+		static float node[3];
 		GetEntPropVector(currentEntity, Prop_Data, "m_vecOrigin", node);
 		node[2] += zOffsets[i];
 		TeleportEntity(beams[i], node, NULL_VECTOR, NULL_VECTOR);
 		
-		static String:targetName[128];
+		static char targetName[128];
 		Format(targetName, sizeof(targetName), "target%i", currentEntity);
 		DispatchKeyValue(currentEntity, "targetname", targetName);
 
@@ -3831,7 +3657,7 @@ SpawnBeamRope(beams[2], entity1, entity2, const Float:zOffsets[2], const String:
 		AcceptEntityInput(beams[i], "SetParent", beams[i], beams[i], 0);
 	}
 	
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		ActivateEntity(beams[i]);
 		AcceptEntityInput(beams[i], "TurnOn");
@@ -3839,9 +3665,9 @@ SpawnBeamRope(beams[2], entity1, entity2, const Float:zOffsets[2], const String:
 	}
 }
 
-stock DispatchKeyValueFormat(entity, const String:keyName[], const String:format[], any:...)
+stock void DispatchKeyValueFormat(int entity, const char[] keyName, const char[] format, any ...)
 {
-	static String:value[256];
+	static char value[256];
 	VFormat(value, sizeof( value ), format, 4);
 
 	DispatchKeyValue(entity, keyName, value);
@@ -3851,12 +3677,10 @@ stock DispatchKeyValueFormat(entity, const String:keyName[], const String:format
  * CODE BELOW WAS TAKEN STRAIGHT FROM PHATRAGES, I TAKE NO CREDIT FOR IT
  * (though I have modified it slightly)
  */
-stock env_shake(const Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:Frequency, bool:noPhysics = false)
+stock void env_shake(const float Origin[3], float Amplitude, float Radius, float Duration, float Frequency, bool noPhysics = false)
 {
-	decl Ent;
-
 	//Initialize:
-	Ent = CreateEntityByName("env_shake");
+	int Ent = CreateEntityByName("env_shake");
 		
 	//Spawn:
 	if (IsValidEntity(Ent))
@@ -3867,23 +3691,20 @@ stock env_shake(const Float:Origin[3], Float:Amplitude, Float:Radius, Float:Dura
 		DispatchKeyValueFloat(Ent, "duration", Duration);
 		DispatchKeyValueFloat(Ent, "frequency", Frequency);
 
-		if (noPhysics)
-			SetVariantString("spawnflags 0");
-		else
-			SetVariantString("spawnflags 8");
+		SetVariantString(noPhysics ? "spawnflags 0":"spawnflags 8");
 		AcceptEntityInput(Ent,"AddOutput");
 
 		//Input:
 		AcceptEntityInput(Ent, "StartShake", 0);
 		
+		//Send:
+		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
+		
 		// create
 		DispatchSpawn(Ent);
 		
-		//Send:
-		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
-
 		//Delete:
-		CreateTimer(Duration + 1.0, Timer_RemoveEntityTele, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(Duration + 1.0, Timer_RemoveEntity, EntIndexToEntRef(Ent), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
