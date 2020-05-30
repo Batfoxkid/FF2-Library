@@ -1,13 +1,9 @@
-#pragma semicolon 1
-
-#include <tf2>
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define VERSION_NUMBER "1.04"
@@ -79,11 +75,6 @@ public void PrepareAbilities()
 		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_fog_fx") && FF2_HasAbility(boss, "ff2_sarysapub3", "ability_management_system"))
-			{
-				AMSOnly[client]=true;
-				AMS_InitSubability(boss, client, this_plugin_name, "rage_fog_fx", "FOG");
-			}
 			if(FF2_HasAbility(boss, this_plugin_name, "fog_fx"))
 			{
 				int fogcolor[3][3];
@@ -117,21 +108,31 @@ public void PrepareAbilities()
 	}
 }
 
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_fog_fx") && FF2_HasAbility(boss, "ff2_sarysapub3", "ability_management_system"))
+	{
+		AMSOnly[client]=true;
+		FF2AMS_PushToAMS(client, this_plugin_name, "rage_fog_fx", "FOG");
+	}
+}
+
 public void FF2_OnAbility2(int boss,const char[] plugin_name,const char[] ability_name,int status)
 {
 	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(StrEqual(ability_name, "rage_fog_fx", false) && !AMSOnly[client])
 	{
-		FOG_Invoke(client);
+		FOG_Invoke(client, -1);
 	}
 }
 
-public bool FOG_CanInvoke(int client)
+public AMSResult FOG_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void FOG_Invoke(int client)
+public void FOG_Invoke(int client, int index)
 {
 	int fogcolor[3][3];
 	
@@ -190,8 +191,8 @@ int StartFog(int fogblend, int fogcolor[3], int fogcolor2[3], float fogstart=64.
 
 	char fogcolors[3][16];
 	IntToString(fogblend, fogcolors[0], sizeof(fogcolors[]));
-	Format(fogcolors[1], sizeof(fogcolors[]), "%i %i %i", fogcolor[0], fogcolor[1], fogcolor[2]);
-	Format(fogcolors[2], sizeof(fogcolors[]), "%i %i %i", fogcolor2[0], fogcolor2[1], fogcolor2[2]);
+	FormatEx(fogcolors[1], sizeof(fogcolors[]), "%i %i %i", fogcolor[0], fogcolor[1], fogcolor[2]);
+	FormatEx(fogcolors[2], sizeof(fogcolors[]), "%i %i %i", fogcolor2[0], fogcolor2[1], fogcolor2[2]);
 	if(IsValidEntity(iFog)) 
 	{
         DispatchKeyValue(iFog, "targetname", "MyFog");
@@ -212,7 +213,7 @@ int StartFog(int fogblend, int fogcolor[3], int fogcolor2[3], float fogstart=64.
 
 stock bool IsEntityValid(int ent)
 {
-	return 	IsValidEdict(ent) && ent > MaxClients;
+	return 	IsValidEntity(ent) && ent > MaxClients;
 }
 
 stock void KillFog(int entity)
