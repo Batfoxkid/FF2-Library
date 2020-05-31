@@ -1,4 +1,5 @@
 /*
+	DEPRECATED / UNFINISHED
 	template : 
 	
 	"ams_base"
@@ -55,11 +56,22 @@
 
 #pragma semicolon 1
 #pragma newdecls required
-#define DEBUG 1
 
 #define MaxBosses (RoundToCeil(view_as<float>(MaxClients)/2.0))
 #define FAST_FORMAT_TO_HOOK(%1) (FormatEx(__key, sizeof(__key), "hook->%i->%s", __vidx, %1));
 #define Loop(%1) for(__L = 1; __L < %1; ++__L)
+
+#define FF2AMS_MANUAL_RECONFIGURE() \
+		_map.SetString("this_plugin", plugin_name); \
+		_map.SetValue("cooldown", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "initial cd", 1001, 0.0)); \
+		_map.SetValue("abilitycd", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "ability cd", 1002, 10.0)); \
+		static char str[128]; player.GetArgS(plugin_name, this_ability_name, "this_name", 1003, str, sizeof(str)); \
+		_map.SetString("this_name", str); \
+		player.GetArgS(plugin_name, this_ability_name, "display_desc", 1004, str, sizeof(str)); \
+		_map.SetString("display_desc", str); \
+		_map.SetValue("this_cost", player.GetArgF(plugin_name, this_ability_name, "cost", 1005, 25.0)); \
+		_map.SetValue("this_end", player.GetArgI(plugin_name, this_ability_name, "can end", 1006, 0)); 
+
 
 FF2Parse GlobalMap[MAXCLIENTS] =  { null, ... };
 StringMap Fake_AMSMap[MAXCLIENTS] =  { null, ... };
@@ -96,8 +108,7 @@ public void Post_RoundEnd(Event event, const char[] name, bool bDontBroadCast)
 {
 	if(IsActive) {
 		for(int i = 0; i < MaxClients; i++) {
-			if(GlobalMap[i] != null) {
-				delete GlobalMap[i];
+			if(Fake_AMSMap[i] != null) {
 				delete Fake_AMSMap[i];
 			}
 		}
@@ -106,14 +117,13 @@ public void Post_RoundEnd(Event event, const char[] name, bool bDontBroadCast)
 
 public void FF2AMS_PreRoundStart(int client)
 {
+	static StringMap _map = null;
+	
 	FF2Prep player = FF2Prep(client);
 	GlobalMap[client] = view_as<FF2Parse>(FF2AMS_GetGlobalAMSHashMap(client));
 	
 	static char ability_key[32];
 	if(!GlobalMap[client].GetString("hook->1->ability", ability_key, sizeof(ability_key))) {
-#if defined DEBUG
-		LogMessage("%N doesnt have FakeAMS", client);
-#endif
 		return;
 	}
 	
@@ -125,14 +135,12 @@ public void FF2AMS_PreRoundStart(int client)
 	static KeyValues BossKV = null;
 	
 	BossKV = player.KeyValues;
-	BossKV.Rewind();
 	
 	Loop(10) {
+		BossKV.Rewind();
+		
 		FormatEx(key, 32, "hook->%i->ability", __L);
 		if(!GlobalMap[client].GetString(key, ability_key, sizeof(ability_key))) {
-#if defined DEBUG
-			LogMessage("-----------Key : %s", key);
-#endif
 			break;
 		}
 		
@@ -141,19 +149,17 @@ public void FF2AMS_PreRoundStart(int client)
 			|| !BossKV.GetString("name", this_ability_name, sizeof(this_ability_name))
 			|| !BossKV.GetString("plugin_name", plugin_name, sizeof(plugin_name))) {
 			LogError("Missing : %s / %s", ability_key, plugin_name);
-#if defined DEBUG
-			LogMessage("-----------Key : %s", key);
-#endif
 			continue;
 		}
 		
 		FormatEx(pfx, sizeof(pfx), "FAKE%i", __L);
 		if(!FF2AMS_PushToAMS(client, this_plugin_name, this_ability_name, pfx)) {
-#if defined DEBUG
-			LogMessage("Failed to execute FF2AMS_PushToAMS(%i, %s, %s, %s) --- key: %s", client, plugin_name, this_ability_name, pfx, key);
-#endif
 			break;
 		}
+		
+		_map = FF2AMS_GetAMSHashMap(client, FF2AMS_GetTotalAbilities(client) - 1);
+		FF2AMS_MANUAL_RECONFIGURE()
+		Fake_AMSMap[client] = new StringMap();
 		Fake_AMSMap[client].SetValue(this_ability_name, __L);
 		Fast_Format(client, __L);
 	}
