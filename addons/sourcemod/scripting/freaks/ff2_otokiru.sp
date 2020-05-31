@@ -1,12 +1,10 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-//#tryinclude <freak_fortress_2_extras>
+
+#pragma semicolon 1
+
 #define PEDO_SND "player/taunt_wormshhg.wav"
 #define PYROGAS_SND "ambient/halloween/thunder_02.wav"
 #define SCT_SND "weapons/ball_buster_break_01_crowd.wav"
@@ -96,13 +94,6 @@ public void HookAbilities()
 			continue;
 		SummonerIndex[client]=-1;
 		bEnableSuperDuperJump[client]=false;
-		RScout_AMSMode[client]=false;
-		RNurse_AMSMode[client]=false;
-		RGift_AMSMode[client]=false;
-		RPedo_AMSMode[client]=false;
-		RPyro_AMSMode[client]=false;
-		RSpy_AMSMode[client]=false;
-		RGen_AMSMode[client]=false;
 		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
@@ -117,78 +108,56 @@ public void HookAbilities()
 				LoadTranslations(fileName);
 			}
 			
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_scout"))
-			{
-				RScout_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_scout");
-				if(RScout_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_scout", "SCT");
-				}
-			}
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_nurse_bowrage"))
-			{
-				RNurse_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_nurse_bowrage");
-				if(RNurse_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_nurse_bowrage", "NUR");
-				}
-			}	
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_giftwrap"))
-			{
-				RGift_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_giftwrap");
-				if(RGift_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_giftwrap", "GFT");
-				}
-			}	
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_pedo"))
-			{
-				RPedo_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_pedo");
-				if(RPedo_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_pedo", "PDO");
-				}
-			}		
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_pyrogas"))
-			{
-				RPyro_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_pyrogas");
-				if(RPyro_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_pyrogas", "PYR");
-				}
-			}	
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_abstractspy"))
-			{
-				RSpy_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_abstractspy");
-				if(RSpy_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_abstractspy", "SPY");
-				}
-			}			
-			if(FF2_HasAbility(boss, this_plugin_name, "rage_gentlemen"))
-			{
-				RGen_AMSMode[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "rage_gentlemen");
-				if(RGen_AMSMode[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, "rage_gentlemen", "MEN");
-				}
-			}				
+			
 		}
 	}
 }
- 
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_scout"))
+	{
+		RScout_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_scout", "SCT");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_nurse_bowrage"))
+	{
+		RNurse_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_nurse_bowrage", "NUR");
+	}	
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_giftwrap"))
+	{
+		RGift_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_giftwrap", "GFT");
+	}	
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_pedo"))
+	{
+		RPedo_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_pedo", "PDO");
+	}		
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_pyrogas"))
+	{
+		RPyro_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_pyrogas", "PYR");
+	}	
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_abstractspy"))
+	{
+		RSpy_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_abstractspy", "SPY");
+	}			
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_gentlemen"))
+	{
+		RGen_AMSMode[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_gentlemen", "MEN");
+	}
+}
+
 // rage_scout
 
-public bool SCT_CanInvoke(int client)
+public AMSResult SCT_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
 void Rage_Scout(int client)
 {
 	if(RScout_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RScout_AMSMode[client]=false;
 		}
@@ -197,10 +166,10 @@ void Rage_Scout(int client)
 			return;
 		}
 	}	
-	SCT_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	SCT_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void SCT_Invoke(int client)
+public void SCT_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	char attributes[768], defattrib[48];
@@ -232,16 +201,16 @@ public void SCT_Invoke(int client)
 
 // rage_giftwrap
 
-public bool GFT_CanInvoke(int client)
+public AMSResult GFT_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
 void Rage_Giftwrap(int client)
 {
 	if(RGift_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RGift_AMSMode[client]=false;
 		}
@@ -250,10 +219,10 @@ void Rage_Giftwrap(int client)
 			return;
 		}
 	}	
-	GFT_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	GFT_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void GFT_Invoke(int client)
+public void GFT_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	char attributes[768], defattrib[48];
@@ -285,16 +254,16 @@ public void GFT_Invoke(int client)
 
 // rage_nurse
 
-public bool NUR_CanInvoke(int client)
+public AMSResult NUR_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
 void Rage_Nurse(int client)
 {
 	if(RNurse_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RNurse_AMSMode[client]=false;
 		}
@@ -303,10 +272,10 @@ void Rage_Nurse(int client)
 			return;
 		}
 	}	
-	NUR_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	NUR_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void NUR_Invoke(int client) // Crusader's Crossbow RAGE
+public void NUR_Invoke(int client, int index) // Crusader's Crossbow RAGE
 {
 	int boss=FF2_GetBossIndex(client);
 	char attributes[64];
@@ -330,21 +299,21 @@ public void NUR_Invoke(int client) // Crusader's Crossbow RAGE
 
 // rage_pedo
 
-public bool PDO_CanInvoke(int client)
+public AMSResult PDO_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Dazed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_Cloaked)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_DeadRingered)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_Stealthed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Dazed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_Cloaked)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_DeadRingered)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_Stealthed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
+	return AMS_Accept;
 }
 
 void Rage_Pedo(int client)
 {
 	if(RPedo_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RPedo_AMSMode[client]=false;
 		}
@@ -354,10 +323,10 @@ void Rage_Pedo(int client)
 		}
 	}	
 		
-	PDO_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	PDO_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void PDO_Invoke(int client)
+public void PDO_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	float pos[3], pos2[3];
@@ -391,16 +360,16 @@ public void PDO_Invoke(int client)
 
 // rage_pyrogas
 
-public bool PYR_CanInvoke(int client)
+public AMSResult PYR_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
 void Rage_Pyrogas(int client)
 {
 	if(RPyro_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RPyro_AMSMode[client]=false;
 		}
@@ -410,10 +379,10 @@ void Rage_Pyrogas(int client)
 		}
 	}	
 		
-	PYR_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	PYR_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void PYR_Invoke(int client)
+public void PYR_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	int var1=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_pyrogas", 1);	//sound
@@ -430,21 +399,21 @@ public void PYR_Invoke(int client)
 
 // rage_gentlemen
 
-public bool MEN_CanInvoke(int client)
+public AMSResult MEN_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Dazed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_Cloaked)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_DeadRingered)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_Stealthed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Dazed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_Cloaked)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_DeadRingered)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_Stealthed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
+	return AMS_Accept;
 }
 
 void Rage_Gentlemen(int client)
 {
 	if(RGen_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RGen_AMSMode[client]=false;
 		}
@@ -454,10 +423,10 @@ void Rage_Gentlemen(int client)
 		}
 	}	
 		
-	MEN_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	MEN_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void MEN_Invoke(int client)
+public void MEN_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	float pos[3], pos2[3];
@@ -531,16 +500,16 @@ public void MEN_Invoke(int client)
 
 // rage_abstractspy
 
-public bool SPY_CanInvoke(int client)
+public AMSResult SPY_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
 void Rage_AbstractSpy(int client)
 {
 	if(RSpy_AMSMode[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability"))
+		if(!LibraryExists("FF2AMS"))
 		{
 			RSpy_AMSMode[client]=false;
 		}
@@ -550,10 +519,10 @@ void Rage_AbstractSpy(int client)
 		}
 	}	
 		
-	SPY_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	SPY_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public void SPY_Invoke(int client)
+public void SPY_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	float duration=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,"rage_abstractspy",1,18.0);
@@ -684,8 +653,8 @@ stock void Wearable_EquipWearable(int client, int wearable)
 {
 	if(S93SF_equipWearable==INVALID_HANDLE)
 	{
-		Handle config=LoadGameConfigFile("equipwearable");
-		if(config==INVALID_HANDLE)
+		GameData config=new GameData("equipwearable");
+		if(!config)
 		{
 			LogError("[FF2] EquipWearable gamedata could not be found; make sure /gamedata/equipwearable.txt exists.");
 			return;
@@ -693,7 +662,7 @@ stock void Wearable_EquipWearable(int client, int wearable)
 
 		StartPrepSDKCall(SDKCall_Player);
 		PrepSDKCall_SetFromConf(config, SDKConf_Virtual, "EquipWearable");
-		CloseHandle(config);
+		delete config;
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 		if((S93SF_equipWearable=EndPrepSDKCall())==INVALID_HANDLE)
 		{
@@ -711,7 +680,10 @@ stock int SetAmmo(int client, int slot, int ammo)
 	if(IsValidEntity(weapon))
 	{
 		int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		int iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		static int iAmmoTable = 0;
+		if(!iAmmoTable) {
+			iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		}
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
