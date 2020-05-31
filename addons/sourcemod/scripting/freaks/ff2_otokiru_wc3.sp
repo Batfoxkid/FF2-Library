@@ -1,12 +1,10 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <sdkhooks>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define MAXPLAYERSCUSTOM 66
 #define entangleSound "war3source/entanglingrootsdecay1.wav"
@@ -14,44 +12,44 @@
 #define lightningSound "war3source/lightningbolt.wav"
 #define DMG_ENERGYBEAM			(1 << 10)
 
-new Handle: teleHUD, Handle: lightningHUD, Handle: entangleHUD;
+Handle  teleHUD, lightningHUD, entangleHUD;
 // The original code wasn't multi-boss friendly, so this should fix it.
 
-new bool:Teleport_TriggerAMS[MAXPLAYERS+1];
-new bTeleports[MAXPLAYERS+1];
-new Float:bTeleportDistance[MAXPLAYERS+1];
-new bTeleportButton[MAXPLAYERS+1];
+bool Teleport_TriggerAMS[MAXPLAYERS+1];
+int bTeleports[MAXPLAYERS+1];
+float bTeleportDistance[MAXPLAYERS+1];
+int bTeleportButton[MAXPLAYERS+1];
 
-new bool:ChainLightning_TriggerAMS[MAXPLAYERS+1];
-new bChainLightningButton[MAXPLAYERS+1];
-new bChainLightnings[MAXPLAYERS+1];
-new bChainLightningDamage[MAXPLAYERS+1];
-new Float:bChainLightningDistance[MAXPLAYERS+1];
+bool ChainLightning_TriggerAMS[MAXPLAYERS+1];
+int bChainLightningButton[MAXPLAYERS+1];
+int bChainLightnings[MAXPLAYERS+1];
+int bChainLightningDamage[MAXPLAYERS+1];
+float bChainLightningDistance[MAXPLAYERS+1];
 
-new bool:Entangle_TriggerAMS[MAXPLAYERS+1];
-new bEntangleButton[MAXPLAYERS+1];
-new bEntangles[MAXPLAYERS+1];
-new Float:bEntangleDuration[MAXPLAYERS+1];
+bool Entangle_TriggerAMS[MAXPLAYERS+1];
+int bEntangleButton[MAXPLAYERS+1];
+int bEntangles[MAXPLAYERS+1];
+float bEntangleDuration[MAXPLAYERS+1];
 
 #define ENTANGLECFG "entangle_config"
 #define TELEPORTCFG "teleport_config"
 #define LIGHTNINGCFG "chainlightning_config"
-new BeamSprite,HaloSprite,BloodSpray,BloodDrop;
+int BeamSprite,HaloSprite,BloodSpray,BloodDrop;
 
-new ignoreClient;
-new Float:emptypos[3];
-new Float:oldpos[MAXPLAYERSCUSTOM][3];
-new Float:teleportpos[MAXPLAYERSCUSTOM][3];
-new bool:inteleportcheck[MAXPLAYERSCUSTOM];
-new bool:bBeenHit[MAXPLAYERSCUSTOM][MAXPLAYERSCUSTOM];
+int ignoreClient;
+float emptypos[3];
+float oldpos[MAXPLAYERSCUSTOM][3];
+float teleportpos[MAXPLAYERSCUSTOM][3];
+bool inteleportcheck[MAXPLAYERSCUSTOM];
+bool bBeenHit[MAXPLAYERSCUSTOM][MAXPLAYERSCUSTOM];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: WC3 Ability Pack",
 	author = "Otokiru, SHADoW NiNE TR3S",
 	version = "1.2.4",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	AddFileToDownloadsTable("sound/war3source/entanglingrootsdecay1.wav");
 	AddFileToDownloadsTable("sound/war3source/blinkarrival.wav");
@@ -73,12 +71,12 @@ public OnPluginStart2()
 	}
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if (!strcmp(ability_name,"charge_weightdown_fix"))
 	{
-		decl Float:oldGravity;
+		float oldGravity;
 		if(GetEntityGravity(client)!=6.0)
 		{
 			oldGravity=GetEntityGravity(client);
@@ -87,11 +85,11 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 		{
 			if (!(GetEntityFlags(client) & FL_ONGROUND))
 			{
-				decl Float:ang[3];
+				static float ang[3];
 				GetClientEyeAngles(client, ang);
 				if (ang[0]>60.0)
 				{
-					new Float:fVelocity[3];
+					float fVelocity[3];
 					GetEntPropVector(client, Prop_Data, "m_vecVelocity", fVelocity);
 					fVelocity[2] = -5000.0;
 					TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, fVelocity);
@@ -107,7 +105,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	{
 		if(Entangle_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		{
-			if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+			if(!LibraryExists("FF2AMS")) // Fail state?
 			{
 				Entangle_TriggerAMS[client]=false;
 			}
@@ -116,7 +114,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 				return Plugin_Continue;
 			}
 		}
-		ENT_Invoke(client);
+		ENT_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,"entangle_activator"))
 		Entangle_Activator(client);
@@ -126,7 +124,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	{
 		if(Teleport_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		{
-			if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+			if(!LibraryExists("FF2AMS")) // Fail state?
 			{
 				Teleport_TriggerAMS[client]=false;
 			}
@@ -135,7 +133,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 				return Plugin_Continue;
 			}
 		}
-		OTP_Invoke(client);
+		OTP_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,"teleport_activator"))
 		Teleport_Activator(client);
@@ -145,7 +143,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	{
 		if(ChainLightning_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 		{
-			if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+			if(!LibraryExists("FF2AMS")) // Fail state?
 			{
 				ChainLightning_TriggerAMS[client]=false;
 			}
@@ -154,7 +152,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 				return Plugin_Continue;
 			}
 		}
-		CLT_Invoke(client);
+		CLT_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,"chainlightning_activator"))
 		ChainLightning_Activator(client);
@@ -162,14 +160,14 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	return Plugin_Continue;
 }
 
-public Action:event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	HookAbilities();
 }
 
-public HookAbilities()
+public void HookAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if(!IsValidClient(client))
 			continue;
@@ -179,48 +177,35 @@ public HookAbilities()
 		bEntangles[client]=bChainLightnings[client]=bTeleports[client]=0;
 		bEntangleDuration[client]=bChainLightningDistance[client]=bTeleportDistance[client]=0.0;
 		bEntangleButton[client]=bChainLightningButton[client]=bTeleportButton[client]=0;
-		Entangle_TriggerAMS[client]=ChainLightning_TriggerAMS[client]=Teleport_TriggerAMS[client]=false;
-		
-		new boss=FF2_GetBossIndex(client);
-		if(boss>=0 && (FF2_HasAbility(boss, this_plugin_name, ENTANGLECFG) || FF2_HasAbility(boss, this_plugin_name, TELEPORTCFG) || FF2_HasAbility(boss, this_plugin_name, LIGHTNINGCFG)))
-		{
-			if(FF2_HasAbility(boss, this_plugin_name, ENTANGLECFG))
-			{
-				Entangle_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, ENTANGLECFG);
-				if(Entangle_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, ENTANGLECFG, "ENT");
-				}
-			}
-			if(FF2_HasAbility(boss, this_plugin_name, TELEPORTCFG))
-			{
-				Teleport_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, TELEPORTCFG);
-				if(Teleport_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, TELEPORTCFG, "OTP");
-				}
-			}
-			if(FF2_HasAbility(boss, this_plugin_name, LIGHTNINGCFG))
-			{
-				ChainLightning_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, LIGHTNINGCFG);
-				if(ChainLightning_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, LIGHTNINGCFG, "CLT");
-				}
-			}
-			CreateTimer(1.0,ShowAbilityStatus, client, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-		}
 	}
+}
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss=FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, ENTANGLECFG))
+	{
+		Entangle_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, ENTANGLECFG, "ENT");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, TELEPORTCFG))
+		{
+		Teleport_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, TELEPORTCFG, "OTP");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, LIGHTNINGCFG))
+	{
+		ChainLightning_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, LIGHTNINGCFG, "CLT");
+	}
+	CreateTimer(1.0,ShowAbilityStatus, client, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
 // HUD
 
-public Action:ShowAbilityStatus(Handle:timer, any:client)
+public Action ShowAbilityStatus(Handle timer, any client)
 {
 	if(!IsValidClient(client) || !IsPlayerAlive(client) || FF2_GetRoundState()!=1)
 		return Plugin_Stop;
 		
-	decl String:HUDStatus[128];
+	static char HUDStatus[128];
 	if(bTeleports[client])
 	{
 		SetHudTextParams(-1.0, 0.21, 1.1, 255 , 255 , 255, 255);
@@ -246,14 +231,14 @@ public Action:ShowAbilityStatus(Handle:timer, any:client)
 }
 
 // Entangle Ability
-public bool:ENT_CanInvoke(client)
+public AMSResult ENT_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public ENT_Invoke(client)
+public void ENT_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	bEntangleButton[client]=FF2_GetAbilityArgument(boss, this_plugin_name, ENTANGLECFG, 1);	//Activation Key
 	switch(bEntangleButton[client])
 	{
@@ -271,7 +256,7 @@ public ENT_Invoke(client)
 		}
 		default: bEntangleButton[client] = IN_ATTACK; // primary fire
 	}
-	new bEntangleCt=FF2_GetAbilityArgument(boss, this_plugin_name, ENTANGLECFG, 2);	//No of times skill can be used per rage
+	int bEntangleCt=FF2_GetAbilityArgument(boss, this_plugin_name, ENTANGLECFG, 2);	//No of times skill can be used per rage
 	bEntangleDuration[client]=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ENTANGLECFG,3,5.0); //Entangle Time	
 	if(!FF2_GetAbilityArgument(boss, this_plugin_name, ENTANGLECFG, 4)) // Stack skills or reset to fixed amount?
 	{
@@ -283,27 +268,27 @@ public ENT_Invoke(client)
 	}
 }
 
-Entangle_Activator(client)
+void Entangle_Activator(int client)
 {	
 	if(bEntangles[client]>0)
 	{
 		if (GetClientButtons(client) & bEntangleButton[client])
 		{
-			new Float:distance=0.0;
-			new target;	
-			new Float:our_pos[3];
+			float distance=0.0;
+			int target;	
+			float our_pos[3];
 			GetClientAbsOrigin(client,our_pos);
 			target=War3_GetTargetInViewCone(client,distance);
 			if(IsValidClient(target))
 			{
 				bEntangles[client] = (bEntangles[client]>0 ? bEntangles[client]-1 : 0);
-				new Float:fVelocity[3] = {0.0,0.0,0.0};
+				float fVelocity[3] = {0.0,0.0,0.0};
 				TeleportEntity(target, NULL_VECTOR, NULL_VECTOR, fVelocity);
 				SetEntityMoveType(target, MOVETYPE_NONE);
 				
 				if(view_as<bool>(FF2_GetAbilityArgument(FF2_GetBossIndex(client), this_plugin_name, ENTANGLECFG, 6)))
 				{
-					new weapon=GetEntPropEnt(target, Prop_Send, "m_hActiveWeapon");
+					int weapon=GetEntPropEnt(target, Prop_Send, "m_hActiveWeapon");
 					if(weapon && IsValidEdict(weapon))
 					{
 						SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime()+bEntangleDuration[client]);
@@ -312,14 +297,14 @@ Entangle_Activator(client)
 					SetEntPropFloat(target, Prop_Send, "m_flStealthNextChangeTime", GetGameTime()+bEntangleDuration[client]);
 				}
 				
-				new rgba[4];
+				int rgba[4];
 				rgba[0]=FF2_GetAbilityArgument(FF2_GetBossIndex(client), this_plugin_name, ENTANGLECFG, 7, 80);
 				rgba[1]=FF2_GetAbilityArgument(FF2_GetBossIndex(client), this_plugin_name, ENTANGLECFG, 8, 255);
 				rgba[2]=FF2_GetAbilityArgument(FF2_GetBossIndex(client), this_plugin_name, ENTANGLECFG, 9, 90);
 				rgba[3]=FF2_GetAbilityArgument(FF2_GetBossIndex(client), this_plugin_name, ENTANGLECFG, 10, 255);
 				
 				CreateTimer(bEntangleDuration[client],StopEntangle,target);
-				new Float:effect_vec[3];
+				float effect_vec[3];
 				GetClientAbsOrigin(target,effect_vec);
 				effect_vec[2]+=15.0;
 				TE_SetupBeamRingPoint(effect_vec,45.0,44.0,BeamSprite,HaloSprite,0,15,bEntangleDuration[client],5.0,0.0,rgba,10,0);
@@ -347,21 +332,21 @@ Entangle_Activator(client)
 	}
 }
 
-public Action:StopEntangle(Handle:timer,any:client)
+public Action StopEntangle(Handle timer,any client)
 {
 	if(IsClientInGame(client) && IsPlayerAlive(client))
 		SetEntityMoveType(client, MOVETYPE_WALK);	
 }
 
 // Otokiri Teleport (should use dynamic_point_teleport tbh instead of this)
-public bool:OTP_CanInvoke(client)
+public AMSResult OTP_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public OTP_Invoke(client)
+public void OTP_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	bTeleportButton[client]=FF2_GetAbilityArgument(boss,this_plugin_name,TELEPORTCFG, 1);	//Activation Key
 	switch(bTeleportButton[client])
 	{
@@ -379,7 +364,7 @@ public OTP_Invoke(client)
 		}
 		default: bTeleportButton[client] = IN_ATTACK; // primary fire
 	}
-	new bTeleportCt=FF2_GetAbilityArgument(boss,this_plugin_name,TELEPORTCFG, 2);	//No of times skill can be used per rage
+	int bTeleportCt=FF2_GetAbilityArgument(boss,this_plugin_name,TELEPORTCFG, 2);	//No of times skill can be used per rage
 	bTeleportDistance[client]=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,TELEPORTCFG,3,9999.0); //Teleport Distance
 	if(!FF2_GetAbilityArgument(boss, this_plugin_name, TELEPORTCFG, 4)) // Stack skills or reset to fixed amount?
 	{
@@ -391,7 +376,7 @@ public OTP_Invoke(client)
 	}
 }
 
-Teleport_Activator(client)
+void Teleport_Activator(int client)
 {	
 	if(bTeleports[client]>0)
 	{
@@ -403,14 +388,14 @@ Teleport_Activator(client)
 }
 
 // Otokiru Chain Lightning
-public bool:CLT_CanInvoke(client)
+public AMSResult CLT_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public CLT_Invoke(client)
+public void CLT_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	bChainLightningButton[client]=FF2_GetAbilityArgument(boss,this_plugin_name,LIGHTNINGCFG, 1);	//Activation Key
 	switch(bChainLightningButton[client])
 	{
@@ -428,7 +413,7 @@ public CLT_Invoke(client)
 		}
 		default: bChainLightningButton[client] = IN_ATTACK; // primary fire
 	}
-	new bChainLightningCt=FF2_GetAbilityArgument(boss,this_plugin_name,LIGHTNINGCFG, 2);	//No of times skill can be used per rage
+	int bChainLightningCt=FF2_GetAbilityArgument(boss,this_plugin_name,LIGHTNINGCFG, 2);	//No of times skill can be used per rage
 	bChainLightningDistance[client]=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,LIGHTNINGCFG,3,9999.0); //Chain Lightning Distance
 	bChainLightningDamage[client]=FF2_GetAbilityArgument(boss,this_plugin_name,LIGHTNINGCFG, 4);	//Damage
 	if(!FF2_GetAbilityArgument(boss, this_plugin_name, LIGHTNINGCFG, 5)) // Stack skills or reset to fixed amount?
@@ -441,26 +426,26 @@ public CLT_Invoke(client)
 	}
 }
 
-ChainLightning_Activator(client)
+void ChainLightning_Activator(int client)
 {	
 	if(bChainLightnings[client] > 0)
 	{
 		if (GetClientButtons(client) & bChainLightningButton[client])
 		{
-			for(new x=1;x<=MaxClients;x++)
+			for(int x=1;x<=MaxClients;x++)
 					bBeenHit[client][x]=false;
 			DoChain(client,bChainLightningDistance[client],bChainLightningDamage[client],0);
 		}
 	}
 }
 
-stock IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	return IsClientInGame(client);
 }
 
-stock bool:ValidPlayer(client,bool:check_alive=false,bool:alivecheckbyhealth=false){
+stock bool ValidPlayer(int client,bool check_alive=false,bool alivecheckbyhealth=false){
 	if(client>0 && client<=MaxClients && IsClientConnected(client) && IsClientInGame(client))
 	{
 		if(check_alive && !IsPlayerAlive(client))
@@ -475,26 +460,26 @@ stock bool:ValidPlayer(client,bool:check_alive=false,bool:alivecheckbyhealth=fal
 	return false;
 }
 
-public bool:AimTargetFilter(entity,mask)
+public bool AimTargetFilter(int entity, int mask)
 {
 	return !(entity==ignoreClient);
 }
 
-public War3_GetTargetInViewCone(client,Float:max_distance)
+public int War3_GetTargetInViewCone(int client, float max_distance)
 {
 	if(IsValidClient(client))
 	{
 		ignoreClient=client;
 		if(max_distance<0.0)
 			max_distance=0.0;
-		new Float:PlayerEyePos[3];
-		new Float:PlayerAimAngles[3];
+		float PlayerEyePos[3];
+		float PlayerAimAngles[3];
 		GetClientEyePosition(client,PlayerEyePos);
 		GetClientEyeAngles(client,PlayerAimAngles);
-		new Float:PlayerAimVector[3];
+		float PlayerAimVector[3];
 		GetAngleVectors(PlayerAimAngles,PlayerAimVector,NULL_VECTOR,NULL_VECTOR);
-		new bestTarget=0;
-		new Float:endpos[3];
+		int bestTarget=0;
+		float endpos[3];
 		if(max_distance>0.0){
 			ScaleVector(PlayerAimVector,max_distance);
 		}
@@ -504,7 +489,7 @@ public War3_GetTargetInViewCone(client,Float:max_distance)
 			TR_TraceRayFilter(PlayerEyePos,endpos,MASK_ALL,RayType_EndPoint,AimTargetFilter);
 			if(TR_DidHit())
 			{
-				new entity=TR_GetEntityIndex();
+				int entity=TR_GetEntityIndex();
 				if(entity>0 && entity<=MaxClients && IsClientConnected(entity) && IsPlayerAlive(entity) && GetClientTeam(client)!=GetClientTeam(entity) )
 					bestTarget=entity;
 			}
@@ -514,18 +499,18 @@ public War3_GetTargetInViewCone(client,Float:max_distance)
 	return 0;
 }
 
-public War3_Teleport(client,Float:distance)
+public bool War3_Teleport(int client, float distance)
 {
 	if(client>0)
 	{
 		if(IsPlayerAlive(client)&&!inteleportcheck[client])
 		{
-			new Float:angle[3];
+			float angle[3];
 			GetClientEyeAngles(client,angle);
-			new Float:endpos[3];
-			new Float:startpos[3];
+			float endpos[3];
+			float startpos[3];
 			GetClientEyePosition(client,startpos);
-			new Float:dir[3];
+			float dir[3];
 			GetAngleVectors(angle, dir, NULL_VECTOR, NULL_VECTOR);
 			ScaleVector(dir, distance);
 			AddVectors(startpos, dir, endpos);
@@ -533,7 +518,7 @@ public War3_Teleport(client,Float:distance)
 			ignoreClient=client;
 			TR_TraceRayFilter(startpos,endpos,MASK_ALL,RayType_EndPoint,AimTargetFilter);
 			TR_GetEndPosition(endpos);
-			new Float:distanceteleport=GetVectorDistance(startpos,endpos);
+			float distanceteleport=GetVectorDistance(startpos,endpos);
 			GetAngleVectors(angle, dir, NULL_VECTOR, NULL_VECTOR);///get dir again
 			ScaleVector(dir, distanceteleport-33.0);
 			
@@ -560,7 +545,7 @@ public War3_Teleport(client,Float:distance)
 			inteleportcheck[client]=true;
 			CreateTimer(0.14,checkTeleport,client);
 			
-			decl Float:partpos[3];
+			static float partpos[3];
 			GetClientEyePosition(client, partpos);
 			partpos[2]-=20.0;	
 			TeleportEffects(partpos);
@@ -573,9 +558,9 @@ public War3_Teleport(client,Float:distance)
 	return false;
 }
 
-public Action:checkTeleport(Handle:h,any:client){
+public Action checkTeleport(Handle h, any client){
 	inteleportcheck[client]=false;
-	new Float:pos[3];
+	float pos[3];
 	
 	GetClientAbsOrigin(client,pos);
 	
@@ -589,27 +574,27 @@ public Action:checkTeleport(Handle:h,any:client){
 	}
 }
 
-new absincarray[]={0,4,-4,8,-8,12,-12,18,-18,22,-22,25,-25};//,27,-27,30,-30,33,-33,40,-40}; //for human it needs to be smaller
+int absincarray[]={0,4,-4,8,-8,12,-12,18,-18,22,-22,25,-25};//,27,-27,30,-30,33,-33,40,-40}; //for human it needs to be smaller
 
-public bool:getEmptyLocationHull(client,Float:originalpos[3]){
-	new Float:mins[3];
-	new Float:maxs[3];
+public bool getEmptyLocationHull(int client,float originalpos[3]){
+	float mins[3];
+	float maxs[3];
 	GetClientMins(client,mins);
 	GetClientMaxs(client,maxs);
-	new absincarraysize=sizeof(absincarray);
-	new limit=5000;
-	for(new x=0;x<absincarraysize;x++){
+	int absincarraysize=sizeof(absincarray);
+	int limit=5000;
+	for(int x=0;x<absincarraysize;x++){
 		if(limit>0){
-			for(new y=0;y<=x;y++){
+			for(int y=0;y<=x;y++){
 				if(limit>0){
-					for(new z=0;z<=y;z++){
-						new Float:pos[3]={0.0,0.0,0.0};
+					for(int z=0;z<=y;z++){
+						float pos[3]={0.0,0.0,0.0};
 						AddVectors(pos,originalpos,pos);
 						pos[0]+=float(absincarray[x]);
 						pos[1]+=float(absincarray[y]);
 						pos[2]+=float(absincarray[z]);
 						TR_TraceHullFilter(pos,pos,mins,maxs,MASK_SOLID,CanHitThis,client);
-						//new ent;
+						//int ent;
 						if(!TR_DidHit(_))
 						{
 							AddVectors(emptypos,pos,emptypos); ///set this gloval variable
@@ -632,7 +617,7 @@ public bool:getEmptyLocationHull(client,Float:originalpos[3]){
 	}
 } 
 
-public bool:CanHitThis(entityhit, mask, any:data)
+public bool CanHitThis(int entityhit, int mask, any data)
 {
 	if(entityhit == data )
 	{// Check if the TraceRay hit the itself.
@@ -644,11 +629,11 @@ public bool:CanHitThis(entityhit, mask, any:data)
 	return true; // It didn't hit itself
 }      
 
-public Action:DeleteParticles(Handle:timer, any:particle)
+public Action DeleteParticles(Handle timer, any particle)
 {
     if (IsValidEntity(particle))
     {
-        new String:classname[32];
+        char classname[32];
         GetEdictClassname(particle, classname, sizeof(classname));
         if (StrEqual(classname, "info_particle_system", false))
         {
@@ -657,7 +642,7 @@ public Action:DeleteParticles(Handle:timer, any:particle)
     }
 }
 
-TeleportEffects(Float:pos[3])
+void TeleportEffects(float pos[3])
 {
 	ShowParticle(pos, "pyro_blast", 1.0);
 	ShowParticle(pos, "pyro_blast_lines", 1.0);
@@ -666,10 +651,10 @@ TeleportEffects(Float:pos[3])
 	ShowParticle(pos, "burninggibs", 0.5);
 }
 
-ShowParticle(Float:possie[3], String:particlename[], Float:time)
+void ShowParticle(float possie[3], char[] particlename, float time)
 {
-    new particle = CreateEntityByName("info_particle_system");
-    if (IsValidEdict(particle))
+    int particle = CreateEntityByName("info_particle_system");
+    if (IsValidEntity(particle))
     {
         TeleportEntity(particle, possie, NULL_VECTOR, NULL_VECTOR);
         DispatchKeyValue(particle, "effect_name", particlename);
@@ -679,23 +664,23 @@ ShowParticle(Float:possie[3], String:particlename[], Float:time)
     }  
 }
 
-public DoChain(client,Float:distance,dmg,last_target)
+public void DoChain(int client,float distance, int dmg, int last_target)
 {
-	new target=0;
-	new Float:target_dist=distance+1.0; // just an easy way to do this
-	new caster_team=GetClientTeam(client);
-	new Float:start_pos[3];
+	int target=0;
+	float target_dist=distance+1.0; // just an easy way to do this
+	int caster_team=GetClientTeam(client);
+	float start_pos[3];
 	if(last_target<=0)
 		GetClientAbsOrigin(client,start_pos);
 	else
 		GetClientAbsOrigin(last_target,start_pos);
-	for(new x=1;x<=MaxClients;x++)
+	for(int x=1;x<=MaxClients;x++)
 	{
 		if(ValidPlayer(x,true)&&!bBeenHit[client][x]&&caster_team!=GetClientTeam(x))
 		{
-			new Float:this_pos[3];
+			float this_pos[3];
 			GetClientAbsOrigin(x,this_pos);
-			new Float:dist_check=GetVectorDistance(start_pos,this_pos);
+			float dist_check=GetVectorDistance(start_pos,this_pos);
 			if(dist_check<=target_dist)
 			{
 				// found a candidate, whom is currently the closest
@@ -715,7 +700,7 @@ public DoChain(client,Float:distance,dmg,last_target)
 		War3_DealDamage(target,dmg,client,DMG_ENERGYBEAM,"ChainLightning");
 		PrintHintText(target,"You got hit by Chain Lightning!");
 		start_pos[2]+=30.0; // offset for effect
-		decl Float:target_pos[3],Float:vecAngles[3];
+		static float target_pos[3],vecAngles[3];
 		GetClientAbsOrigin(target,target_pos);
 		target_pos[2]+=30.0;
 		TE_SetupBeamPoints(start_pos,target_pos,BeamSprite,HaloSprite,0,35,1.0,25.0,25.0,0,10.0,{255,100,255,255},40);
@@ -724,22 +709,22 @@ public DoChain(client,Float:distance,dmg,last_target)
 		TE_SetupBloodSprite(target_pos, vecAngles, {200, 20, 20, 255}, 28, BloodSpray, BloodDrop);
 		TE_SendToAll();
 		EmitSoundToAll( lightningSound , target,_,SNDLEVEL_TRAIN);
-		new new_dmg=RoundFloat(float(dmg)*0.66);
+		int new_dmg=RoundFloat(float(dmg)*0.66);
 		
 		DoChain(client,distance,new_dmg,target);
 		bChainLightnings[client]=(bChainLightnings[client]>0 ? bChainLightnings[client]-1 : 0);
 	}
 }
 
-public War3_DealDamage(victim,damage,attacker,dmg_type,String:weapon[64])
+public void War3_DealDamage(int victim, int damage, int attacker, int dmg_type, char[] weapon)
 {
 	if(victim>0 && IsValidEdict(victim) && IsClientInGame(victim) && IsPlayerAlive(victim) && damage>0)
 	{
-		new String:dmg_str[16];
+		char dmg_str[16];
 		IntToString(damage,dmg_str,16);
-		new String:dmg_type_str[32];
+		char dmg_type_str[32];
 		IntToString(dmg_type,dmg_type_str,32);
-		new pointHurt=CreateEntityByName("point_hurt");
+		int pointHurt=CreateEntityByName("point_hurt");
 		if(pointHurt)
 		{
 			DispatchKeyValue(victim,"targetname","war3_hurtme");
