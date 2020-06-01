@@ -34,15 +34,12 @@
 	Original Blitzkrieg - https://github.com/shadow93/BlitzRocketHell
 	Ricochet - https://forums.alliedmods.net/showthread.php?p=2671241
 */
-#pragma semicolon 1
-
-#include <sourcemod>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define MAJOR_REVISION	"0"
@@ -53,27 +50,15 @@
 #define FAR_FUTURE		100000000.0
 #define MAX_SOUND_LENGTH	80
 #define MAX_MODEL_LENGTH	128
-#define MAX_MATERIAL_LENGTH	128
-#define MAX_ENTITY_LENGTH	48
-#define MAX_EFFECT_LENGTH	48
 #define MAX_MAP_LENGTH		99
-#define MAX_ATTACHMENT_LENGTH	48
-#define MAX_ICON_LENGTH		48
-#define HEX_OR_DEC_LENGTH	12
 #define MAX_ATTRIBUTE_LENGTH	512
-#define MAX_CONDITION_LENGTH	256
 #define MAX_CLASSNAME_LENGTH	64
 #define MAX_BOSSNAME_LENGTH	64
-#define MAX_ABILITY_LENGTH	64
-#define MAX_PLUGIN_LENGTH	64
 #define MAX_TRANS_LENGTH	80
-#define MAX_MENUITEM_LENGTH	48
-#define MAX_TITLE_LENGTH	192
 #define MAX_HUD_LENGTH		256
 #define MAXTF2PLAYERS		36
 #define MAXENTITIES		2048
 #define MAX_WEAPONS		10
-#define VOID_ARG		-1
 
 #define BLITZTIMER	"special_timer"
 #define BLITZPHRASES	"special_phrases"
@@ -89,8 +74,6 @@
 #define SOUNDLOSE	"sound_mann_lose"
 #define SOUNDWIN	"sound_mann_win"
 #define SOUNDLEVEL	"sound_level_"
-
-float OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 
 // Names used for args
 static const char ClassName[][] =
@@ -502,9 +485,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 			r = -1;
 			while((r=FindEntityByClassname2(r, "tf_projectile*")) != -1)
-			{
-				AcceptEntityInput(r, "Kill");
-			}
+				RemoveEntity(r);
 
 			if(FF2_RandomSound(SOUNDRESET, sound, MAX_SOUND_LENGTH, boss))
 				EmitSoundToAll(sound);
@@ -751,8 +732,10 @@ public Action MannClient(Handle timer, int client)
 			if(client == GetEntPropEnt(weapon, Prop_Send, "m_hOwnerEntity"))
 			{
 				index = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
-				if(index==1152 || index==1069 || index==1070 || index==1132 || index==5604)
+				if(index==1152 || index==1069 || index==1070 || index==1132 || index==5604) {
+					RemovePlayerItem(client, weapon);
 					AcceptEntityInput(weapon, "Kill");
+				}
 			}
 		}
 
@@ -965,7 +948,7 @@ public void NullRockets(int client)
 	while((entity=FindEntityByClassname2(entity, "tf_projectile*")) != -1)
 	{
 		if(client == GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))
-			AcceptEntityInput(entity, "Kill");
+			RemoveEntity(entity);
 	}
 }
 
@@ -1083,7 +1066,7 @@ public void OnProjectileSpawned(int entity)
 		{
 			if(i!=entity && client==GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))
 			{
-				AcceptEntityInput(i, "Kill");
+				RemoveEntity(i);
 				Bounce.Owned[client]--;
 				break;
 			}
@@ -1213,11 +1196,8 @@ stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
-	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
-	}
+	if(IsValidEntity(entity) && entity>MaxClients)
+		RemoveEntity(entity);
 }
 
 stock void ForceTeamWin(int team)
