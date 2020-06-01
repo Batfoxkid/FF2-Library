@@ -1,5 +1,4 @@
 /*
-	UNFINISHED
 	template : 
 	
 	"ams_base"
