@@ -65,7 +65,7 @@ forward void FF2AMS_OnAbility(int client, int index, const char[] plugin, const 
 forward Action FF2AMS_OnForceEnd(int client, int &index, AMSResult &result);
 
 /**
- *	Action FF2AMS_PreRoundStart(int);
+ *	void FF2AMS_PreRoundStart(int)
  *
  *	@brief			: Called before round start & when player successfully acquire pass ams checks
  *
@@ -77,7 +77,7 @@ forward void FF2AMS_PreRoundStart(int client);
 
 
 /**
- *	bool FF2AMS_InitSubAbility(int, char[], const char[], const char[]);
+ *	int FF2AMS_PushToAMSEx(int, char[], const char[], const char[]);
  *
  *	@brief			: Push an ability to AMS-StringHashMap, and initialize the AMS-rage
  *
@@ -86,9 +86,9 @@ forward void FF2AMS_PreRoundStart(int client);
  * @param ability	: ability_name
  * @param prefix	: prefix name
  *
- * @return			: true on success, false on failure
+ * @return			: AMS index, -1 on failure
  */
-native bool FF2AMS_InitSubAbility(int client, char[] plugin, const char[] ability, const char[] prefix);
+native int FF2AMS_PushToAMSEx(int client, char[] plugin, const char[] ability, const char[] prefix);
 
 /**
  *	bool FF2AMS_PushToAMS(int, char[], const char[], const char[]);
@@ -99,6 +99,7 @@ native bool FF2AMS_InitSubAbility(int client, char[] plugin, const char[] abilit
  * @param plugin	: plugin_name
  * @param ability	: ability_name
  * @param prefix	: prefix name
+ * @param index		: optional: stores ability index
  *
  * @return			: true on success, false on failure
  */
@@ -198,8 +199,8 @@ typedef EndAbility = function void(int client, int index);
 #if !defined REQUIRE_PLUGIN
 public __pl_INTERFACE_SetNTVOptional()
 {
-	MarkNativeAsOptional("Native_InitSubAbility");
 	MarkNativeAsOptional("FF2AMS_PushToAMS");
+	MarkNativeAsOptional("FF2AMS_PushToAMSEx");
 	MarkNativeAsOptional("FF2AMS_GetTotalAbilities");
 	MarkNativeAsOptional("FF2AMS_GetAMSHashMap");
 	MarkNativeAsOptional("FF2AMS_GetGlobalAMSHashMap");
@@ -211,7 +212,7 @@ public __pl_INTERFACE_SetNTVOptional()
 public SharedPlugin __FF2_AMS =
 {
 	name = "FF2AMS",
-	file = "ams-redux.smx",
+	file = "ams_redux.smx",
 	#if defined REQUIRE_PLUGIN
 	required = 1,
 	#else
