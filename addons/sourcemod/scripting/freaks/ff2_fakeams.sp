@@ -60,8 +60,8 @@
 #define MaxBosses (RoundToCeil(view_as<float>(MaxClients)/2.0))
 #define FAST_FORMAT_TO_HOOK(%1) (FormatEx(__key, sizeof(__key), "hook->%i->%s", __vidx, %1));
 #define Loop(%1) for(__L = 1; __L < %1; ++__L)
-
-#define FF2AMS_MANUAL_RECONFIGURE() \
+/*
+#define FF2AMS_MANUAL_RECONFIGURE \
 		_map.SetString("this_plugin2", plugin_name); \
 		_map.SetValue("cooldown", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "initial cd", 1001, 0.0)); \
 		_map.SetValue("abilitycd", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "ability cd", 1002, 10.0)); \
@@ -71,7 +71,7 @@
 		_map.SetString("display_desc", str); \
 		_map.SetValue("this_cost", player.GetArgF(plugin_name, this_ability_name, "cost", 1005, 25.0)); \
 		_map.SetValue("this_end", player.GetArgI(plugin_name, this_ability_name, "can end", 1006, 0)); 
-
+*/
 
 FF2Parse GlobalMap[MAXCLIENTS] =  { null, ... };
 StringMap Fake_AMSMap[MAXCLIENTS] =  { null, ... };
@@ -91,7 +91,7 @@ int iMinions[MAXCLIENTS][_MAX_VALS][10];
 bool IsActive;
 
 int Players, Bosses;
-char this_plugin_name[48] = "ff2_fakeams";
+//char this_plugin_name[48] = "ff2_fakeams";
 
 public Plugin myinfo = 
 {
@@ -151,13 +151,13 @@ public void FF2AMS_PreRoundStart(int client)
 		}
 		
 		FormatEx(pfx, sizeof(pfx), "FAKE%i", __L);
-		if((index = FF2AMS_PushToAMSEx(client, this_plugin_name, this_ability_name, pfx)) == -1) {
+		if((index = FF2AMS_PushToAMSEx(client, plugin_name, this_ability_name, pfx)) == -1) {
 			break;
 		}
 		
 		
-		StringMap _map = FF2AMS_GetAMSHashMap(client, index);
-		FF2AMS_MANUAL_RECONFIGURE()
+//		StringMap _map = FF2AMS_GetAMSHashMap(client, index);
+//		FF2AMS_MANUAL_RECONFIGURE
 		
 		if(!Fake_AMSMap[client]) {
 			Fake_AMSMap[client] = new StringMap();
@@ -169,6 +169,11 @@ public void FF2AMS_PreRoundStart(int client)
 	delete BossKV;
 }
 
+
+public AMSResult FAKE0_CanInvoke(int client, int index)
+{
+	return Global_CanInvokeFake(client, 0);
+}
 
 public AMSResult FAKE1_CanInvoke(int client, int index)
 {
@@ -214,11 +219,6 @@ public AMSResult FAKE8_CanInvoke(int client, int index)
 public AMSResult FAKE9_CanInvoke(int client, int index)
 {
 	return Global_CanInvokeFake(client, 9);
-}
-
-public AMSResult FAKE10_CanInvoke(int client, int index)
-{
-	return Global_CanInvokeFake(client, 10);
 }
 
 AMSResult Global_CanInvokeFake(int client, int vidx)
@@ -290,17 +290,64 @@ AMSResult Global_CanInvokeFake(int client, int vidx)
 	return AMS_Accept;
 }
 
-public void FF2AMS_OnAbility(int client, int index, const char[] plugin, const char[] ability)
+
+public void FAKE0_Invoke(int client, int index)
 {
-	if(strcmp(plugin, this_plugin_name)) {
-		return;
-	}
-	
+	Global_Invoke(client, index);
+}
+
+public void FAKE1_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE2_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE3_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE4_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE5_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE6_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE7_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE8_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+public void FAKE9_Invoke(int client, int index)
+{
+	Global_Invoke(client, index);
+}
+
+void Global_Invoke(int client, int index)
+{
 	FF2Prep player = FF2Prep(client);
-	int vidx; Fake_AMSMap[client].GetValue(ability, vidx);
-	char actual_plugin_name[48]; FF2AMS_GetAMSHashMap(client, vidx).GetString("this_plugin2", actual_plugin_name, sizeof(actual_plugin_name));
-	
-	player.DoAbility(.plugin = actual_plugin_name, .ability = ability);
+	StringMap ams = FF2AMS_GetAMSHashMap(client, index);
+	char plugin_name[48]; ams.GetString("this_plugin", plugin_name, sizeof(plugin_name));
+	char ability_name[48]; ams.GetString("ability", ability_name, sizeof(ability_name));
+	player.ForceAbility(plugin_name, ability_name);
 }
 
 public void FF2_OnAlivePlayersChanged(int players, int bosses)
