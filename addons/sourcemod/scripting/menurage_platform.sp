@@ -28,7 +28,7 @@ GlobalForward MenuRage_OnPlayerDeath;
 
 public Plugin myinfo = 
 {
-	name			= "[FF2]MenuRage Platform",
+	name		= "[FF2]MenuRage Platform",
 	author		= "01Pollux."
 };
 
@@ -403,7 +403,7 @@ public int On_RageActivate(Menu Mini, MenuAction action, int client, int option)
 						return;
 					}
 					
-					player.DoAbility(false, AbilityInfo[1], AbilityInfo[0], 4, 0);
+					player.ForceAbility(AbilityInfo[1], AbilityInfo[0]);
 				}
 				case 2:{
 					if(FF2_RandomSound("sound_exit_menu", buffer, sizeof(buffer)))
@@ -569,15 +569,14 @@ public any Native_DoAbiltiy(Handle Plugin, int Params)
 		return false;
 	
 	int slot = GetNativeCell(5);
-	int buttonmode = GetNativeCell(6);
-	Points[client].SetValue("points", GetValue(client, "points") - pts);
+	FF2Prep player = FF2Prep(client);
+	int boss = player.boss;
 	
-	int boss = FF2_GetBossIndex(client);
+	Points[client].SetValue("points", GetValue(client, "points") - pts);
 	IsMenuRage[boss] = true;
 	CreateTimer(0.205, Timer_ResetRage, boss, TIMER_FLAG_NO_MAPCHANGE);
-	FF2_DoAbility(boss, Plugin_Name, Ability_Name, slot, buttonmode);
 	
-	return true;
+	return player.ForceAbility(Plugin_Name, Ability_Name, slot);
 }
 
 #file "[FF2]MenuRage Platform"
