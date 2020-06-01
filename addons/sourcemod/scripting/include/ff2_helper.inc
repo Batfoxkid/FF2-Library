@@ -13,6 +13,47 @@
 #define MAXCLIENTS			(MAXPLAYERS+1)
 #define INACTIVE				1000000000.0
 
+methodmap FF2Plugins < StringMap {
+	public FF2Plugins() {
+		char name[PLATFORM_MAX_PATH];
+		StringMap map = new StringMap();
+			
+		Handle plugin = null;
+		Handle iter = GetPluginIterator();
+		Function func = INVALID_FUNCTION;
+		
+		while (MorePlugins(iter)) {
+			if(!(plugin = ReadPlugin(iter))) {
+				continue;
+			}
+			
+			func = GetFunctionByName(plugin, "FF2_OnAbility2");
+			if(func == INVALID_FUNCTION) {
+				continue;
+			}
+			
+			GetPluginFilename(plugin, name, sizeof(name));
+			ReplaceString(name, sizeof(name), "freaks\\", "");
+			name[strlen(name) - 4] = '\0';
+			map.SetValue(name, plugin);
+		}
+		delete iter;
+		
+		if(!map.Size) {
+			delete map;
+		}
+		return view_as<FF2Plugins>(map);
+	}
+	
+	public Handle FindContextByName(const char[] name) {
+		Handle val = null;
+		if(!this.GetValue(name, val) || !val) {
+			return null;
+		}
+		return val;
+	}
+}
+
 methodmap FF2Prep {
 	/**
 	 *	[ CONSTRUCTOR ]
@@ -107,7 +148,9 @@ methodmap FF2Prep {
 	}
 	
 	/**
-	 *	bool FF2Prep::DoAbility(const char[], const char[])
+	 *	Use FF2Prep::ForceAbility instead
+	 *
+	 *	bool FF2Prep::DoAbility(bool, const char[], const char[], int, int)
 	 *
 	 *	@brief			: similar to FF2_DoAbility()
 	 *
@@ -136,6 +179,38 @@ methodmap FF2Prep {
 		}
 		FF2_DoAbility(boss, plugin, ability, slot, buttonmode);
 		return true;
+	}
+	
+	/**
+	 *	bool FF2Prep::ForceAbility(const char[], const char[], int)
+	 *
+	 *	@brief			: Use this instead of FF2_DoAbility 
+	 *
+	 * @param plugin_name: plugin_name
+	 * @param ability	: ability_name
+	 * @param status	: status
+	 *
+	 * @return			: true on success, false otherwise
+	 */
+	public bool ForceAbility(const char[] plugin_name, const char[] ability, int status = 4, bool refresh = false) {
+		FF2Plugins plugins = FF2_LoadPrecachedPlugins(refresh);
+		if(!plugins) {
+			LogError("Failed to find any FF2 plugin");
+			return false;
+		}
+		
+		Handle plugin = plugins.FindContextByName(plugin_name);
+		if(!plugin) {
+			LogError("plugin \"%s\" does not exists", plugin_name);
+			return false;
+		}
+		
+		Call_StartFunction(plugin, GetFunctionByName(plugin, "FF2_OnAbility2"));
+		Call_PushCell(this.boss);
+		Call_PushString(plugin_name);
+		Call_PushString(ability);
+		Call_PushCell(status);
+		return Call_Finish() == SP_ERROR_NONE;
 	}
 	
 	/**
@@ -263,6 +338,20 @@ methodmap FF2Prep {
 		}
 	}
 }
+
+stock FF2Plugins FF2_LoadPrecachedPlugins(bool refresh)
+{
+	static FF2Plugins plugins = null;
+	if(refresh && plugins) {
+		delete plugins;
+	}
+	if(!plugins) {
+		plugins = new FF2Plugins();
+	}
+	return plugins;
+}
+
+
 
 enum Validity {
 	Invalid,
