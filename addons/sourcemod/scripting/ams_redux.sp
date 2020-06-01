@@ -17,7 +17,7 @@
 			"y"			"0.68"
 			
 			"yreplace"		"0.83"
-			"sreplace"		"RAGE Meter: %.2f%%\nHP: %i / %i"
+			"replace"		"RAGE Meter: %.2f%%\nHP: %i / %i"
 		}
 		
 		"cast-particle"	"ghost_smoke"
@@ -59,6 +59,9 @@
 #pragma newdecls required
 
 #define MaxBosses (RoundToCeil(view_as<float>(MaxClients)/2.0))
+#define ACTIVATE GlobalAMS[client].GetButton("activation", 0)
+#define FORWARD GlobalAMS[client].GetButton("selection", IN_RELOAD)
+#define REVERSE GlobalAMS[client].GetButton("reverse", IN_ATTACK3)
 
 #define MAXABILITIES 10
 
@@ -115,8 +118,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	AMSForward[hPreForceEnd] = new GlobalForward("FF2AMS_OnForceEnd", ET_Event, Param_Cell, Param_CellByRef, Param_CellByRef);
 	AMSForward[hPreRoundStart] = new GlobalForward("FF2AMS_PreRoundStart", ET_Ignore, Param_Cell);
 	
-	CreateNative("FF2AMS_InitSubAbility", Native_InitSubAbility);
 	CreateNative("FF2AMS_PushToAMS", Native_PushToAMS);
+	CreateNative("FF2AMS_PushToAMSEx", Native_PushToAMSEx);
 	CreateNative("FF2AMS_GetTotalAbilities", Native_GetTotalAbilities);
 	CreateNative("FF2AMS_GetAMSHashMap", Native_GetAMSHandle);
 	CreateNative("FF2AMS_GetGlobalAMSHashMap", Native_GetAMSGlobalHandle);
@@ -238,7 +241,7 @@ public Action Pre_ClientCallForMedic(int client, const char[] command, int args)
 	if(!ValidatePlayer(client, AnyAlive))
 		return Plugin_Continue;
 	
-	if(GlobalAMS[client] == null || SelectKey(client))
+	if(GlobalAMS[client] == null || ACTIVATE)
 		return Plugin_Continue;
 	
 	static char cmd[4];
@@ -266,39 +269,39 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		return Plugin_Continue;
 	}
 	if(ValidatePlayer(client, AnyAlive) && GlobalAMS[client] != null && AMS_Position[client][Stack]) {
-		return Handle_AMSTick(client, buttons);
+		Handle_AMSTick(client, buttons);
 	}
 	return Plugin_Continue;
 }
 
 static float flNextPress[MAXCLIENTS];
-Action Handle_AMSTick(int client, int &buttons)
+void Handle_AMSTick(int client, int &buttons)
 {
 	float gpCurtime = GetGameTime();
 	
 	if(flNextPress[client] <= gpCurtime) {
 		flNextPress[client] = gpCurtime + 0.17;
 		
-		if(buttons & ForwardKey(client)) {
-			buttons ^= ForwardKey(client);
+		if(buttons & FORWARD) {
+			buttons ^= FORWARD;
 			++AMS_Position[client][Current];
 			AMS_Position[client][Current] %= AMS_Position[client][Stack];
 			AMS_HudUpdate[client] = gpCurtime;
 		}
 		
-		else if(buttons & ReverseKey(client)) {
-			buttons ^= ReverseKey(client);
+		else if(buttons & REVERSE) {
+			buttons ^= REVERSE;
 			AMS_Position[client][Current] = AMS_Position[client][Current] == 0 ? AMS_Position[client][Stack] - 1:--AMS_Position[client][Current];
 			AMS_HudUpdate[client] = gpCurtime;
 		}
 		
-		bool activate = buttons & SelectKey(client) && SelectKey(client) != 0;
+		bool activate = buttons & ACTIVATE && ACTIVATE != 0;
 		int boss = ClientToBoss(client);
 		if(activate || AMS_CallMedic[client]) {
 			int index = AMS_Position[client][Current];
 			AMS_CallMedic[client] = false;
 			activate = false;
-			buttons ^= SelectKey(client);
+			buttons ^= ACTIVATE;
 			
 			if(FF2_GetAMSType(client, index) == AMS_Accept) {
 				Handle_AMSOnAbility(client, index);
@@ -339,8 +342,6 @@ Action Handle_AMSTick(int client, int &buttons)
 			ShowSyncHudText(client, AMS_HUDHandleReplace, GlobalFormat[client][Replace], FF2_GetBossCharge(boss, 0), FF2_GetBossHealth(boss), FF2_GetBossMaxHealth(boss)*FF2_GetBossMaxLives(boss));
 		}
 	}
-	
-	return Plugin_Changed;
 }
 
 static AMSResult FF2_GetAMSType(int client, int index, bool hud=false)
@@ -370,23 +371,33 @@ public bool FF2_PushToAMS(int client, Handle pContext, const char[] plugin, cons
 	return true;
 }
 
+public int FF2_PushToAMSEx(int client, Handle pContext, const char[] plugin, const char[] ability, const char[] prefix)
+{
+	FF2Prep player = FF2Prep(client);
+	
+	if(AMS_Position[client][Stack] >= MAXABILITIES) {
+		return -1;
+	}
+	
+	int index = AMS_Position[client][Stack];
+	AMS_Settings[client][AMS_Position[client][Stack]++] = new AMSSettings(player, pContext, plugin, ability, prefix);
+	return index;
+}
+
 public Action Timer_RemoveBypass(Handle Timer, int boss)
 {
 	AMS_Bypass[boss] = false;
 }
 
-public any Native_InitSubAbility(Handle pContext, int Params) 
+public any Native_PushToAMSEx(Handle pContext, int Params) 
 {
-	int boss = GetNativeCell(1);
-	int client = BossToClient(boss);
-	if(!client)
-		return false;
+	int client = GetNativeCell(1);
 	
 	char plugin[64]; GetNativeString(2, plugin, sizeof(plugin));
 	char ability[64]; GetNativeString(3, ability, sizeof(ability));
 	char prefix[6]; GetNativeString(4, prefix, sizeof(prefix));
 	
-	return FF2_PushToAMS(client, pContext, plugin, ability, prefix);
+	return FF2_PushToAMSEx(client, pContext, plugin, ability, prefix);
 }
 
 public any Native_PushToAMS(Handle pContext, int Params)
@@ -408,6 +419,9 @@ public any Native_GetTotalAbilities(Handle pContext, int Params)
 public any Native_GetAMSHandle(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
+	if(client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index %i", client);
+	}
 	int index = GetNativeCell(2);
 	if(index < 0 || GlobalAMS[client]==null)
 		return view_as<StringMap>(null);
@@ -417,7 +431,10 @@ public any Native_GetAMSHandle(Handle pContext, int Params)
 public any Native_GetAMSGlobalHandle(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
-	return GlobalAMS[client];
+	if(client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index %i", client);
+	}
+	return view_as<StringMap>(GlobalAMS[client]);
 }
 
 public any Native_IsAMSReadyFor(Handle pContext, int Params)
@@ -465,19 +482,4 @@ static int GetB(const int hex)
 {
 	int result = (hex) & 0xFF;
 	return (result < 0 ? -result:result);
-}
-
-static int ForwardKey(int client)
-{
-	return GlobalAMS[client].GetButton("selection", IN_RELOAD);
-}
-
-static int ReverseKey(int client)
-{
-	return GlobalAMS[client].GetButton("reverse", IN_ATTACK3);
-}
-
-static int SelectKey(int client)
-{
-	return GlobalAMS[client].GetButton("activation", 0);
 }
