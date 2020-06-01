@@ -21,7 +21,7 @@
 				"max"
 				{
 					"players"	"int"
-					"health"	"int"
+					"health"	"float"
 					"kills"		"int"
 					"lives"		"int"
 					"minions"	"int"
@@ -62,6 +62,7 @@
 #define Loop(%1) for(__L = 1; __L < %1; ++__L)
 
 #define FF2AMS_MANUAL_RECONFIGURE() \
+		_map.SetString("this_plugin2", plugin_name); \
 		_map.SetValue("cooldown", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "initial cd", 1001, 0.0)); \
 		_map.SetValue("abilitycd", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "ability cd", 1002, 10.0)); \
 		static char str[128]; player.GetArgS(plugin_name, this_ability_name, "this_name", 1003, str, sizeof(str)); \
@@ -297,7 +298,7 @@ public void FF2AMS_OnAbility(int client, int index, const char[] plugin, const c
 	
 	FF2Prep player = FF2Prep(client);
 	int vidx; Fake_AMSMap[client].GetValue(ability, vidx);
-	char actual_plugin_name[48]; FF2AMS_GetAMSHashMap(client, vidx).GetString("this_plugin", actual_plugin_name, sizeof(actual_plugin_name));
+	char actual_plugin_name[48]; FF2AMS_GetAMSHashMap(client, vidx).GetString("this_plugin2", actual_plugin_name, sizeof(actual_plugin_name));
 	
 	player.DoAbility(.plugin = actual_plugin_name, .ability = ability);
 }
