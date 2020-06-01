@@ -1,5 +1,5 @@
 /*
-	DEPRECATED / UNFINISHED
+	UNFINISHED
 	template : 
 	
 	"ams_base"
@@ -30,12 +30,12 @@
 			"2"	
 			{
 				"ability"		"abilityY"
-				
+				...
 			}
 		}
 	}
 	
-	hook->X->ability = abilityZ
+//	hook->X->ability = abilityZ
 	"abilityZ"
 	{
 		"name"		"ability_name"
@@ -62,7 +62,6 @@
 #define Loop(%1) for(__L = 1; __L < %1; ++__L)
 
 #define FF2AMS_MANUAL_RECONFIGURE() \
-		_map.SetString("this_plugin", plugin_name); \
 		_map.SetValue("cooldown", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "initial cd", 1001, 0.0)); \
 		_map.SetValue("abilitycd", GetGameTime() + player.GetArgF(plugin_name, this_ability_name, "ability cd", 1002, 10.0)); \
 		static char str[128]; player.GetArgS(plugin_name, this_ability_name, "this_name", 1003, str, sizeof(str)); \
@@ -91,7 +90,7 @@ int iMinions[MAXCLIENTS][_MAX_VALS][10];
 bool IsActive;
 
 int Players, Bosses;
-char this_plugin_name[48] = "ff2_fakeams2";
+char this_plugin_name[48] = "ff2_fakeams";
 
 public Plugin myinfo = 
 {
@@ -117,8 +116,6 @@ public void Post_RoundEnd(Event event, const char[] name, bool bDontBroadCast)
 
 public void FF2AMS_PreRoundStart(int client)
 {
-	static StringMap _map = null;
-	
 	FF2Prep player = FF2Prep(client);
 	GlobalMap[client] = view_as<FF2Parse>(FF2AMS_GetGlobalAMSHashMap(client));
 	
@@ -127,7 +124,7 @@ public void FF2AMS_PreRoundStart(int client)
 		return;
 	}
 	
-	int __L;
+	int __L, index;
 	static char this_ability_name[64], plugin_name[64];
 	char pfx[6];
 	char[] key = new char[32];
@@ -153,18 +150,22 @@ public void FF2AMS_PreRoundStart(int client)
 		}
 		
 		FormatEx(pfx, sizeof(pfx), "FAKE%i", __L);
-		if(!FF2AMS_PushToAMS(client, this_plugin_name, this_ability_name, pfx)) {
+		if((index = FF2AMS_PushToAMSEx(client, this_plugin_name, this_ability_name, pfx)) == -1) {
 			break;
 		}
 		
-		_map = FF2AMS_GetAMSHashMap(client, FF2AMS_GetTotalAbilities(client) - 1);
+		
+		StringMap _map = FF2AMS_GetAMSHashMap(client, index);
 		FF2AMS_MANUAL_RECONFIGURE()
-		Fake_AMSMap[client] = new StringMap();
-		Fake_AMSMap[client].SetValue(this_ability_name, __L);
+		
+		if(!Fake_AMSMap[client]) {
+			Fake_AMSMap[client] = new StringMap();
+		}
+		Fake_AMSMap[client].SetValue(this_ability_name, index);
 		Fast_Format(client, __L);
 	}
-	delete BossKV;
 	
+	delete BossKV;
 }
 
 
@@ -296,8 +297,7 @@ public void FF2AMS_OnAbility(int client, int index, const char[] plugin, const c
 	
 	FF2Prep player = FF2Prep(client);
 	int vidx; Fake_AMSMap[client].GetValue(ability, vidx);
-	char actual_plugin_name[48];
-	GetPluginNameFromKey(player, vidx, actual_plugin_name);
+	char actual_plugin_name[48]; FF2AMS_GetAMSHashMap(client, vidx).GetString("this_plugin", actual_plugin_name, sizeof(actual_plugin_name));
 	
 	player.DoAbility(.plugin = actual_plugin_name, .ability = ability);
 }
@@ -306,20 +306,6 @@ public void FF2_OnAlivePlayersChanged(int players, int bosses)
 {
 	Players = players;
 	Bosses = bosses;
-}
-
-void GetPluginNameFromKey(const FF2Prep player, int __vidx, char[] plugin_name)
-{
-	static char __key[24], ability_key[24];
-	FAST_FORMAT_TO_HOOK("ability")
-	static KeyValues BossKV = null;
-	
-	GlobalMap[player.Index].GetString(__key, ability_key, sizeof(ability_key));
-	BossKV = player.KeyValues;
-	BossKV.JumpToKey(ability_key);
-	BossKV.GetString("plugin_name", plugin_name, 48);
-	
-	delete BossKV;
 }
 
 void Fast_Format(const int client, int __vidx)
