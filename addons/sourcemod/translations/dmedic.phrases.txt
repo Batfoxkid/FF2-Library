@@ -1,133 +1,288 @@
-﻿"Phrases"
+"Phrases"
 {
-	"rocket_launcher"
+	// Required Phrases
+	"timer"
 	{
-		"en"    "Rocket Launcher:\n{blue}+100% Clip Size\n{blue}+75% Faster firing speed\n{blue}+50% self damage push force\n{blue}+500% max primary ammo on wearer\n{blue}-70% Blast Damage from rocket jumps\n{blue}When the medic healing you is killed, you gain mini-crit boost for 10 seconds\n{blue}Wearer never takes fall damage\n{red}-10% Damage Penalty\n{red}No Random Critical Hits"
-		"ko"    "로켓 런처:\n{blue}장탄수 +100%{blue}발사속도 +75%\n{blue}자가 피해 넉백 +50%\n{blue}착용시 최대 주무기 탄약량 +500%\n{blue}로켓 점프 자가 피해 -70%\n{blue}치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\n{blue}W착용시 추락 피해 면역\n{red}피해량 -10%\n{red}무작위 치명타가 발생하지 않음"
+		"#format"	"{1:i},{2:s}"
+		"en"		"Wave: {1}\nNext Wave: {2}"
+		"es"		"Etapa: {1}\nProxima Etapa: {2}"
+		"ko"		"웨이브: {1}\n다음 웨이브까지: {2}"
+		"ru"		"Волна: {1}\nСледующая волна через: {2}"
+		"sv"		"Runda: {1}\nNästa runda: {2}"
+		"de"		"Welle: {1}\nNächste Welle: {2}"
 	}
-	"flamethrower"
+	"timer_max"
 	{
-		"en"	"Flamethrower:\n{blue}+100% Damage Bonus\n{blue}+100% Flame Spread Area\n{blue}+150% Airblast Push Force\n{blue}+200% Flame Distance\n{blue}70% Faster Weapon Switch\n{blue}Always crits from behind\n{red}+75% ammo consumed per second"
-		"ko"	"화염방사기:\n{blue}피해량 +100%\n{blue}화염 방사 범위 +100%\n{blue}압축공기분사 위력 +150% \n{blue}화염 방사 거리 +200%\n{blue}무기 변환 속도 70% 증가\n{blue}뒤에서 공격할 경우 치명타 발생\n{red}초당 탄약 소모량 +75%"
+		"#format"	"{1:i},{2:i},{3:s}"
+		"en"		"Wave: {1} of {2}\nNext Wave: {3}"
+		"es"		"Etapa: {1} de {2}\nProxima Etapa: {3}"
+		"ko"		"웨이브: {1} / {2}\n다음 웨이브까지: {3}"
+		"ru"		"Волна: {1} of {2}\nСледующая волна: {3}"
+		"sv"		"Runda: {1} av {2}\nNästa runda: {3}"
+		"de"		"Welle: {1} of {2}\nNächste Welle: {3}"
 	}
-	"grenade_launcher"
+	"diff_single"
 	{
-		"en"	"Grenade Launcher:\n{blue}+15% Damage bonus\n{blue}+200% Clip Size\n{blue}+350% Max Primary Ammo\n{blue}+75% Faster Firing Speed\n{blue}+75% Faster Reload Time\n{red}-25% damage on contact with surfaces"
-		"ko"	"유탄발사기:\n{blue}피해량 +15%\n{blue}장탄수 +200%\n{blue}최대 주무기 탄약량 +350%\n{blue}발사 속도 +75%\n{blue}장전 속도 +75%\n{red}땅에 구르는 유탄은 -25%의 피해를 입힘"
+		"#format"	"{1:s}"
+		"en"		"Difficulty: {1}"
+		"es"		"Nivel: {1}"
+		"ko"		"난이도: {1}"
+		"ru"		"Сложность: {1}"
+		"sv"		"Svårighetsgrad: {1}"
+		"de"		"Schwierigkeit: {1}"
 	}
-	"minigun"
+	"diff_multi"
 	{
-		"en"	"Minigun:\n{blue}Generate Knockback rage by dealing damage. Use +attack3 when meter is full to use."
-		"ko"	"미니건:\n{blue}분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오."
+		"#format"	"{1:s},{2:s}"
+		"en"		"{1} Difficulty: {2}"
+		"es"		"{1} Nivel: {2}"
+		"ko"		"{1} 난이도: {2}"
+		"ru"		"{1} Сложность: {2}"
+		"sv"		"{1} Svårighetsgrad: {2}"
+		"de"		"{1} Schwierigkeit: {2}"
 	}
-	"flaregun"
+	"level"
 	{
-		"en"	"Mighty Detonator:\n{blue}Crits vs Burning Players\n{blue}+450% self damage push force\n{red}No crits vs non-burning\n{red}No Random Critical Hits"
-		"ko"	"강력한 조명총:\n{blue}치명타 vs 적중시 불을 붙힘\n{blue}자가 피해 넉백 +450%\n{red}치명타 없음 vs 불을 붙히지 않음\n{red}무작위 치명타가 발생하지 않음"
+		"#format"	"{1:i}"
+		"en"		"RNG Level {1}"
+		"es"		"{1}"
+		"ko"		"RNG 레벨 {1}"
+		"ru"		"Уровень ранга {1}"
+		"sv"		"RNG Level {1}"
+		"de"		"RNG Level {1}"
 	}
-	"medigun"
+
+	// Optional Phrases
+	"level_1"
 	{
-		"en"	"Medigun:\n{blue}Use +attack3 (default middle mouse button) to deploy projectile shield\n{blue}Overheal Expert applied\n{blue}Healing Mastery applied\n{blue}+25% faster charge rate\n{blue}+25% faster weapon switch\n{blue}+50% overheal bonus"
-		"ko"	"메디건:\n{blue}마우스3을 눌러 투사체 포호막을 발동하십시오\n{blue}과치료 전문가 적용\n{blue}치료의 달인 적용\n{blue}우버 차지 속도 +25%\n{blue}무기 변환 속도 25% 증가\n{blue}과치료량 +50%"
+		"en"		"Easy"
+		"es"		"Facil"
+		"ko"		"쉬움"
+		"ru"		"Легко"
+		"sv"		"Lätt"
+		"de"		"Einfach"
 	}
-	"build_pda"
+	"level_2"
 	{
-		"en"	"Construction PDA:\n{blue}Teleporters are bi-directional\n{blue}+10 Metal regenerated every 5 seconds\n{blue}+300% Dispenser range\n{blue}+30% Faster build speed\n{blue}+150% Building Health\n{blue}+25% Faster sentry firing speed\n{blue}+25% Sentry damage bonus"
-		"ko"	"건설 PDA:\n{blue}양방향 텔레포터 건설\n{blue}5초당 금속량 +10 재생\n{blue}디스펜서 범위 +300% \n{blue}건설 속도 +30%\n{blue}건물 내구도 +150%\n{blue}센트리 발사 속도 +25%\n{blue}센트리 피해량 +25%"
+		"en"		"Normal"
+		"es"		"Normal"
+		"ko"		"보통"
+		"ru"		"Нормально"
+		"sv"		"Normal"
+		"de"		"Normal"
 	}
-	"sandvich"
+	"level_3"
 	{
-		"en"	"Sandvich:\n{blue}+50% Faster Regen Rate"
-		"ko"	"부대지원:\n{blue}증진 지속 시간+150%\n{blue}최대 체력 +50%"
+		"en"		"Intermediate"
+		"es"		"Intermediano"
+		"ko"		"중간"
+		"ru"		"Средне"
+		"sv"		"Någorlunda svårt"
+		"de"		"Durchschnittlich"
 	}
-	"sandman"
+	"level_4"
 	{
-		"en"	"Sandman:\n{blue}+400% Max Misc Ammo\n{blue}+50% Faster Recharge Rate\n{blue}Alt-fire to launch baseball\n{red}-15% Max Health"
-		"ko"	"샌드맨:\n{blue}기타 장탄량 +400%\n{blue}재충전 속도 +50%\n{blue}마우스2를 눌러서 공을 던지십시오\n{red}최대 체력 -15%"
+		"en"		"Difficult"
+		"es"		"Dificil"
+		"ko"		"어려움"
+		"ru"		"Сложно"
+		"sv"		"Svårt"
+		"de"		"Schwierig"
 	}
-	"battalions_backup"
+	"level_5"
 	{
-		"en"	"Battalion's Backup:\n{blue}+150% longer buff duration\n{blue}+50% max health"
-		"ko"	"사기증진 깃발:\n{blue}증진 지속 시간 +150%\n{blue}최대 체력 +50%"
+		"en"		"Lunatic"
+		"es"		"Lunatico"
+		"ko"		"루나틱"
+		"ru"		"Сумасшедший"
+		"sv"		"Galet svårt"
+		"de"		"Lunatic"
 	}
-	"buff_banner"
+	"level_6"
 	{
-		"en"	"Buff Banner:\n{blue}+150% longer buff duration\n{blue}+50% max health"
-		"ko"	"사기증진 깃발:\n{blue}증진 지속 시간 +150%\n{blue}최대 체력 +50%"
+		"en"		"Insane"
+		"es"		"Brutal"
+		"ko"		"광기의"
+		"ru"		"Безумный"
+		"sv"		"Sinnesjukt svårt"
+		"de"		"Verrückt"
 	}
-	"concheror"
+	"level_7"
 	{
-		"en"	"The Concheror:\n{blue}+150% longer buff duration\n{blue}+50% max health"
-		"ko"	"전복자r:\n{blue}증진 지속 시간 +150%\n{blue}최대 체력 +50%"
+		"en"		"Godlike"
+		"es"		"Imposible"
+		"ko"		"신급의"
+		"ru"		"Богоподобный"
+		"sv"		"Gudalik"
+		"de"		"Goettlich"
 	}
-	"direct_hit"
+	"level_8"
 	{
-		"en"	"Direct Hit:\n{blue}+50% Damage bonus\n{blue}+100% Projectile speed\n{blue}Increased Attack speed while blast jumping\n{blue}Rocket Specialist\n{blue}Clip size increased as you deal damage\n{blue}When the medic healing you is killed, you gain mini-crit boost for 10 seconds\b{blue}Wearer never takes fall damage\n{blue}Minicrits airborne targets\n{blue}Minicrits become crits\n{red}-70% Explosion radius\n{red}No Random Critical Hits"
-		"ko"	"직격포:\n{blue}피해량 +50%\n{blue}발사체 속도 +100%\n{blue}폭발물 점프시 발사 속도 증가\n{blue}로켓 전문가\n{blue}피해를 가함에 따라 장탄량 증가\n{blue}치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\b{blue}착용시 추락 피해 면역\n{blue}공중에 뜬 상대에게 소형 치명타\n{blue}소형 치명타가 발생할 경우 치명타\n{red}폭발 범위 -70%\n{red}무작위 치명타가 발생하지 않음"
+		"en"		"Rocket Hell"
+		"es"		"Infierno de Cohetes"
+		"ko"		"로켓지옥"
+		"ru"		"Рокетный ад"
+		"sv"		"Rakethelvete"
+		"de"		"Raketen Hölle"
 	}
-	"black_box"
+	"level_9"
 	{
-		"en"	"{blue}+50% Clip Size\n{blue}On-Hit: +5 Health\n{blue}+75% Faster Firing Speed\n{blue}+200% Self Damage Push Force\n{blue}+250% Max Primary Ammo\n{blue}-40% Blast Damage from rocket jumps\n{blue}While a medic is healing you, this weapon's damage is increased by +50%\n{red}No Random Critical Hits\n{red}-50% Blast Radius\n{red}While not being healed by a medic, your weapon switch time is +30% longer"
-		"ko"	"직격포:\n{blue}피해량 +50%\n{blue}발사체 속도 +100%\n{blue}폭발물 점프시 발사 속도 증가\n{blue}로켓 전문가\n{blue}피해를 가함에 따라 장탄량 증가\n{blue}치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\b{blue}착용시 추락 피해 면역\n{blue}공중에 뜬 상대에게 소형 치명타\n{blue}소형 치명타가 발생할 경우 치명타\n{red}폭발 범위 -70%\n{red}무작위 치명타가 발생하지 않음"
+		"en"		"Total Blitzkrieg"
+		"es"		"Blitzkrieg Total"
+		"ko"		"대학살 그 자체"
+		"ru"		"Настоящий блитцкриг"
+		"sv"		"Total raketspam"
+		"de"		"Totaler Blitzkrieg"
 	}
-	"loch_n_load"
+	"level_420"
 	{
-		"en"	"Loch-n-Load:\n{blue}+75% Damage bonus\n{red}-25% Clip Size\n{blue}+200% Max Primary Ammo\n{blue}+75% Faster Firing Speed\n{blue}+75% Faster Reload Time\n{red}Launched bombs shatter on surfaces"
-		"ko"	"로크 앤 로드:\n{blue}피해량 +75%\n{red}장탄량 -25%\n{blue}최대 주무기 탄약량 +200%\n{blue}발사 속도 +75%\n{blue}재장전 속도 +75%\n{red}벽이나 땅에 닿은 유탄은 부서집니다"
+		"en"		"SMOKE W33D ERRYDAY!"
 	}
-	"brass_beast"
+	"level_777"
 	{
-		"en"	"Brass Beast:\n{blue}+20% Damage Bonus\n{blue}Generate Knockback rage by dealing damage. Use +attack3 when meter is full to use\n{red}+50% Slower Spin-up Time\n{red}-60% Slower move speed while deployed"
-		"ko"	"황동 야수:\n{blue}피해량 +20%\n{blue}분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오\n{red}예열 시간 +50% e\n{red}발사 중 이동속도 -60%"
+		"en"		"RAVIOLI RAVIOLI"
 	}
-	"liberty_launcher"
+	"level_999"
 	{
-		"en"	"Liberty Launcher:\n{blue}+150% Clip Size\n{blue}+60% Faster Firing Speed\n{blue}+200% Self Damage Push Force\n{blue}+250% Max Primary Ammo"\n{red}-25% Damage Penalty\n{red}-50% Blast Damage from rocket jumps\n{red}-15% Blast Radius"
-		"ko"	"자유 투사:\n{blue}장탄량 +150%\n{blue}발사 속도 +60%\n{blue}자가 피해 넉백 +200%\n{blue}최대 주무기 탄약량 +250%"\n{red}피해량 -25%\n{red}로켓 점프로 인한 자가 피해량 -50%\n{red}폭발 범위 -15%"
+		"en"		"D0NUT ST33L"
 	}
-	"tomislav"
+	"level_1337"
 	{
-		"en"	"Tomislav:\n{blue}+10% Damage Bonus.\n{blue}-10% Faster Spinup Time.\n{blue}No Barrel Spinup Sound\n{blue}Generate Knockback rage by dealing damage. Use +attack3 when meter is full to use\n{red}+20% Slower Firing Speed"
-		"ko"	"토미슬라프:\n{blue}피해량 +10%\n{blue}예열 속도 -10%\n{blue}총열 회전음이 없습니다\n{blue}분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오\n{red}발사 속도 -20%"	
+		"en"		"LOOMYNARTY"
 	}
-	"cow_mangler"
+	"level_9001"
 	{
-		"en"	"Cow Mangler:\n{blue}+50% damage bonus\n{blue}+100% Self Damage Push Force\n{blue}No Ammo needed\n"{blue}A successful hit mid-air stuns the boss for 5 seconds"
-		"ko"	"소도둑 5000:\n{blue}피해량 +50%\n{blue}자가 피해 넉백 +100%\n{blue}탄약을 소모하지 않음\n"{blue}공중에 있는 보스에 적중시 5초간 기절 시킴"
+		"en"		"OVER 9000!"
 	}
-	"wrap_assassin"
+
+	"special"
 	{
-		"en"	"Wrap Assassin:\n{blue}+400% Max Misc Ammo\n{blue}+50% Faster Recharge Rate\n{blue}Alt-fire to launch ornament\n{red}-70% Damage Penalty"
-		"ko"	"포장지 암살자:\n{blue}기타 탄약량 +400%\n{blue}재충전 속도 +50%\n{blue}마우스 우클릭을 눌러 장식물을 던지십시오\n{red}피해량 -70%"
+		"en"		"Grappling Hook:\nUse +use_action_slot (default H key) to deploy\nDeploys 100%% Faster\nHolsters 100%% Faster\n-7 Health per Second While Active"
 	}
-	"beggars_bazooka"
+	"tf_weapon_rocketlauncher"
 	{
-		"en"	"Beggar's Bazooka:\n{blue}+10% Damage Bonus\n{blue}+650% Clip Size\n{blue}+85% Faster Firing Speed\n{blue}+50% Self Damage Push Force\n{blue}+1000% Max Primary Ammo\n{blue}+75% Faster reload speed\n{blue}-75% Blast Damage from rocket jumps\n{blue}Hold Fire to load up to 30 Rockets\n{red}Overloading will Misfire\n{red}+30 Degrees Random Projectile Deviation"
-		"ko"	"거지의 바주카:\n{blue}피해량 +10%\n{blue}장탄량 +650%\n{blue}발사 속도 +85%\n{blue}자가 피해 넉백 +50%\n{blue}최대 주무기 탄약량 +1000%\n{blue}재장전 속도 +75%\n{blue}로켓 점프로 인한 자가 피해량 -75%\n{blue}발사 버튼을 눌러 최대 30발의 로켓을 장전할 수 있습니다\n{red}과다 장전시 불발합니다\n{red}발사체가 30도의 편차로 무작위로 탈선합니다"
+		"en"		"Rocket Launcher:\n+100%% Clip Size\n+75%% Faster firing speed\n+50%% self damage push force\n+500%% max primary ammo on wearer\n-70%% Blast Damage from rocket jumps\nWhen the medic healing you is killed, you gain mini-crit boost for 10 seconds\nWearer never takes fall damage\n-10%% Damage Penalty\nNo Random Critical Hits"
+		"ko"		"로켓 런처:\n장탄수 +100%%발사속도 +75%%\n자가 피해 넉백 +50%%\n착용시 최대 주무기 탄약량 +500%%\n로켓 점프 자가 피해 -70%%\n치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\nW착용시 추락 피해 면역\n피해량 -10%%\n무작위 치명타가 발생하지 않음"
 	}
-	"huo_long_heater"
+	"tf_weapon_buff_item"
 	{
-		"en"	"Huo-Long Heater:\n{blue}+10% Max Primary Ammo on-wearer\n{blue}+25% Afterburn Damage Bonus\n{blue}Sustains a ring of flames while deployed\n{blue}Generate Knockback rage by dealing damage. Use +attack3 when meter is full to use\n{red}Uses +5 Ammo per second while deployed\n{red}+25% damage from melee sources while active"
-		"ko"	"화룡표 발열기:\n{blue}착용시 최대 주무기 탄약량 +10%\n{blue}화상 피해량 +25%\n{blue}총열 회전시 불의 고리를 생성합니다\n{blue}분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오\n{red}총열 회전시 초당 탄약량 +5\n{red}착용시 근접 피해에 +25% 취약"
+		"en"		"Buff Banner:\n+150%% longer buff duration\n+50 max health"
+		"ko"		"사기증진 깃발:\n증진 지속 시간 +150%%\n최대 체력 +50"
 	}
-	"loose_cannon"
+	"tf_weapon_flamethrower"
 	{
-		"en"	"Loose Cannon:\n{blue}+25% Damage bonus\n{blue}+50% Clip Size\n{blue}+300% Max Primary Ammo\n{blue}+75% Faster Firing Speed\n{blue}+75% Faster Reload Time\n{red}-30% damage on contact with surfaces\n{red}Cannonballs have a fuse time of 1 second; fuses can be primed to explode earlier by holding down the fire key.\n{red}Cannonballs do not explode on impact"
-		"ko"	"통제불능 대포:\n{blue}피해량 +25%\n{blue}장탄량 +50%\n{blue}최대 주무기 탄약량 +300%\n{blue}발사 속도 +75%\n{blue}재장전 속도 +75%\n{red}-30% damage on contact with surfaces\n{red}포탄은 1초 동안 타는 도화선을 지녔습니다. 발사 버튼을 누르고 있으면 도화선을 미리 태워 포탄을 더 빨리 폭발시킬 수 있습니다.\n{red}포탄은 충돌해도 터지지 않습니다"
+		"en"		"Flamethrower:\n+100%% Damage Bonus\n+100%% Flame Spread Area\n+150%% Airblast Push Force\n+200%% Flame Distance\n70%% Faster Weapon Switch\nAlways crits from behind\n+75%% ammo consumed per second"
+		"ko"		"화염방사기:\n피해량 +100%%\n화염 방사 범위 +100%%\n압축공기분사 위력 +150%% \n화염 방사 거리 +200%%\n무기 변환 속도 70%% 증가\n뒤에서 공격할 경우 치명타 발생\n초당 탄약 소모량 +75%%"
 	}
-	"air_strike"
+	"tf_weapon_flaregun"
 	{
-		"en"	"Air Strike:\n{blue}Increased Attack speed while blast jumping\n{blue}Rocket Specialist\n{blue}Clip size increased as you deal damage\n{blue}When the medic healing you is killed, you gain mini-crit boost for 10 seconds\n{blue}Wearer never takes fall damage\n{red}-10% Damage Penalty\n{red}No Random Critical Hits"
-		"ko"	"공중폭격포:\n{blue}폭발물 점프시 발사 속도 증가\n{blue}로켓 전문가\n{blue}피해를 가함에 따라 장탄량 증가\n{blue}치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\n{blue}착용시 추락 피해 면역\n{red}피해량 -10%\n{red}무작위 치명타가 발생하지 않음"
+		"en"		"Mighty Detonator:\nCrits vs Burning Players\n+450%% self damage push force\nNo crits vs non-burning\nNo Random Critical Hits"
+		"ko"		"강력한 조명총:\n치명타 vs 적중시 불을 붙힘\n자가 피해 넉백 +450%%\n치명타 없음 vs 불을 붙히지 않음\n무작위 치명타가 발생하지 않음"
 	}
-	"panic_attack"
+	"tf_weapon_grenadelauncher"
 	{
-		"en"	"Panic Attack (while active):\n{blue}+75& Faster move speed\n{blue}+34% faster reload time\n{blue}When the medic healing you is killed, you gain mini crits for 15 seconds\n{blue}+50% blast, fire & crit damage vulnerability\n{blue}Hold fire to load up to 6 shells\n{blue}Fire rate increases as health decreases\n{red}Weapon spread increases as health decreases"
-		"ko"	"공황 공격 (착용시):\n{blue}이동 속도 +75%\n{blue}재장전 속도 +34%\n{blue}치료중인 메딕이 사망할 경우 15초간 소형 치명타 증진\n{blue}폭발 피해, 화염 피해, 치명타 피해에 +50% 취약\n{blue}발사 버튼을 눌러 최대 6발의 탄약을 장전할 수 있습니다\n{blue}체력이 감소할수록 발사 속도가 증가합니다\n{red}체력이 감소할수록 집탄률이 감소합니다"
+		"en"		"Grenade Launcher:\n+15%% Damage bonus\n+200%% Clip Size\n+350%% Max Primary Ammo\n+75%% Faster Firing Speed\n+75%% Faster Reload Time\n-25%% damage on contact with surfaces"
+		"ko"		"유탄발사기:\n피해량 +15%%\n장탄수 +200%%\n최대 주무기 탄약량 +350%%\n발사 속도 +75%%\n장전 속도 +75%%\n땅에 구르는 유탄은 -25%%의 피해를 입힘"
 	}
-	"iron_bomber"
+	"tf_weapon_minigun"
 	{
-		"en"	"Iron Bomber:\n{blue}+10% Damage bonus\n{blue}+400% Clip Size\n{blue}+500% Max Primary Ammo\n{blue}+75% Faster Firing Speed\n{blue}+75% Faster Reload Time\n{red}-40% damage on grenades that explode on timer\n{red}Grenades have very little bound and roll"
-		"ko"	"무쇠 폭탄 발사기:\n{blue}피해량 +10%\n{blue}장탄량 +400%\n{blue}최대 주무기 탄약량 +500%\n{blue}발사 속도 +75%\n{blue}재장전 속도 +75%\n{red}3초 후 터진 유탄은 피해량-40% 감소\n{red}유탄은 매우 적게 튀어오르고 구릅니다"
+		"en"		"Minigun:\nGenerate Knockback rage by dealing damage. Use +attack3 when meter is full to use."
+		"ko"		"미니건:\n분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오."
+	}
+	"tf_weapon_lunchbox"
+	{
+		"en"		"Sandvich:\n+50%% Faster Regen Rate"
+		"ko"		"부대지원:\n증진 지속 시간+150%%\n최대 체력 +50%%"
+	}
+	"tf_weapon_pda_engineer_build"
+	{
+		"en"		"Construction PDA:\nTeleporters are bi-directional\n+10 Metal regenerated every 5 seconds\n+300%% Dispenser range\n+30%% Faster build speed\n+150%% Building Health\n+25%% Faster sentry firing speed\n+25%% Sentry damage bonus"
+		"ko"		"건설 PDA:\n양방향 텔레포터 건설\n5초당 금속량 +10 재생\n디스펜서 범위 +300%% \n건설 속도 +30%%\n건물 내구도 +150%%\n센트리 발사 속도 +25%%\n센트리 피해량 +25%%"
+	}
+	"tf_weapon_medigun"
+	{
+		"en"		"Medigun:\nUse +attack3 (default middle mouse button) to deploy projectile shield\nOverheal Expert applied\nHealing Mastery applied\n+25%% faster charge rate\n+25%% faster weapon switch\n+50%% overheal bonus"
+		"ko"		"메디건:\n마우스3을 눌러 투사체 포호막을 발동하십시오\n과치료 전문가 적용\n치료의 달인 적용\n우버 차지 속도 +25%%\n무기 변환 속도 25%% 증가\n과치료량 +50%%"
+	}
+
+	"44"
+	{
+		"en"		"Sandman:\n+400%% Max Misc Ammo\n+50%% Faster Recharge Rate\nAlt-fire to launch baseball\n-15%% Max Health"
+		"ko"		"샌드맨:\n기타 장탄량 +400%%\n재충전 속도 +50%%\n마우스2를 눌러서 공을 던지십시오\n최대 체력 -15%%"
+	}
+	"127"
+	{
+		"en"		"Direct Hit:\n+50%% Damage bonus\n+100%% Projectile speed\nIncreased Attack speed while blast jumping\nRocket Specialist\nClip size increased as you deal damage\nWhen the medic healing you is killed, you gain mini-crit boost for 10 seconds\bWearer never takes fall damage\nMinicrits airborne targets\nMinicrits become crits\n-70%% Explosion radius\nNo Random Critical Hits"
+		"ko"		"직격포:\n피해량 +50%%\n발사체 속도 +100%%\n폭발물 점프시 발사 속도 증가\n로켓 전문가\n피해를 가함에 따라 장탄량 증가\n치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\b착용시 추락 피해 면역\n공중에 뜬 상대에게 소형 치명타\n소형 치명타가 발생할 경우 치명타\n폭발 범위 -70%%\n무작위 치명타가 발생하지 않음"
+	}
+	"228"
+	{
+		"en"		"Black Box:\n+50%% Clip Size\nOn-Hit: +5 Health\n+75%% Faster Firing Speed\n+200%% Self Damage Push Force\n+250%% Max Primary Ammo\n-40%% Blast Damage from rocket jumps\nWhile a medic is healing you, this weapon's damage is increased by +50%%\nNo Random Critical Hits\n-50%% Blast Radius\nWhile not being healed by a medic, your weapon switch time is +30%% longer"
+		"ko"		"직격포:\n피해량 +50%%\n발사체 속도 +100%%\n폭발물 점프시 발사 속도 증가\n로켓 전문가\n피해를 가함에 따라 장탄량 증가\n치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\b착용시 추락 피해 면역\n공중에 뜬 상대에게 소형 치명타\n소형 치명타가 발생할 경우 치명타\n폭발 범위 -70%%\n무작위 치명타가 발생하지 않음"
+	}
+	"308"
+	{
+		"en"		"Loch-n-Load:\n+75%% Damage bonus\n-25%% Clip Size\n+200%% Max Primary Ammo\n+75%% Faster Firing Speed\n+75%% Faster Reload Time\nLaunched bombs shatter on surfaces"
+		"ko"		"로크 앤 로드:\n피해량 +75%%\n장탄량 -25%%\n최대 주무기 탄약량 +200%%\n발사 속도 +75%%\n재장전 속도 +75%%\n벽이나 땅에 닿은 유탄은 부서집니다"
+	}
+	"354"
+	{
+		"en"		"The Concheror:\n+150%% longer buff duration\n+50 max health"
+		"ko"		"전복자r:\n증진 지속 시간 +150%%\n최대 체력 +50"
+	}
+	"414"
+	{
+		"en"		"Liberty Launcher:\n+150%% Clip Size\n+60%% Faster Firing Speed\n+200%% Self Damage Push Force\n+250%% Max Primary Ammo\n-25%% Damage Penalty\n-50%% Blast Damage from rocket jumps\n-15%% Blast Radius"
+		"ko"		"자유 투사:\n장탄량 +150%%\n발사 속도 +60%%\n자가 피해 넉백 +200%%\n최대 주무기 탄약량 +250%%\n피해량 -25%%\n로켓 점프로 인한 자가 피해량 -50%%\n폭발 범위 -15%%"
+	}
+	"441"
+	{
+		"en"		"Cow Mangler:\n+50%% damage bonus\n+100%% Self Damage Push Force\nNo Ammo needed\nA successful hit mid-air stuns the boss for 5 seconds"
+		"ko"		"소도둑 5000:\n피해량 +50%%\n자가 피해 넉백 +100%%\n탄약을 소모하지 않음\n공중에 있는 보스에 적중시 5초간 기절 시킴"
+	}
+	"648"
+	{
+		"en"		"Wrap Assassin:\n+400%% Max Misc Ammo\n+50%% Faster Recharge Rate\nAlt-fire to launch ornament\n-70%% Damage Penalty"
+		"ko"		"포장지 암살자:\n기타 탄약량 +400%%\n재충전 속도 +50%%\n마우스 우클릭을 눌러 장식물을 던지십시오\n피해량 -70%%"
+	}
+	"730"
+	{
+		"en"		"Beggar's Bazooka:\n+10%% Damage Bonus\n+650%% Clip Size\n+85%% Faster Firing Speed\n+50%% Self Damage Push Force\n+1000%% Max Primary Ammo\n+75%% Faster reload speed\n-75%% Blast Damage from rocket jumps\nHold Fire to load up to 30 Rockets\nOverloading will Misfire\n+30 Degrees Random Projectile Deviation"
+		"ko"		"거지의 바주카:\n피해량 +10%%\n장탄량 +650%%\n발사 속도 +85%%\n자가 피해 넉백 +50%%\n최대 주무기 탄약량 +1000%%\n재장전 속도 +75%%\n로켓 점프로 인한 자가 피해량 -75%%\n발사 버튼을 눌러 최대 30발의 로켓을 장전할 수 있습니다\n과다 장전시 불발합니다\n발사체가 30도의 편차로 무작위로 탈선합니다"
+	}
+	"811"
+	{
+		"en"		"Huo-Long Heater:\n+100%% Max Primary Ammo on-wearer\n+25%% Afterburn Damage Bonus\nSustains a ring of flames while deployed\nGenerate Knockback rage by dealing damage. Use +attack3 when meter is full to use\nUses +5 Ammo per second while deployed\n+25%% damage from melee sources while active"
+		"ko"		"화룡표 발열기:\n착용시 최대 주무기 탄약량 +100%%\n화상 피해량 +25%%\n총열 회전시 불의 고리를 생성합니다\n분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오\n총열 회전시 초당 탄약량 +5\n착용시 근접 피해에 +25%% 취약"
+	}
+	"832"
+	{
+		"en"		"Huo-Long Heater:\n+100%% Max Primary Ammo on-wearer\n+25%% Afterburn Damage Bonus\nSustains a ring of flames while deployed\nGenerate Knockback rage by dealing damage. Use +attack3 when meter is full to use\nUses +5 Ammo per second while deployed\n+25%% damage from melee sources while active"
+		"ko"		"화룡표 발열기:\n착용시 최대 주무기 탄약량 +100%%\n화상 피해량 +25%%\n총열 회전시 불의 고리를 생성합니다\n분노를 사용함으로써 적중시 대상을 밀쳐냄. 분노 게이지가 충전되면 마우스3을 눌러 사용하십시오\n총열 회전시 초당 탄약량 +5\n착용시 근접 피해에 +25%% 취약"
+	}
+	"996"
+	{
+		"en"		"Loose Cannon:\n+25%% Damage bonus\n+50%% Clip Size\n+300%% Max Primary Ammo\n+75%% Faster Firing Speed\n+75%% Faster Reload Time\n-30%% damage on contact with surfaces\nCannonballs have a fuse time of 1 second; fuses can be primed to explode earlier by holding down the fire key.\nCannonballs do not explode on impact"
+		"ko"		"통제불능 대포:\n피해량 +25%%\n장탄량 +50%%\n최대 주무기 탄약량 +300%%\n발사 속도 +75%%\n재장전 속도 +75%%\n-30%% damage on contact with surfaces\n포탄은 1초 동안 타는 도화선을 지녔습니다. 발사 버튼을 누르고 있으면 도화선을 미리 태워 포탄을 더 빨리 폭발시킬 수 있습니다.\n포탄은 충돌해도 터지지 않습니다"
+	}
+	"1085"
+	{
+		"en"		"Black Box:\n+50%% Clip Size\nOn-Hit: +5 Health\n+75%% Faster Firing Speed\n+200%% Self Damage Push Force\n+250%% Max Primary Ammo\n-40%% Blast Damage from rocket jumps\nWhile a medic is healing you, this weapon's damage is increased by +50%%\nNo Random Critical Hits\n-50%% Blast Radius\nWhile not being healed by a medic, your weapon switch time is +30%% longer"
+		"ko"		"직격포:\n피해량 +50%%\n발사체 속도 +100%%\n폭발물 점프시 발사 속도 증가\n로켓 전문가\n피해를 가함에 따라 장탄량 증가\n치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\b착용시 추락 피해 면역\n공중에 뜬 상대에게 소형 치명타\n소형 치명타가 발생할 경우 치명타\n폭발 범위 -70%%\n무작위 치명타가 발생하지 않음"
+	}
+	"1104"
+	{
+		"en"		"Air Strike:\nIncreased Attack speed while blast jumping\nRocket Specialist\nClip size increased as you deal damage\nWhen the medic healing you is killed, you gain mini-crit boost for 10 seconds\nWearer never takes fall damage\n-10%% Damage Penalty\nNo Random Critical Hits"
+		"ko"		"공중폭격포:\n폭발물 점프시 발사 속도 증가\n로켓 전문가\n피해를 가함에 따라 장탄량 증가\n치료중인 메딕이 사망할 경우 10초간 소형 치명타 증진\n착용시 추락 피해 면역\n피해량 -10%%\n무작위 치명타가 발생하지 않음"
+	}
+	"1151"
+	{
+		"en"		"Iron Bomber:\n+10%% Damage bonus\n+400%% Clip Size\n+500%% Max Primary Ammo\n+75%% Faster Firing Speed\n+75%% Faster Reload Time\n-40%% damage on grenades that explode on timer\nGrenades have very little bound and roll"
+		"ko"		"무쇠 폭탄 발사기:\n피해량 +10%%\n장탄량 +400%%\n최대 주무기 탄약량 +500%%\n발사 속도 +75%%\n재장전 속도 +75%%\n3초 후 터진 유탄은 피해량-40%% 감소\n유탄은 매우 적게 튀어오르고 구릅니다"
+	}
+	"1153"
+	{
+		"en"		"Panic Attack (while active):\n+75%% Faster move speed\n+34%% faster reload time\nWhen the medic healing you is killed, you gain mini crits for 15 seconds\n+50%% blast, fire & crit damage vulnerability\nHold fire to load up to 6 shells\nFire rate increases as health decreases\nWeapon spread increases as health decreases"
+		"ko"		"공황 공격 (착용시):\n이동 속도 +75%%\n재장전 속도 +34%%\n치료중인 메딕이 사망할 경우 15초간 소형 치명타 증진\n폭발 피해, 화염 피해, 치명타 피해에 +50%% 취약\n발사 버튼을 눌러 최대 6발의 탄약을 장전할 수 있습니다\n체력이 감소할수록 발사 속도가 증가합니다\n체력이 감소할수록 집탄률이 감소합니다"
 	}
 }
