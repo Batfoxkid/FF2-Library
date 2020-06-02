@@ -9,7 +9,7 @@
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <ff2_ams>
+#include <ff2_ams2>
 #undef REQUIRE_PLUGIN
 #tryinclude <goomba>
 #define REQUIRE_PLUGIN
@@ -321,27 +321,31 @@ public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 				BombChance = FF2_GetArgF(boss, this_plugin_name, "graymann_config", "bomb", 4, 0.04);
 				BombCapture = view_as<bool>(FF2_GetArgI(boss, this_plugin_name, "graymann_config", "capture", 5, 1));
 				UsingPDA[client] = view_as<bool>(FF2_GetArgI(boss, this_plugin_name, "graymann_config", "usepda", 6, 1));
-
-				if(FF2_HasAbility(boss, "ff2_sarysapub3", "ability_management_system"))
-				{
-					UsingAMS[boss] = true;
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda0", "GM0"); // Group
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda1", "GM1"); // Scout
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda2", "GM2"); // Soldier
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda3", "GM3"); // Pyro
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda4", "GM4"); // Demoman
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda5", "GM5"); // Heavy
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda6", "GM6"); // Medic
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda7", "GM7"); // Sentry Buster
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda8", "GM8"); // MegaBoss
-					AMS_InitSubability(boss, client, this_plugin_name, "graymann_pda9", "GM9"); // Engineer
-				}
-				else
-				{
-					UsingAMS[boss] = false;
-				}
 			}
 		}
+	}
+}
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, "graymann_config"))
+	{
+		UsingAMS[boss] = true;
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda0", "GM0"); // Group
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda1", "GM1"); // Scout
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda2", "GM2"); // Soldier
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda3", "GM3"); // Pyro
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda4", "GM4"); // Demoman
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda5", "GM5"); // Heavy
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda6", "GM6"); // Medic
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda7", "GM7"); // Sentry Buster
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda8", "GM8"); // MegaBoss
+		FF2AMS_PushToAMS(client, this_plugin_name, "graymann_pda9", "GM9"); // Engineer
+	}
+	else
+	{
+		UsingAMS[boss] = false;
 	}
 }
 
@@ -391,7 +395,7 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 			TF2Attrib_RemoveByDefIndex(client, 113);
 
 			if(client == BombCarrier)
-				CreateTimer(0.1, SentryBusting, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+				CreateTimer(0.1, SentryBusting, GetClientSerial(client), TIMER_FLAG_NO_MAPCHANGE);
 		}
 	}
 	BombCarrier = -1;
@@ -399,10 +403,10 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 	MVM_RemoveHooks();
 }
 
-public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadcast)
+public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	if(!IsValidClient(client) || !FF2_IsFF2Enabled() || FF2_GetRoundState()!=1 || !IsRoundActive || (GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER))
+	int client = GetClientOfUserId(event.GetInt("userid"));
+	if(!IsValidClient(client) || !FF2_IsFF2Enabled() || FF2_GetRoundState()!=1 || !IsRoundActive || (event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER))
 		return Plugin_Continue;
 
 	int bossTeam = FF2_GetBossTeam();
@@ -431,7 +435,7 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 				}
 				else
 				{
-					CreateTimer(1.0, SentryBusting, GetClientUserId(target), TIMER_FLAG_NO_MAPCHANGE);
+					CreateTimer(1.0, SentryBusting, GetClientSerial(target), TIMER_FLAG_NO_MAPCHANGE);
 				}
 			}
 		}
@@ -483,11 +487,11 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 		return Plugin_Continue;
 	}
 
-	if(KspreeTimer < GetEngineTime())
+	if(KspreeTimer < GetGameTime())
 		KspreeCount = 0;
 
 	KspreeCount++;
-	KspreeTimer = GetEngineTime()+2.0;
+	KspreeTimer = GetGameTime()+2.0;
 	if(KspreeCount > 7)
 	{
 		for(int target=1; target<=MaxClients; target++)
@@ -504,12 +508,12 @@ public Action Event_PlayerDeath(Handle event, const char[] name, bool dontBroadc
 	return Plugin_Continue;
 }
 
-public Action Event_PlayerInventory(Handle event, const char[] name, bool dontBroadcast)
+public Action Event_PlayerInventory(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1 || !IsRoundActive)
 		return Plugin_Continue;
 
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(event.GetInt("userid"));
 	if(GetClientTeam(client)!=FF2_GetBossTeam() && FF2_GetBossIndex(client)<0)
 		UpgradeClient(client, 0);
 	
@@ -526,7 +530,7 @@ public void OnFlagEvent(Event event, const char[] name, bool dontBroadcast)
 		{
 			BombLevel = 0;
 			BombCarrier = client;
-			BombTimer = GetEngineTime()+5.0;
+			BombTimer = GetGameTime()+5.0;
 			if(BombCapture)
 				PrintCenterText(client, "Drop the bomb off at the control point!");
 
@@ -537,7 +541,7 @@ public void OnFlagEvent(Event event, const char[] name, bool dontBroadcast)
 		{
 			BombLevel = -1;
 			BombCarrier = -1;
-			BombTimer = GetEngineTime()+60.0;
+			BombTimer = GetGameTime()+60.0;
 			if(BombCapture)
 				ServerCommand("ff2_point_disable");
 
@@ -562,55 +566,55 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 	if(StrEqual(ability_name, "graymann_pda0", false))
 	{
-		GM0_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM0_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda1", false))
 	{
-		GM1_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM1_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda2", false))
 	{
-		GM2_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM2_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda3", false))
 	{
-		GM3_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM3_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda4", false))
 	{
-		GM4_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM4_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda5", false))
 	{
-		GM5_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM5_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda6", false))
 	{
-		GM6_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM6_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda7", false))
 	{
-		GM7_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM7_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda8", false))
 	{
-		GM8_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM8_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 	else if(StrEqual(ability_name, "graymann_pda9", false))
 	{
-		GM9_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)));
+		GM9_Invoke(GetClientOfUserId(FF2_GetBossUserId(boss)), -1);
 	}
 
 	return Plugin_Continue;
 }
 
-public bool GM0_CanInvoke(int client)
+public AMSResult GM0_CanInvoke(int client, int aidx)
 {
 	//return GetClassCount(view_as<int>(TFClass_Engineer), FF2_GetBossTeam())==0 ? true : false;
-	return true;
+	return AMS_Accept;
 }
 
-public void GM0_Invoke(int client)
+public void GM0_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -619,12 +623,12 @@ public void GM0_Invoke(int client)
 	MvM_GivePDA(client, 0, activator_string);
 }
 
-public bool GM1_CanInvoke(int client)
+public AMSResult GM1_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM1_Invoke(int client)
+public void GM1_Invoke(int client, int aidx)
 {		
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -641,12 +645,12 @@ public void GM1_Invoke(int client)
 	MvM_GivePDA(client, 1, activator_string);
 }
 
-public bool GM2_CanInvoke(int client)
+public AMSResult GM2_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM2_Invoke(int client)
+public void GM2_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -663,12 +667,12 @@ public void GM2_Invoke(int client)
 	MvM_GivePDA(client, 2, activator_string);
 }
 
-public bool GM3_CanInvoke(int client)
+public AMSResult GM3_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM3_Invoke(int client)
+public void GM3_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -685,12 +689,12 @@ public void GM3_Invoke(int client)
 	MvM_GivePDA(client, 3, activator_string);
 }
 
-public bool GM4_CanInvoke(int client)
+public AMSResult GM4_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM4_Invoke(int client)
+public void GM4_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -707,12 +711,12 @@ public void GM4_Invoke(int client)
 	MvM_GivePDA(client, 4, activator_string);
 }
 
-public bool GM5_CanInvoke(int client)
+public AMSResult GM5_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM5_Invoke(int client)
+public void GM5_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -729,12 +733,12 @@ public void GM5_Invoke(int client)
 	MvM_GivePDA(client, 5, activator_string);
 }
 
-public bool GM6_CanInvoke(int client)
+public AMSResult GM6_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM6_Invoke(int client)
+public void GM6_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -745,13 +749,13 @@ public void GM6_Invoke(int client)
 	MvM_GivePDA(client, 6, activator_string);
 }
 
-public bool GM7_CanInvoke(int client)
+public AMSResult GM7_CanInvoke(int client, int aidx)
 {
 	//return view_as<bool>(GetClassCount(view_as<int>(TFClass_Engineer), (FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? view_as<int>(TFTeam_Red) : view_as<int>(TFTeam_Blue)));
-	return true;
+	return AMS_Accept;
 }
 
-public void GM7_Invoke(int client)
+public void GM7_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -762,12 +766,12 @@ public void GM7_Invoke(int client)
 	MvM_GivePDA(client, 7, activator_string);
 }
 
-public bool GM8_CanInvoke(int client)
+public AMSResult GM8_CanInvoke(int client, int aidx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void GM8_Invoke(int client)
+public void GM8_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -784,13 +788,13 @@ public void GM8_Invoke(int client)
 	MvM_GivePDA(client, 8, activator_string);
 }
 
-public bool GM9_CanInvoke(int client)
+public AMSResult GM9_CanInvoke(int client, int aidx)
 {
 	//return GetClassCount(view_as<int>(TFClass_Engineer), FF2_GetBossTeam())==0 ? true : false;
-	return true;
+	return AMS_Accept;
 }
 
-public void GM9_Invoke(int client)
+public void GM9_Invoke(int client, int aidx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char activator_string[768];
@@ -1047,7 +1051,7 @@ public Action SentryBuster_Detonate(int client, const char[] command, int argc)
 	{
 		SetEntityMoveType(client, MOVETYPE_NONE);
 		EmitSoundToAll("mvm/mvm_sentrybuster_spin.wav", client);
-		CreateTimer(2.1, SentryBusting, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(2.1, SentryBusting, GetClientSerial(client), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return Plugin_Continue;
 }
@@ -1057,11 +1061,11 @@ public void OnGameFrame()
 	if(!IsRoundActive)
 		return;
 
-	if(BombTimer && BombTimer<GetEngineTime() && !IsValidClient(BombCarrier))
+	if(BombTimer && BombTimer<GetGameTime() && !IsValidClient(BombCarrier))
 	{
 		int entity = EntRefToEntIndex(BombEntity);
-		if(IsValidEdict(entity) && entity>MaxClients)
-			AcceptEntityInput(entity, "Kill");
+		if(IsValidEntity(entity))
+			RemoveEntity(entity);
 
 		BombTimer = 0.0;
 		BombCarrier = -1;
@@ -1071,10 +1075,10 @@ public void OnGameFrame()
 			ServerCommand("ff2_point_disable");
 	}
 
-	if(TeleporterMessageTime>GetEngineTime())
+	if(TeleporterMessageTime>GetGameTime())
 		return;
 
-	TeleporterMessageTime = GetEngineTime()+5.0;
+	TeleporterMessageTime = GetGameTime()+5.0;
 	int bossTeam = FF2_GetBossTeam();
 	int ent = -1;
 	while((ent=FindEntityByClassname2(ent, "obj_teleporter")) != -1)
@@ -1142,7 +1146,7 @@ stock void SetMiniBoss(int boss, GMBossType GBossType, int health, char[] name, 
 			FF2_SetFF2flags(client,FF2_GetFF2flags(client)|FF2FLAG_ALLOWSPAWNINBOSSTEAM); // Spawn in Boss team
 			FF2_SetFF2flags(client, FF2_GetFF2flags(client)|FF2FLAG_CLASSTIMERDISABLED); // Disable HUD/crits
 			FF2_SetFF2flags(client,FF2_GetFF2flags(client)|FF2FLAG_ALLOW_AMMO_PICKUPS); // Ammo Pickup
-			FF2_SetFF2flags(client,FF2_GetFF2flags(client)&~FF2FLAG_ALLOW_HEALTH_PICKUPS); // NO HP Pickups!
+			FF2_SetFF2flags(client,FF2_GetFF2flags(client)^FF2FLAG_ALLOW_HEALTH_PICKUPS); // NO HP Pickups!
 			
 			ChangeClientTeam(client,FF2_GetBossTeam());
 			TF2_SetPlayerClass(client, TFClass_Scout, _, false);
@@ -1230,8 +1234,8 @@ stock void SetMiniBoss(int boss, GMBossType GBossType, int health, char[] name, 
 
 			DataPack data;
 			CreateDataTimer(0.2, Timer_EquipModel, data, TIMER_FLAG_NO_MAPCHANGE);
-			WritePackCell(data, GetClientUserId(client));
-			WritePackString(data, model);
+			data.WriteCell(GetClientSerial(client));
+			data.WriteString(model);
 			BotMaxHealth[client] = health;
 			SDKHook(client, SDKHook_GetMaxHealth, OnGetMaxHealth);
 
@@ -1329,13 +1333,14 @@ stock void SetMiniBoss(int boss, GMBossType GBossType, int health, char[] name, 
 	}
 }
 
-public Action Timer_EquipModel(Handle timer, any pack)
+public Action Timer_EquipModel(Handle timer, DataPack pack)
 {
-	ResetPack(pack);
-	int client=GetClientOfUserId(ReadPackCell(pack));
+	pack.Reset();
+	int client=GetClientFromSerial(pack.ReadCell());
 	if(client && IsClientInGame(client) && IsPlayerAlive(client))
 	{
-		char model[PLATFORM_MAX_PATH];
+		char[] model = new char[PLATFORM_MAX_PATH];
+		pack.ReadString(model, PLATFORM_MAX_PATH);
 		ReadPackString(pack, model, PLATFORM_MAX_PATH);
 		SetVariantString(model);
 		AcceptEntityInput(client, "SetCustomModel");
@@ -1380,7 +1385,7 @@ public Action KillGameText(Handle hTimer, any iEntityRef)
 {
 	int iEntity = EntRefToEntIndex(iEntityRef);
 	if ((iEntity > 0) && IsValidEntity(iEntity))
-		AcceptEntityInput(iEntity, "kill"); 
+		RemoveEntity(iEntity);
 	return Plugin_Stop;
 }
 
@@ -1429,7 +1434,7 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				if(!StrContains(classname, "eyeball_boss"))  //Dang spell Monoculuses
 				{
 					index=-1;
-					Format(classname, sizeof(classname), "");
+					classname[0] = '\0';
 				}
 				else
 				{
@@ -1439,7 +1444,7 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 			else
 			{
 				index=-1;
-				Format(classname, sizeof(classname), "");
+				classname[0] = '\0';
 			}
 
 			//Sniper rifles aren't handled by the switch/case because of the amount of reskins there are
@@ -1470,17 +1475,17 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 
 				if(!(damagetype & DMG_CRIT))
 				{
-					Handle cvar;
+					ConVar cvar;
 					if(TF2_IsPlayerInCondition(attacker, TFCond_CritCola) || TF2_IsPlayerInCondition(attacker, TFCond_Buffed))
 					{
 						cvar = FindConVar("ff2_sniper_dmg_mini");
-						if(cvar == INVALID_HANDLE)
+						if(cvar == null)
 						{
 							damage *= 2.2;
 						}
 						else
 						{
-							damage *= GetConVarFloat(cvar);
+							damage *= cvar.FloatValue;
 						}
 					}
 					else
@@ -1488,24 +1493,24 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 						cvar = FindConVar("ff2_sniper_dmg");
 						if(index!=230)  //Sydney Sleeper
 						{
-							if(cvar == INVALID_HANDLE)
+							if(cvar == null)
 							{
 								damage *= 3.0;
 							}
 							else
 							{
-								damage *= GetConVarFloat(cvar);
+								damage *= cvar.FloatValue;
 							}
 						}
 						else
 						{
-							if(cvar == INVALID_HANDLE)
+							if(cvar == null)
 							{
 								damage *= 2.4;
 							}
 							else
 							{
-								damage *= GetConVarFloat(cvar)*0.8;
+								damage *= cvar.FloatValue*0.8;
 							}
 						}
 					}
@@ -1516,29 +1521,29 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 			{
 				if((damagetype & DMG_CRIT))
 				{
-					Handle cvar = FindConVar("ff2_sniper_bow");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_sniper_bow");
+					if(cvar != null)
 					{
-						damage *= GetConVarFloat(cvar);
+						damage *= cvar.FloatValue;
 						return Plugin_Changed;
 					}
 				}
 				else if(TF2_IsPlayerInCondition(attacker, TFCond_CritCola) || TF2_IsPlayerInCondition(attacker, TFCond_Buffed))
 				{
-					Handle cvar = FindConVar("ff2_sniper_bow_mini");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_sniper_bow_mini");
+					if(cvar != null)
 					{
-						if(GetConVarFloat(cvar)>0)
+						if(cvar.FloatValue>0.0)
 						{
-							damage *= GetConVarFloat(cvar);
+							damage *= cvar.FloatValue;
 							return Plugin_Changed;
 						}
 						cvar = FindConVar("ff2_sniper_bow_non");
-						if(cvar != INVALID_HANDLE)
+						if(cvar != null)
 						{
-							if(GetConVarFloat(cvar)>0)
+							if(cvar.FloatValue>0.0)
 							{
-								damage *= GetConVarFloat(cvar);
+								damage *= cvar.FloatValue;
 								return Plugin_Changed;
 							}
 						}
@@ -1546,21 +1551,21 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 					cvar = FindConVar("ff2_sniper_bow_non");
 					if(cvar != INVALID_HANDLE)
 					{
-						if(GetConVarFloat(cvar)>0)
+						if(cvar.FloatValue>0.0)
 						{
-							damage *= GetConVarFloat(cvar);
+							damage *= cvar.FloatValue;
 							return Plugin_Changed;
 						}
 					}
 				}
 				else
 				{
-					Handle cvar = FindConVar("ff2_sniper_bow_non");
+					ConVar cvar = FindConVar("ff2_sniper_bow_non");
 					if(cvar != INVALID_HANDLE)
 					{
-						if(GetConVarFloat(cvar)>0)
+						if(cvar.FloatValue>0.0)
 						{
-							damage *= GetConVarFloat(cvar);
+							damage *= cvar.FloatValue;
 							return Plugin_Changed;
 						}
 					}
@@ -1572,10 +1577,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 			{
 				case 61, 1006:  //Ambassador, Festive Ambassador
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1591,10 +1596,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 214:  //Powerjack
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1626,10 +1631,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 310:  //Warrior's Spirit
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1649,10 +1654,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 327:  //Claidheamh Mòr
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1670,10 +1675,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				{
 					if(UnofficialFF2)
 					{
-						Handle cvar = FindConVar("ff2_hardcodewep");
-						if(cvar != INVALID_HANDLE)
+						ConVar cvar = FindConVar("ff2_hardcodewep");
+						if(cvar != null)
 						{
-							if(GetConVarInt(cvar)>1)
+							if(cvar.IntValue>1)
 								return Plugin_Continue;
 						}
 
@@ -1747,8 +1752,7 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 416:  //Market Gardener (courtesy of Chdata)
 				{
-					if(RemoveCond(attacker, TFCond_BlastJumping))
-                        		{
+					if(RemoveCond(attacker, TFCond_BlastJumping)) {
 						damage = GetRandomFloat(250.0, 600.0)*botStabMulti;
 						damagetype |= DMG_CRIT|DMG_PREVENT_PHYSICS_FORCE;
 						if(IsMechaBoss[client])
@@ -1765,10 +1769,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 525, 595:  //Diamondback, Manmelter
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1780,11 +1784,11 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 528:  //Short Circuit
 				{
-					Handle cvar = FindConVar("ff2_circuit_stun");
-					if(cvar == INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_circuit_stun");
+					if(cvar == null)
 						return Plugin_Continue;
 
-					if(GetConVarFloat(cvar)<=0)
+					if(cvar.IntValue<=0)
 						return Plugin_Continue;
 
 					TF2_StunPlayer(client, GetConVarFloat(FindConVar("ff2_circuit_stun")), 0.0, TF_STUNFLAGS_SMALLBONK|TF_STUNFLAG_NOSOUNDOREFFECT, attacker);
@@ -1828,10 +1832,10 @@ public Action OnTakeDamage(int client, int &attacker, int &inflictor, float &dam
 				}
 				case 594:  //Phlogistinator
 				{
-					Handle cvar = FindConVar("ff2_hardcodewep");
-					if(cvar != INVALID_HANDLE)
+					ConVar cvar = FindConVar("ff2_hardcodewep");
+					if(cvar != null)
 					{
-						if(GetConVarInt(cvar)>1)
+						if(cvar.IntValue>1)
 							return Plugin_Continue;
 					}
 
@@ -1943,8 +1947,8 @@ public Action OnStomp(int attacker, int victim, float &damageMultiplier, float &
 
 	if(IsMiniBoss[victim] || IsMechaBoss[victim])
 	{
-		damageMultiplier = GetConVarFloat(FindConVar("ff2_goomba_damage"));
-		JumpPower = GetConVarFloat(FindConVar("ff2_goomba_jump"));
+		damageMultiplier = FindConVar("ff2_goomba_damage").FloatValue;
+		JumpPower = FindConVar("ff2_goomba_jump").FloatValue;
 		return Plugin_Changed;
 	}
 	return Plugin_Continue;
@@ -1964,20 +1968,20 @@ stock void RandomlyDisguise(int client)	// From FF2's built-in random disguise
 		int team = UnofficialFF2 ? TF2_GetClientTeam(client)==TFTeam_Red ? view_as<int>(TFTeam_Blue) : view_as<int>(TFTeam_Red) : GetClientTeam(client);
 		// Since Unofficial has the ability to look like a robot while disguised, make it so you disguise as the rival team.
 
-		Handle disguiseArray = CreateArray();
+		ArrayList disguiseArray = new ArrayList();
 		for(int clientcheck; clientcheck<=MaxClients; clientcheck++)
 		{
 			if(IsValidClient(clientcheck) && GetClientTeam(clientcheck)==team && clientcheck!=client)
-				PushArrayCell(disguiseArray, clientcheck);
+				disguiseArray.Push(clientcheck);
 		}
 
-		if(GetArraySize(disguiseArray) <= 0)
+		if(!disguiseArray.Length)
 		{
 			disguiseTarget = client;
 		}
 		else
 		{
-			disguiseTarget = GetArrayCell(disguiseArray, GetRandomInt(0, GetArraySize(disguiseArray)-1));
+			disguiseTarget = disguiseArray.Get(GetRandomInt(0, disguiseArray.Length - 1));
 			if(!IsValidClient(disguiseTarget))
 			{
 				disguiseTarget = client;
@@ -1986,7 +1990,7 @@ stock void RandomlyDisguise(int client)	// From FF2's built-in random disguise
 
 		int class = GetRandomInt(0, 4);
 		TFClassType classArray[] = {TFClass_Scout, TFClass_Pyro, TFClass_Medic, TFClass_Engineer, TFClass_Sniper};
-		CloseHandle(disguiseArray);
+		delete disguiseArray;
 
 		if(TF2_GetPlayerClass(client) == TFClass_Spy)
 		{
@@ -2050,10 +2054,10 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 			}
 		}
 	
-		if(BombTimer<GetEngineTime() && BombLevel<3 && GetEntPropEnt(client, Prop_Send, "m_hGroundEntity")!=-1)
+		if(BombTimer<GetGameTime() && BombLevel<3 && GetEntPropEnt(client, Prop_Send, "m_hGroundEntity")!=-1)
 		{
 			BombLevel++;
-			BombTimer = GetEngineTime()+15.0;
+			BombTimer = GetGameTime()+15.0;
 
 			FakeClientCommand(client, "taunt");
 			EmitSoundToAll(BOMB_UPGRADE, SOUND_FROM_WORLD, SNDCHAN_STATIC, SNDLEVEL_NONE, SND_NOFLAGS, 0.500, SNDPITCH_NORMAL);
@@ -2064,7 +2068,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		return Plugin_Continue;
 
 	int entity = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-	if(IsValidEntity(entity) && IsValidEdict(entity) && GetClientTeam(client)!=bossTeam)
+	if(IsValidEntity(entity) && GetClientTeam(client)!=bossTeam)
 	{
 		int index = GetEntProp(entity, Prop_Send, "m_iItemDefinitionIndex");
 		if((buttons & IN_ATTACK) && !TF2_IsPlayerInCondition(client, TFCond_Cloaked) && !GetEntProp(client, Prop_Send, "m_bFeignDeathReady") && (index==735 || index==736 || index==810 || index==831 || index==933 || index==1080 || index==1102))
@@ -2170,8 +2174,9 @@ public Action SoundHook(int clients[64], int &numClients, char vl[PLATFORM_MAX_P
 	return Plugin_Continue;
 }
 
-public Action SentryBusting(Handle timer, any client)
+public Action SentryBusting(Handle timer, int serial)
 {
+	int client = GetClientFromSerial(serial);
 	if (!IsValidClient(client)) return Plugin_Handled;
 	if (!IsPlayerAlive(client)) return Plugin_Handled;
 	int explosion = CreateEntityByName("env_explosion");
@@ -2179,50 +2184,52 @@ public Action SentryBusting(Handle timer, any client)
 	GetClientAbsOrigin(client, clientPos);
 	if (explosion)
 	{
-		DispatchSpawn(explosion);
 		TeleportEntity(explosion, clientPos, NULL_VECTOR, NULL_VECTOR);
+		DispatchSpawn(explosion);
 		AcceptEntityInput(explosion, "Explode", -1, -1, 0);
-		RemoveEdict(explosion);
+		RemoveEntity(explosion);
 	}
-	for (int i = 1; i <= MaxClients; i++)
+	
+	float zPos[3];
+	int ent = 1;
+	
+	for (; ent <= MaxClients; ent++)
 	{
-		if(!IsValidClient(i) || !IsPlayerAlive(i)) continue;
-		float zPos[3];
-		GetClientAbsOrigin(i, zPos);
+		if(!IsValidClient(ent) || !IsPlayerAlive(ent)) continue;
+		GetClientAbsOrigin(ent, zPos);
 		float Dist = GetVectorDistance(clientPos, zPos);
 		if (Dist > 300.0) continue;
-		DoDamage(client, i, 2500);
+		DoDamage(client, ent, 2500);
 	}
-	for (int i = MaxClients + 1; i <= 2048; i++)
-	{
-		if (!IsValidEntity(i)) continue;
-		char cls[20];
-		GetEntityClassname(i, cls, sizeof(cls));
-		if (!StrEqual(cls, "obj_sentrygun", false) &&
-		!StrEqual(cls, "obj_dispenser", false) &&
-		!StrEqual(cls, "obj_teleporter", false)) continue;
-		float zPos[3];
-		GetEntPropVector(i, Prop_Send, "m_vecOrigin", zPos);
-		float Dist = GetVectorDistance(clientPos, zPos);
-		if (Dist > 300.0) continue;
-		SetVariantInt(2500);
-		AcceptEntityInput(i, "RemoveHealth");
+	
+	++ent;
+	while((ent = FindEntityByClassname(ent, "obj_*")) != -1) {
+		if(HasEntProp(ent, Prop_Send, "m_hBuilder")) {
+			GetEntPropVector(ent, Prop_Send, "m_vecOrigin", zPos);
+			
+			float Dist = GetVectorDistance(clientPos, zPos);
+			if (Dist > 300.0) continue;
+			
+			SetVariantInt(2500);
+			AcceptEntityInput(ent, "RemoveHealth");
+		}
 	}
+	
 	EmitSoundToAll(SentryBusterExplode, client);
 	AttachParticle(client, "fluidSmokeExpl_ring_mvm");
 	DoDamage(client, client, 2500);
-	FakeClientCommand(client, "kill");
-	CreateTimer(0.0, Timer_RemoveRagdoll, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+	ForcePlayerSuicide(client);
+	CreateTimer(0.1, Timer_RemoveRagdoll, GetClientSerial(client), TIMER_FLAG_NO_MAPCHANGE);
 	return Plugin_Handled;
 }
 
-public Action Timer_RemoveRagdoll(Handle timer, any uid)
+public Action Timer_RemoveRagdoll(Handle timer, int serial)
 {
-	int client = GetClientOfUserId(uid);
+	int client = GetClientFromSerial(serial);
 	if (!IsValidClient(client)) return;
 	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
 	if (!IsValidEntity(ragdoll) || ragdoll <= MaxClients) return;
-	AcceptEntityInput(ragdoll, "Kill");
+	RemoveEntity(ragdoll);
 }
 
 stock void DoDamage(int client, int target, int amount) // from Goomba Stomp.
@@ -2299,8 +2306,8 @@ stock void SpawnManyObjects(int client, int amount=14)
 		SetEntProp(entity, Prop_Send, "m_CollisionGroup", 1);
 		SetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity", client);
 		SetEntProp(entity, Prop_Send, "m_iTeamNum", 2);
-		DispatchSpawn(entity);
 		TeleportEntity(entity, position, angle, NULL_VECTOR);
+		DispatchSpawn(entity);
 		SetEntProp(entity, Prop_Data, "m_iHealth", 900);
 		//int offs = GetEntSendPropOffs(entity, "m_vecInitialVelocity", true);
 		//SetEntData(entity, offs-4, 1, _, true);
@@ -2310,7 +2317,7 @@ stock void SpawnManyObjects(int client, int amount=14)
 stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // from L4D Achievement Trophy
 {
 	int particle = CreateEntityByName("info_particle_system");
-	if (!IsValidEdict(particle)) return false;
+	if (!IsValidEntity(particle)) return false;
 	char tName[128];
 	float f_pos[3];
 	if (cache) f_pos[2] -= 3000;
@@ -2328,72 +2335,48 @@ stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // fro
 	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
-	CreateTimer(10.0, DeleteParticle, particle);
+	CreateTimer(10.0, DeleteParticle, EntIndexToEntRef(particle));
 	return true;
 }
 
-stock void CreateParticle(char[] particle, float pos[3])
+stock void CreateParticle(const char[] particle, float pos[3])
 {
 	int tblidx = FindStringTable("ParticleEffectNames");
-	char tmp[256];
-	int count = GetStringTableNumStrings(tblidx);
-	int stridx = INVALID_STRING_INDEX;
-
-	for(int i=0; i<count; i++)
-	{
-		ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-		if(StrEqual(tmp, particle, false))
-		{
-			stridx = i;
-			break;
-		}
+	int stridx = FindStringIndex(tblidx, particle);
+	
+	if(stridx == INVALID_STRING_INDEX) {
+		LogError("Invalid String Table index for particle (%s)", particle);
+		return;
 	}
-
-	for(int i=1; i<=MaxClients; i++)
-	{
-		if(!IsValidEntity(i))
-			continue;
-
-		if(!IsClientInGame(i))
-			continue;
-
-		TE_Start("TFParticleEffect");
-		TE_WriteFloat("m_vecOrigin[0]", pos[0]);
-		TE_WriteFloat("m_vecOrigin[1]", pos[1]);
-		TE_WriteFloat("m_vecOrigin[2]", pos[2]);
-		TE_WriteNum("m_iParticleSystemIndex", stridx);
-		TE_WriteNum("entindex", -1);
-		TE_SendToClient(i, 0.0);
-	}
+	
+	TE_Start("TFParticleEffect");
+	TE_WriteFloat("m_vecOrigin[0]", pos[0]);
+	TE_WriteFloat("m_vecOrigin[1]", pos[1]);
+	TE_WriteFloat("m_vecOrigin[2]", pos[2]);
+	TE_WriteNum("m_iParticleSystemIndex", stridx);
+	TE_WriteNum("entindex", -1);
+	TE_SendToAll();
 }
 
-public Action DeleteParticle(Handle timer, any Ent)
+public Action DeleteParticle(Handle timer, int ref)
 {
-	if (!IsValidEntity(Ent)) return;
-	char cls[25];
-	GetEdictClassname(Ent, cls, sizeof(cls));
-	if (StrEqual(cls, "info_particle_system", false)) AcceptEntityInput(Ent, "Kill");
-	return;
+	int Ent = EntRefToEntIndex(ref);
+	if (!IsValidEntity(Ent)) return Plugin_Continue;
+	RemoveEntity(Ent);
+	return Plugin_Continue;
 }
 
 public void RemoveAllWearables()
 {
 	int entity, owner;
-	while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
-		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
+	while((entity = FindEntityByClassname(entity, "tf_wearable*")) != -1 || (entity=FindEntityByClassname(entity, "tf_powerup_bottle")) !=-1) {
+		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam()) {
 			TF2_RemoveWearable(owner, entity);
-	while((entity=FindEntityByClassname(entity, "tf_wearable_demoshield"))!=-1)
-		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
-			TF2_RemoveWearable(owner, entity);
-	while((entity=FindEntityByClassname(entity, "tf_wearable_razorback"))!=-1)
-		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
-			TF2_RemoveWearable(owner, entity);
-	while((entity=FindEntityByClassname(entity, "tf_powerup_bottle"))!=-1)
-		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
-			TF2_RemoveWearable(owner, entity);
+		}
+	}
 }
 
-stock int[] GetRandomDeadPlayer()
+stock int GetRandomDeadPlayer()
 {
 	int[] clients = new int[MaxClients+1];
 	int clientCount;
@@ -2429,7 +2412,10 @@ stock void SetAmmo(int client, int slot, int ammo)
 	if (IsValidEntity(weapon))
 	{
 		int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		int iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		static int iAmmoTable = 0;
+		if(!iAmmoTable) {
+			iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		}
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
@@ -2519,6 +2505,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 
 public void OnSmallSpawned(int entity)
 {
+	SDKUnhook(entity, SDKHook_Spawn, OnSmallSpawned);
 	SDKHook(entity, SDKHook_StartTouch, OnSmallPickup);
 	SDKHook(entity, SDKHook_Touch, OnSmallPickup);
 	CreateTimer(30.0, Timer_RemoveEntity, EntIndexToEntRef(entity));
@@ -2526,6 +2513,7 @@ public void OnSmallSpawned(int entity)
 
 public void OnMediumSpawned(int entity)
 {
+	SDKUnhook(entity, SDKHook_Spawn, OnMediumSpawned);
 	SDKHook(entity, SDKHook_StartTouch, OnMediumPickup);
 	SDKHook(entity, SDKHook_Touch, OnMediumPickup);
 	CreateTimer(30.0, Timer_RemoveEntity, EntIndexToEntRef(entity));
@@ -2533,6 +2521,7 @@ public void OnMediumSpawned(int entity)
 
 public void OnLargeSpawned(int entity)
 {
+	SDKUnhook(entity, SDKHook_Spawn, OnLargeSpawned);
 	SDKHook(entity, SDKHook_StartTouch, OnLargePickup);
 	SDKHook(entity, SDKHook_Touch, OnLargePickup);
 	CreateTimer(30.0, Timer_RemoveEntity, EntIndexToEntRef(entity));
@@ -2540,6 +2529,7 @@ public void OnLargeSpawned(int entity)
 
 public void OnFlagSpawned(int entity)
 {
+	SDKUnhook(entity, SDKHook_Spawn, OnFlagSpawned);
 	char model[PLATFORM_MAX_PATH];
 	GetEntPropString(entity, Prop_Data, "m_iszModel", model, sizeof(model));
 	if(!strlen(model) || StrEqual(model, BRIEFCASE_MODEL))
@@ -2551,7 +2541,7 @@ public void OnFlagSpawned(int entity)
 	BombEntity = EntIndexToEntRef(entity);
 	BombCarrier = -1;
 	BombLevel = -1;
-	BombTimer = GetEngineTime()+30.0;
+	BombTimer = GetGameTime()+30.0;
 	SDKHook(entity, SDKHook_StartTouch, OnFlagPickup);
 	SDKHook(entity, SDKHook_Touch, OnFlagPickup);
 }
@@ -2635,30 +2625,11 @@ public Action OnFlagPickup(int entity, int client)
 	return Plugin_Continue;
 }
 
-stock void TE_Particle(char[] Name, float origin[3]=NULL_VECTOR, float start[3]=NULL_VECTOR, float angles[3]=NULL_VECTOR, int entindex=-1, int attachtype=-1, int attachpoint=-1, bool resetParticles=true, int customcolors=0, float color1[3]=NULL_VECTOR, float color2[3]=NULL_VECTOR, int controlpoint=-1, int controlpointattachment=-1, float controlpointoffset[3]=NULL_VECTOR, float delay=0.0)
+stock void TE_Particle(const char[] Name, float origin[3]=NULL_VECTOR, float start[3]=NULL_VECTOR, float angles[3]=NULL_VECTOR, int entindex=-1, int attachtype=-1, int attachpoint=-1, bool resetParticles=true, int customcolors=0, float color1[3]=NULL_VECTOR, float color2[3]=NULL_VECTOR, int controlpoint=-1, int controlpointattachment=-1, float controlpointoffset[3]=NULL_VECTOR, float delay=0.0)
 {
 	// find string table
 	int tblidx = FindStringTable("ParticleEffectNames");
-	if(tblidx == INVALID_STRING_TABLE) 
-	{
-		LogError("Could not find string table: ParticleEffectNames");
-		return;
-	}
-	
-	// find particle index
-	char tmp[256];
-	int count = GetStringTableNumStrings(tblidx);
-	int stridx = INVALID_STRING_INDEX;
-	for(int i=0; i<count; i++)
-	{
-		ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-		if(StrEqual(tmp, Name, false))
-		{
-			stridx = i;
-			break;
-		}
-	}
-
+	int stridx = FindStringIndex(tblidx, Name);
 	if(stridx == INVALID_STRING_INDEX)
 	{
 		LogError("Could not find particle: %s", Name);
@@ -2712,8 +2683,8 @@ stock void TE_Particle(char[] Name, float origin[3]=NULL_VECTOR, float start[3]=
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
-		AcceptEntityInput(entity, "Kill");
+	if(IsValidEntity(entity))
+		RemoveEntity(entity);
 
 	return Plugin_Continue;
 }
@@ -2777,12 +2748,8 @@ stock int GetHealingTarget(int client, bool checkgun=false)
 
 	if(IsValidEntity(medigun))
 	{
-		char classname[64];
-		GetEntityClassname(medigun, classname, sizeof(classname));
-		if(!strcmp(classname, "tf_weapon_medigun", false))
-		{
-			if(GetEntProp(medigun, Prop_Send, "m_bHealing"))
-				return GetEntPropEnt(medigun, Prop_Send, "m_hHealingTarget");
+		if(HasEntProp(medigun, Prop_Send, "m_hHealingTarget") && GetEntProp(medigun, Prop_Send, "m_bHealing")) {
+			return GetEntPropEnt(medigun, Prop_Send, "m_hHealingTarget");
 		}
 	}
 	return -1;
