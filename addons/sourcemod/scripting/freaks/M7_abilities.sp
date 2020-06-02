@@ -1,16 +1,11 @@
-#pragma semicolon 1
-
-#include <tf2>
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2items>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <ff2_ams>
-//#tryinclude <freak_fortress_2_extras>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define MAJOR_REVISION "2"
 #define MINOR_REVISION "0"
@@ -22,8 +17,8 @@
 	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION..."."...PATCH_REVISION
 #endif
 
-public Plugin:myinfo = {
-	name = "Freak Fortress 2: New Abilities",
+public Plugin myinfo = {
+	name = "Freak Fortress 2: int Abilities",
 	author = "M7",
 	version = PLUGIN_VERSION,
 };
@@ -46,47 +41,47 @@ enum VoiceMode
 //Charge_New_Salmon
 #define SALMON_NEW "charge_new_salmon"
 #define ZEPH_SND "ambient/siren.wav"
-new Handle:jumpHUD;
-new bEnableSuperDuperJump[MAXPLAYERS+1];
-new Handle:OnHaleJump = INVALID_HANDLE;
-new SummonerIndex[MAXPLAYERS+1];
-new String:SalmonModel[PLATFORM_MAX_PATH], String:Classname[64], String:Attributes[768], String:Condition[768];
-new Sound, Minions, Notify, ModelMode, Class, Wearables, WeaponMode, WeaponIndex, Accessoires, HP, Ammo, Clip, VO, PickupMode;
-new Float:UberchargeDuration;
+Handle jumpHUD;
+int bEnableSuperDuperJump[MAXPLAYERS+1];
+GlobalForward OnHaleJump;
+int SummonerIndex[MAXPLAYERS+1];
+char SalmonModel[PLATFORM_MAX_PATH], Classname[64], Attributes[248], Condition[248];
+int Sound, Minions, Notify, ModelMode, Class, Wearables, WeaponMode, WeaponIndex, Accessoires, HP, Ammo, Clip, VO, PickupMode;
+float UberchargeDuration;
 VoiceMode VOMode[MAXPLAYERS+1];
 
 //Rage_Outline
 #define OUTLINE "rage_outline"
 #define OUTLINEALIAS "ROL"
-new bool:Outline_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Outline)
-new Float:EndOutline;
-new Float:Outlinedistance;
+bool Outline_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Outline)
+float EndOutline;
+float Outlinedistance;
 
 //rage_buffs
 #define BUFFS "rage_buffs"
 #define BUFFSALIAS "RBF"
-new bool:Buffs_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
-new Buffmode;
+bool Buffs_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
+int Buffmode;
 
 //Slay_Minions
 #define SLAY "slay_minions"
 #define SLAYALIAS "SMO"
-new bool:Slay_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
+bool Slay_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
 
 //special_fire
 #define FIRE "special_fire"
 #define FIREALIAS "SPF"
-new bool:Fire_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
-new bool:FireEnabled = true;
-new Float:EndFire;
-new Float:FireEnabledAgain;
-new Float:FireRange;
+bool Fire_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Buffs)
+bool FireEnabled = true;
+float EndFire;
+float FireEnabledAgain;
+float FireRange;
 
 //special_multimelee
 #define MULTIWEAPONS "special_multimelee"
 #define MWS_MAX_WEAPONS 10
-new MWS_WeaponCount[MAXPLAYERS+1]; // arg2
-new MWS_Slot[MAXPLAYERS+1][MWS_MAX_WEAPONS]; // argX6 (16, 26, 36...106)
+int MWS_WeaponCount[MAXPLAYERS+1]; // arg2
+int MWS_Slot[MAXPLAYERS+1][MWS_MAX_WEAPONS]; // argX6 (16, 26, 36...106)
 
 
 #define SPECIALOUTLINE "special_outline"
@@ -94,12 +89,12 @@ new MWS_Slot[MAXPLAYERS+1][MWS_MAX_WEAPONS]; // argX6 (16, 26, 36...106)
 #define AMSSTUNALIAS "SAS"
 #define MADMILKSTUN "special_stun"
 
-public OnMapStart()
+public void OnMapStart()
 {
 	PrecacheSound(ZEPH_SND,true);
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
@@ -109,13 +104,13 @@ public OnPluginStart2()
 	LoadTranslations("ff2_newsalmon.charge");
 }
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	OnHaleJump = CreateGlobalForward("VSH_OnDoJump", ET_Hook, Param_CellByRef);
+	OnHaleJump = new GlobalForward("VSH_OnDoJump", ET_Hook, Param_CellByRef);
 }
 
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -123,9 +118,9 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 	PrepareAbilities();
 }
 
-public PrepareAbilities()
+public void PrepareAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -135,60 +130,20 @@ public PrepareAbilities()
 			
 			//for Rage_Outline
 			EndOutline = INACTIVE;
-			Outline_TriggerAMS[client] = false;
-			
-			//for Rage_Buffs
-			Buffs_TriggerAMS[client] = false;
-			
-			//for Slay_Minions
-			Slay_TriggerAMS[client] = false;
 			
 			//for Special_Fire
 			EndFire = INACTIVE;
 			FireEnabledAgain = INACTIVE;
-			Fire_TriggerAMS[client] = false;
 			
 			VOMode[client]=VoiceMode_Normal;
 			
-			new boss=FF2_GetBossIndex(client);
+			int boss=FF2_GetBossIndex(client);
 			if(boss>=0)
 			{
-				if(FF2_HasAbility(boss, this_plugin_name, OUTLINE))
-				{
-					Outline_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, OUTLINE);
-					if(Outline_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, OUTLINE, OUTLINEALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(boss, this_plugin_name, BUFFS))
-				{
-					Buffs_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, BUFFS);
-					if(Buffs_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, BUFFS, BUFFSALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(boss, this_plugin_name, SLAY))
-				{
-					Slay_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, SLAY);
-					if(Slay_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, SLAY, SLAYALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(boss, this_plugin_name, FIRE))
-				{
-					Fire_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, FIRE);
-					if(Fire_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, FIRE, FIREALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			
+				
 				if(FF2_HasAbility(boss, this_plugin_name, SPECIALOUTLINE))
 				{
-					for(new player=1; player<=MaxClients; player++)
+					for(int player=1; player<=MaxClients; player++)
 					{
 						if(IsClientInGame(player) && IsPlayerAlive(player) && GetClientTeam(player)!= FF2_GetBossTeam())
 						{
@@ -196,18 +151,40 @@ public PrepareAbilities()
 						}
 					}
 				} 
-				if(FF2_HasAbility(boss, this_plugin_name, AMSSTUN))
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, AMSSTUN, AMSSTUNALIAS); // Important function to tell AMS that this subplugin supports it
-				}
+				
 			}
 		}
 	}
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	for(new client=1;client<=MaxClients;client++)
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, OUTLINE))
+	{
+		Outline_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, OUTLINE, OUTLINEALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, BUFFS))
+	{
+		Buffs_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, BUFFS, BUFFSALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, SLAY))
+	{
+		Slay_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, SLAY, SLAYALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, FIRE))
+	{
+		Fire_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, FIRE, FIREALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, AMSSTUN))
+	{
+		FF2AMS_PushToAMS(client, this_plugin_name, AMSSTUN, AMSSTUNALIAS);
+	}
+}
+
+public Action OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
+{
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -231,47 +208,47 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:event_player_death(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_player_death(Event event, const char[] name, bool dontBroadcast)
 {
-	if(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER)
+	if(event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER)
 	{
 		return Plugin_Continue;
 	}
 	
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
-	new client=GetClientOfUserId(GetEventInt(event, "userid"));
+	int attacker=GetClientOfUserId(event.GetInt("attacker"));
+	int client=GetClientOfUserId(event.GetInt("userid"));
 	
-	new boss=FF2_GetBossIndex(attacker); // Boss is an attacker
+	int boss=FF2_GetBossIndex(attacker); // Boss is an attacker
 	if(boss!=-1)
 	{
 		if(FF2_HasAbility(boss, this_plugin_name, MULTIWEAPONS))
 		{
-			static String:weaponName[MAX_WEAPON_NAME_LENGTH];
-			static String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+			static char weaponName[MAX_WEAPON_NAME_LENGTH];
+			static char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 			
-			new rand = GetRandomInt(0, MWS_WeaponCount[attacker] - 1);
-			new argOffset = (rand + 1) * 10;
+			int rand = GetRandomInt(0, MWS_WeaponCount[attacker] - 1);
+			int argOffset = (rand + 1) * 10;
 			
 			MWS_WeaponCount[attacker] = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, 1);
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, MULTIWEAPONS, argOffset + 1, weaponName, MAX_WEAPON_NAME_LENGTH);
-			new weaponIdx = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 2);
+			int weaponIdx = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 2);
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, MULTIWEAPONS, argOffset + 3, weaponArgs, MAX_WEAPON_ARG_LENGTH);
-			new weaponVisibility = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 4);
-			new alpha = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 5);
-			new clip = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 7);
-			new ammo = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 8);
+			int weaponVisibility = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 4);
+			int alpha = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 5);
+			int clip = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 7);
+			int ammo = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, argOffset + 8);
 			
 			MWS_WeaponCount[attacker] = min(MWS_WeaponCount[attacker], MWS_MAX_WEAPONS);
-			for (new i = 0; i < MWS_WeaponCount[attacker]; i++)
+			for (int i = 0; i < MWS_WeaponCount[attacker]; i++)
 			{
-				new offset = (10 * (i + 1));
+				int offset = (10 * (i + 1));
 				// a couple need to be stored as they're needed often
 				MWS_Slot[attacker][i] = FF2_GetAbilityArgument(boss, this_plugin_name, MULTIWEAPONS, 6 + offset);
 			}
 	
 			PrepareForWeaponSwitch(attacker, true);
 			TF2_RemoveWeaponSlot(attacker, MWS_Slot[attacker][rand]);
-			new weapon = SpawnWeapon(attacker, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
+			int weapon = SpawnWeapon(attacker, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 	
 			// alpha transparency, best if the viewmodel doesn't hold it well
 			if (alpha != 255)
@@ -281,7 +258,7 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 			}
 		
 			// set clip and ammo last
-			new offset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
+			int offset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
 			if (offset >= 0)
 			{
 				SetEntProp(attacker, Prop_Send, "m_iAmmo", ammo, 4, offset);
@@ -302,12 +279,12 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	boss=FF2_GetBossIndex(client);	// Boss is the victim
 	if(boss!=-1 && FF2_HasAbility(boss, this_plugin_name, SALMON_NEW) && !(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
-		for(new clone=1; clone<=MaxClients; clone++)
+		for(int clone=1; clone<=MaxClients; clone++)
 		{
 			if(SummonerIndex[clone]==boss && IsValidClient(clone) && IsValidMinion(clone) && IsPlayerAlive(clone))
 			{
 				SummonerIndex[clone]=-1;
-				ChangeClientTeam(clone, (FF2_GetBossTeam()==_:TFTeam_Blue) ? (_:TFTeam_Red) : (_:TFTeam_Blue));
+				ChangeClientTeam(clone, FF2_GetBossTeam()==view_as<int>(TFTeam_Blue) ? (view_as<int>(TFTeam_Red)) : (view_as<int>(TFTeam_Blue)));
 			}
 		}
 	}
@@ -315,70 +292,72 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	return Plugin_Continue;
 }
 
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
-public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTakeDamage(int client, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {	
 	if (attacker<1 || attacker>MaxClients || !IsValidClient(attacker))
 		return Plugin_Continue;	
-	new index = FF2_GetBossIndex(attacker);
+	int index = FF2_GetBossIndex(attacker);
 	if (index!=-1 && client!=attacker && FF2_HasAbility(index, this_plugin_name, MADMILKSTUN) && GetEntPropEnt(attacker, Prop_Send, "m_hActiveWeapon")!=GetPlayerWeaponSlot(attacker, TFWeaponSlot_Melee))
 	{
-		new Float:duration=FF2_GetAbilityArgumentFloat(index, this_plugin_name, MADMILKSTUN, 1, 3.0);
+		float duration=FF2_GetAbilityArgumentFloat(index, this_plugin_name, MADMILKSTUN, 1, 3.0);
 		if (duration>0.25)
 			TF2_StunPlayer(client, duration, 0.0, TF_STUNFLAGS_NORMALBONK, attacker);	
 	}
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 	
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
-	new slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
 	if(!strcmp(ability_name,BUFFS))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Buffs_TriggerAMS[client]=false;
 		}
 		
 		if(!Buffs_TriggerAMS[client])
-			RBF_Invoke(client);
+			RBF_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,OUTLINE))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Outline_TriggerAMS[client]=false;
 		}
 		
 		if(!Outline_TriggerAMS[client])
-			ROL_Invoke(client);
+			ROL_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,FIRE))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Fire_TriggerAMS[client]=false;
 		}
 		
 		if(!Fire_TriggerAMS[client])
-			SPF_Invoke(client);
+			SPF_Invoke(client, -1);
 	}
 	else if (!strcmp(ability_name,SLAY))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Slay_TriggerAMS[client]=false;
 		}
 		
 		if(!Slay_TriggerAMS[client])
-			SMO_Invoke(client);
+			SMO_Invoke(client, -1);
 	}
 	
 	else if (!strcmp(ability_name,SALMON_NEW))
@@ -389,22 +368,22 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 
 
 
-public bool:RBF_CanInvoke(client)
+public AMSResult RBF_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Buffed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_DefenseBuffed)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_RegenBuffed)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Buffed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_DefenseBuffed)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_RegenBuffed)) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public RBF_Invoke(client)
+public void RBF_Invoke(int client, int index)
 {
-	new Boss=FF2_GetBossIndex(client);
+	int Boss=FF2_GetBossIndex(client);
 	Buffmode = FF2_GetAbilityArgument(Boss, this_plugin_name, BUFFS, 1); // Buff type
 	
 	if(Buffs_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_ams_buffs", sound, sizeof(sound), Boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -429,20 +408,20 @@ public RBF_Invoke(client)
 }
 
 
-public bool:ROL_CanInvoke(client)
+public AMSResult ROL_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public ROL_Invoke(client)
+public void ROL_Invoke(int client, int index)
 {
-	new Boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3];
+	int Boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3];
 	Outlinedistance=FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, OUTLINE, 2, FF2_GetRageDist(Boss, this_plugin_name, OUTLINE));
 	
 	if(Outline_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_ams_outline", sound, sizeof(sound), Boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -452,7 +431,7 @@ public ROL_Invoke(client)
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
 	
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!= FF2_GetBossTeam())
 		{
@@ -474,16 +453,16 @@ public ROL_Invoke(client)
 	}
 }
 
-public Outline_Prethink(client)
+public void Outline_Prethink(int client)
 {
 	OutlineTick(client, GetEngineTime());
 }
 
-public OutlineTick(client, Float:gameTime)
+public void OutlineTick(int client, float gameTime)
 {
 	if(gameTime>=EndOutline)
 	{
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!= FF2_GetBossTeam())
 			{
@@ -495,21 +474,21 @@ public OutlineTick(client, Float:gameTime)
 }
 
 
-public bool:SPF_CanInvoke(client)
+public AMSResult SPF_CanInvoke(int client, int index)
 {
-	if(!FireEnabled) return false;
-	return true;
+	if(!FireEnabled) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public SPF_Invoke(client)
+public void SPF_Invoke(int client, int index)
 {
-	new Boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3];
+	int Boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3];
 	FireRange=FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, FIRE, 3, 5.0);
 	
 	if(Fire_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_ams_fire", sound, sizeof(sound), Boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -518,7 +497,7 @@ public SPF_Invoke(client)
 	}
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);	
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -535,16 +514,16 @@ public SPF_Invoke(client)
 	FireEnabledAgain=GetEngineTime()+FF2_GetAbilityArgumentFloat(Boss,this_plugin_name,FIRE,2,5.0);
 }
 
-public Fire_Prethink(client)
+public void Fire_Prethink(int client)
 {
 	FireTick(client, GetEngineTime());
 }
 
-public FireTick(client, Float:gameTime)
+public void FireTick(int client, float gameTime)
 {
 	if(gameTime>=EndFire)
 	{
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!= FF2_GetBossTeam() && TF2_IsPlayerInCondition(i, TFCond_OnFire))
 			{
@@ -561,18 +540,18 @@ public FireTick(client, Float:gameTime)
 
 
 
-public bool:SMO_CanInvoke(client)
+public AMSResult SMO_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public SMO_Invoke(client)
+public void SMO_Invoke(int client, int index)
 {
-	new Boss=FF2_GetBossIndex(client);
+	int Boss=FF2_GetBossIndex(client);
 	
 	if(Slay_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_ams_slay", sound, sizeof(sound), Boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -583,9 +562,9 @@ public SMO_Invoke(client)
 	CreateTimer(FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, SLAY, 1, 5.0), Timer_StopMinions);
 }
 
-public Action:Timer_StopMinions(Handle:timer)
+public Action Timer_StopMinions(Handle timer)
 {
-	for(new target = 1; target <= MaxClients; target++)
+	for(int target = 1; target <= MaxClients; target++)
 	{
 		if (IsValidClient(target) && IsValidMinion(target))
 		{
@@ -596,29 +575,29 @@ public Action:Timer_StopMinions(Handle:timer)
 }
 
 
-public bool:SAS_CanInvoke(client)
+public AMSResult SAS_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public SAS_Invoke(client)
+public void SAS_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3], Float:sentryPosition[3];
-	new Float:Stunduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 1, 5.0);
-	new Float:Stundistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 2, FF2_GetRageDist(boss, this_plugin_name, AMSSTUN));
-	new Float:Sentryduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 3, 7.0);
-	new Float:Sentrydistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 4, FF2_GetRageDist(boss, this_plugin_name, AMSSTUN));
+	int boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3], sentryPosition[3];
+	float Stunduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 1, 5.0);
+	float Stundistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 2, FF2_GetRageDist(boss, this_plugin_name, AMSSTUN));
+	float Sentryduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 3, 7.0);
+	float Sentrydistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, AMSSTUN, 4, FF2_GetRageDist(boss, this_plugin_name, AMSSTUN));
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
 	
-	new String:sound[PLATFORM_MAX_PATH];
+	char sound[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_ams_stun", sound, sizeof(sound), boss))
 	{
 		EmitSoundToAll(sound, client);
 		EmitSoundToAll(sound, client);
 	}
 
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -626,29 +605,29 @@ public SAS_Invoke(client)
 			if(!TF2_IsPlayerInCondition(target, TFCond_Ubercharged) && (GetVectorDistance(bossPosition, targetPosition)<=Stundistance))
 			{
 				TF2_StunPlayer(target, Stunduration, 0.0, TF_STUNFLAGS_GHOSTSCARE|TF_STUNFLAG_NOSOUNDOREFFECT, client);
-				CreateTimer(Stunduration, RemoveEntity, EntIndexToEntRef(AttachParticle(target, "yikes_fx", 75.0)), TIMER_FLAG_NO_MAPCHANGE);
+				CreateTimer(Stunduration, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(target, "yikes_fx", 75.0)), TIMER_FLAG_NO_MAPCHANGE);
 			}
 		}
 	}
 	
-	new sentry;
+	int sentry;
 	while((sentry=FindEntityByClassname(sentry, "obj_sentrygun"))!=-1)
 	{
 		GetEntPropVector(sentry, Prop_Send, "m_vecOrigin", sentryPosition);
 		if(GetVectorDistance(bossPosition, sentryPosition)<=Sentrydistance)
 		{
 			SetEntProp(sentry, Prop_Send, "m_bDisabled", 1);
-			CreateTimer(Sentryduration, RemoveEntity, EntIndexToEntRef(AttachParticle(sentry, "yikes_fx", 75.0)), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(Sentryduration, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(sentry, "yikes_fx", 75.0)), TIMER_FLAG_NO_MAPCHANGE);
 			CreateTimer(Sentryduration, Timer_EnableSentry, EntIndexToEntRef(sentry), TIMER_FLAG_NO_MAPCHANGE);
 		}
 	}
 }
 
 
-Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
+void Charge_New_Salmon(const char[] ability_name, int boss, int client, int slot, int action)
 {
-	new weapon;
-	new Float:charge=FF2_GetBossCharge(boss,slot);
+	int weapon;
+	float charge=FF2_GetBossCharge(boss,slot);
 	Sound=FF2_GetAbilityArgument(boss,this_plugin_name,ability_name, 3);	//sound
 	Minions=FF2_GetAbilityArgument(boss,this_plugin_name,ability_name, 4);	// How many Minions?
 	UberchargeDuration=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,ability_name, 5); // Spawn Protection
@@ -707,8 +686,8 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 		}
 		case 3:
 		{
-			new Action:act = Plugin_Continue;
-			new super = bEnableSuperDuperJump[boss];
+			Action act = Plugin_Continue;
+			int super = bEnableSuperDuperJump[boss];
 			Call_StartForward(OnHaleJump);
 			Call_PushCellRef(super);
 			Call_Finish(act);
@@ -716,11 +695,11 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 				return;
 			if (act == Plugin_Changed) bEnableSuperDuperJump[boss] = super;
 			
-			decl Float:pos[3];
+			static float pos[3];
 			if (bEnableSuperDuperJump[boss])
 			{
-				decl Float:vel[3];
-				decl Float:rot[3];
+				static float vel[3];
+				static float rot[3];
 				GetEntPropVector(client, Prop_Data, "m_vecVelocity", vel);
 				GetClientEyeAngles(client, rot);
 				vel[2]=750.0+500.0*charge/70+2000;
@@ -737,12 +716,12 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 					return;					
 				}
 				
-				new ii;
+				int ii;
 				
 				if(Sound!=0)
 					EmitSoundToAll(ZEPH_SND);
 					
-				for (new i=0; i<Minions; i++)
+				for (int i=0; i<Minions; i++)
 				{
 					ii = GetRandomDeadPlayer();
 					if(ii != -1)
@@ -819,7 +798,7 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 							SetCondition(ii, Condition);
 						if(Wearables)
 						{
-							new owner, entity;
+							int owner, entity;
 							while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
 								if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
 									TF2_RemoveWearable(owner, entity);
@@ -850,7 +829,7 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 							{
 								char taunt[PLATFORM_MAX_PATH];
 								Handle curBossKV=FF2_GetSpecialKV(boss, false);
-								TF2_SetPlayerClass(ii, TFClassType:KvGetNum(curBossKV, "class", 0), _, false);
+								TF2_SetPlayerClass(ii, view_as<TFClassType>(KvGetNum(curBossKV, "class", 0)), _, false);
 								KvGetString(curBossKV, "model", SalmonModel, PLATFORM_MAX_PATH);	
 								if(KvGetNum(curBossKV, "sound_block_vo", 0))
 								{
@@ -869,21 +848,21 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 					
 								if(Class)
 								{
-									TF2_SetPlayerClass(ii, TFClassType:Class, _, false);
+									TF2_SetPlayerClass(ii, view_as<TFClassType>(Class), _, false);
 								}
 					
 								SetPlayerModel(ii, SalmonModel);
 					
 								if(VO)
 								{
-									VOMode[ii]=VoiceMode:VO;
+									VOMode[ii]=view_as<VoiceMode>(VO);
 								}
 							}
 						
 						}
 						if(Notify!=0)
 						{
-							new String:spcl[768];
+							char spcl[768];
 							FF2_GetBossSpecial(boss, spcl, sizeof(spcl));
 							PrintHintText(client, "%t", "minion_summoner");
 							PrintHintText(ii, "%t", "minion_summoned", spcl);
@@ -898,13 +877,13 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 					}
 				}
 			}
-			decl String:s[PLATFORM_MAX_PATH];
+			static char s[PLATFORM_MAX_PATH];
 			if (FF2_RandomSound("sound_ability",s,PLATFORM_MAX_PATH,boss,slot))
 			{
 				EmitSoundToAll(s, client, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, pos, NULL_VECTOR, true, 0.0);
 				EmitSoundToAll(s, client, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, pos, NULL_VECTOR, true, 0.0);
 					
-				for (new i=1; i<=MaxClients; i++)
+				for (int i=1; i<=MaxClients; i++)
 				{
 					if (IsClientInGame(i) && i!=client)
 					{
@@ -917,7 +896,7 @@ Charge_New_Salmon(const String:ability_name[],boss,client,slot,action)
 	}
 }
 
-stock void SetPlayerModel(client, char[] model)
+stock void SetPlayerModel(int client, char[] model)
 {	
 	if(!IsModelPrecached(model))
 	{
@@ -929,14 +908,14 @@ stock void SetPlayerModel(client, char[] model)
 	SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
 }
 
-public Action:Timer_ResetCharge(Handle:timer, any:index)
+public Action Timer_ResetCharge(Handle timer, any index)
 {
-	new slot=index%10000;
+	int slot=index%10000;
 	index/=1000;
 	FF2_SetBossCharge(index,slot,0.0);
 }
 
-public Action:FF2_OnTriggerHurt(index,triggerhurt,&Float:damage)
+public Action FF2_OnTriggerHurt(int index, int triggerhurt,float& damage)
 {
 	bEnableSuperDuperJump[index]=true;
 	if (FF2_GetBossCharge(index,1)<0)
@@ -945,12 +924,11 @@ public Action:FF2_OnTriggerHurt(index,triggerhurt,&Float:damage)
 }
 
 
-#if SOURCEMOD_V_MAJOR==1 && SOURCEMOD_V_MINOR<=7
-public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], &client, &channel, &Float:volume, &level, &pitch, &flags)
-#else
-public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], &client, &channel, &Float:volume, &level, &pitch, &flags, String:soundEntry[PLATFORM_MAX_PATH], &seed)
-#endif
+public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char vl[PLATFORM_MAX_PATH],
+					  int& client, int& channel, float& volume, int& level, int& pitch, int& flags,
+					  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
+	  	
 	if(!IsValidClient(client) || channel<1)
 	{
 		return Plugin_Continue;
@@ -971,7 +949,7 @@ public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], 
 			{
 				if (StrContains(vl, "player/footsteps/", false) != -1 && TF2_GetPlayerClass(client) != TFClass_Medic)
 				{
-					new rand = GetRandomInt(1,18);
+					int rand = GetRandomInt(1,18);
 					Format(vl, sizeof(vl), "mvm/player/footsteps/robostep_%s%i.wav", (rand < 10) ? "0" : "", rand);
 					pitch = GetRandomInt(95, 100);
 					EmitSoundToAll(vl, client, _, _, _, 0.25, pitch);
@@ -982,11 +960,11 @@ public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], 
 					if (volume == 0.99997) return Plugin_Continue;
 					ReplaceString(vl, sizeof(vl), "vo/", "vo/mvm/norm/", false);
 					ReplaceString(vl, sizeof(vl), ".wav", ".mp3", false);
-					new String:classname[10], String:classname_mvm[15];
+					char classname[10], classname_mvm[15];
 					TF2_GetNameOfClass(TF2_GetPlayerClass(client), classname, sizeof(classname));
 					Format(classname_mvm, sizeof(classname_mvm), "%s_mvm", classname);
 					ReplaceString(vl, sizeof(vl), classname, classname_mvm, false);
-					new String:nSnd[PLATFORM_MAX_PATH];
+					char nSnd[PLATFORM_MAX_PATH];
 					Format(nSnd, sizeof(nSnd), "sound/%s", vl);
 					PrecacheSound(vl);
 				}
@@ -1015,7 +993,6 @@ public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], 
 	return Plugin_Continue;
 }
 
-#if !defined _FF2_Extras_included
 stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1, bool preserve = false)
 {
 	if(StrEqual(name,"saxxy", false)) // if "saxxy" is specified as the name, replace with appropiate name
@@ -1106,7 +1083,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 }
 
 Handle S93SF_equipWearable = INVALID_HANDLE;
-stock void Wearable_EquipWearable(client, wearable)
+stock void Wearable_EquipWearable(int client, int wearable)
 {
 	if(S93SF_equipWearable==INVALID_HANDLE)
 	{
@@ -1129,36 +1106,36 @@ stock void Wearable_EquipWearable(client, wearable)
 	}
 	SDKCall(S93SF_equipWearable, client, wearable);
 }
-#endif
 
-stock SetAmmo(client, slot, ammo)
+stock void SetAmmo(int client, int slot, int ammo)
 {
-	new weapon2 = GetPlayerWeaponSlot(client, slot);
+	int weapon2 = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon2))
 	{
-		new iOffset = GetEntProp(weapon2, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		new iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		int iOffset = GetEntProp(weapon2, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+		int iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
 
-stock SetCondition(client, String:cond[]) // Sets multi TFConds to a client
+stock void SetCondition(int client, const char[] cond) // Sets multi TFConds to a client
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i+=2)
+		for (int i = 0; i < count; i+=2)
 		{
-			TF2_AddCondition(client, TFCond:StringToInt(conds[i]), StringToFloat(conds[i+1]));
+			TF2_AddCondition(client, view_as<TFCond>(StringToInt(conds[i])), StringToFloat(conds[i+1]));
 		}
 	}
 }
 
-stock GetRandomDeadPlayer()
+stock int GetRandomDeadPlayer()
 {
-	new clients[MaxClients+1], clientCount;
-	for(new i=1;i<=MaxClients;i++)
+	int clientCount;
+	int[] clients = new int[MaxClients + 1];
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if (IsValidEdict(i) && IsClientConnected(i) && IsClientInGame(i) && !IsPlayerAlive(i) && (GetClientTeam(i) > 1))
 		{
@@ -1168,7 +1145,7 @@ stock GetRandomDeadPlayer()
 	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;
@@ -1176,13 +1153,13 @@ stock bool:IsValidClient(client)
 	return true;
 }
 
-stock bool:IsValidBoss(client)
+stock bool IsValidBoss(int client)
 {
 	if (FF2_GetBossIndex(client) == -1) return false;
 	return true;
 }
 
-stock bool:IsValidMinion(client)
+stock bool IsValidMinion(int client)
 {
 	if (GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	if (FF2_GetBossIndex(client) != -1) return false;
@@ -1190,7 +1167,7 @@ stock bool:IsValidMinion(client)
 	return true;
 }
 
-stock TF2_GetNameOfClass(TFClassType:class, String:name[], maxlen) // Retrieves player class name
+stock void TF2_GetNameOfClass(TFClassType class, char[] name, int maxlen) // Retrieves player class name
 {
 	switch (class)
 	{
@@ -1206,12 +1183,12 @@ stock TF2_GetNameOfClass(TFClassType:class, String:name[], maxlen) // Retrieves 
 	}
 }
 
-stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
-	decl String:targetName[128];
-	new Float:position[3];
+	static char targetName[128];
+	float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2]+=offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -1233,17 +1210,15 @@ stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attac
 	AcceptEntityInput(particle, "start");
 	return particle;
 }
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity=EntRefToEntIndex(entid);
+	int entity=EntRefToEntIndex(entid);
 	if(IsValidEntity(entity) && entity>MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
-public Action:Timer_EnableSentry(Handle:timer, any:sentryid)
+public Action Timer_EnableSentry(Handle timer, any sentryid)
 {
-	new sentry=EntRefToEntIndex(sentryid);
+	int sentry=EntRefToEntIndex(sentryid);
 	if(FF2_GetRoundState()==1 && sentry>MaxClients)
 	{
 		SetEntProp(sentry, Prop_Send, "m_bDisabled", 0);
@@ -1254,15 +1229,15 @@ public Action:Timer_EnableSentry(Handle:timer, any:sentryid)
 // need to briefly stun the target if they have continuous or other special weapons out
 // these weapons can do so much as crash the user's client if they're quick switched
 // the stun-unstun will prevent this from happening, but it may or may not stop the target's motion if on ground
-stock PrepareForWeaponSwitch(clientIdx, bool:isBoss)
+stock void PrepareForWeaponSwitch(int clientIdx, bool isBoss)
 {
-	new primary = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
+	int primary = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
 	if (!IsValidEntity(primary) || primary != GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"))
 		return;
 	
-	new bool:shouldStun = false;
-	static String:restoreClassname[MAX_ENTITY_CLASSNAME_LENGTH];
-	new itemDefinitionIndex = -1;
+	bool shouldStun = false;
+	static char restoreClassname[MAX_ENTITY_CLASSNAME_LENGTH];
+	int itemDefinitionIndex = -1;
 	if (EntityStartsWith(primary, "tf_weapon_minigun") || EntityStartsWith(primary, "tf_weapon_compound_bow"))
 	{
 		if (!isBoss)
@@ -1299,29 +1274,14 @@ stock PrepareForWeaponSwitch(clientIdx, bool:isBoss)
 	}
 }
 
-stock bool:EntityStartsWith(entity, const String:desiredPrefix[])
+stock bool EntityStartsWith(int entity, const char[] desiredPrefix)
 {
-	static String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+	static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 	GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 	return StrContains(classname, desiredPrefix) == 0;
 }
 
-stock min(n1, n2)
+stock int min(int n1, int n2)
 {
 	return n1 < n2 ? n1 : n2;
-}
-
-stock Float:fmin(Float:n1, Float:n2)
-{
-	return n1 < n2 ? n1 : n2;
-}
-
-stock max(n1, n2)
-{
-	return n1 > n2 ? n1 : n2;
-}
-
-stock Float:fmax(Float:n1, Float:n2)
-{
-	return n1 > n2 ? n1 : n2;
 }
