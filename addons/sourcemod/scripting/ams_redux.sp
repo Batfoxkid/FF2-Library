@@ -41,7 +41,7 @@
 	
 	credit to sarysa for the original AMS, that he/she used for epic scout.
 	unfortunately it doesn't support backward compatibility. But to update it, all you have to do is :
-	-update AMS_InitSubAbility() to FF2AMS_PushToAMS() or FF2AMS_InitSubAbility().
+	-update AMS_InitSubAbility() to FF2AMS_PushToAMS() or FF2AMS_PushToAMSEx().
 	-return AMS_Accept or any value you want (check .inc file) for _CanInvoke instead of true.
 	-if needed, use FF2AMS_IsAMSActivatedFor() instead of AMS_IsSubAbilityReady().
 	
@@ -359,19 +359,7 @@ static AMSResult FF2_GetAMSType(int client, int index, bool hud=false)
 	return hud ? AMS_Accept:Handle_AMSPreAbility(client, index);
 }
 
-public bool FF2_PushToAMS(int client, Handle pContext, const char[] plugin, const char[] ability, const char[] prefix)
-{
-	FF2Prep player = FF2Prep(client);
-	
-	if(AMS_Position[client][Stack] >= MAXABILITIES) {
-		return false;
-	}
-	
-	AMS_Settings[client][AMS_Position[client][Stack]++] = new AMSSettings(player, pContext, plugin, ability, prefix);
-	return true;
-}
-
-public int FF2_PushToAMSEx(int client, Handle pContext, const char[] plugin, const char[] ability, const char[] prefix)
+public int FF2_PushToAMS(int client, Handle pContext, const char[] plugin, const char[] ability, const char[] prefix)
 {
 	FF2Prep player = FF2Prep(client);
 	
@@ -392,47 +380,67 @@ public Action Timer_RemoveBypass(Handle Timer, int boss)
 public any Native_PushToAMSEx(Handle pContext, int Params) 
 {
 	int client = GetNativeCell(1);
+	if (client < 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
+	}
 	
 	char plugin[64]; GetNativeString(2, plugin, sizeof(plugin));
 	char ability[64]; GetNativeString(3, ability, sizeof(ability));
 	char prefix[6]; GetNativeString(4, prefix, sizeof(prefix));
 	
-	return FF2_PushToAMSEx(client, pContext, plugin, ability, prefix);
+	if (IsEmptyString(plugin) || IsEmptyString(ability) || IsEmptyString(prefix)) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s)/prefix(%s) cannot be empty!", plugin, ability, prefix);
+	}
+	
+	return FF2_PushToAMS(client, pContext, plugin, ability, prefix);
 }
 
 public any Native_PushToAMS(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
+	if (client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
+	}
+	
 	char plugin[64]; GetNativeString(2, plugin, sizeof(plugin));
 	char ability[64]; GetNativeString(3, ability, sizeof(ability));
 	char prefix[6]; GetNativeString(4, prefix, sizeof(prefix));
 	
-	return FF2_PushToAMS(client, pContext, plugin, ability, prefix);
+	if (IsEmptyString(plugin) || IsEmptyString(ability) || IsEmptyString(prefix)) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s)/prefix(%s) cannot be empty!", plugin, ability, prefix);
+	}
+	
+	return FF2_PushToAMS(client, pContext, plugin, ability, prefix) != -1;
 }
 
 public any Native_GetTotalAbilities(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
+	if (client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
+	}
 	return AMS_Position[client][Stack];
 }
 
 public any Native_GetAMSHandle(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
-	if(client <= 0 || client > MaxClients) {
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index %i", client);
+	if (client <= 0 || client > MaxClients || GlobalAMS[client] == null) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
 	}
 	int index = GetNativeCell(2);
-	if(index < 0 || GlobalAMS[client]==null)
-		return view_as<StringMap>(null);
+	if(index < 0 || index >= AMS_Position[client][Stack]) {
+		return ThrowNativeError(SP_ERROR_ARRAY_BOUNDS, "client (%i) doesn't have an AMS ability", client);
+	}
+	
 	return view_as<StringMap>(AMS_Settings[client][index]);
 }
 
 public any Native_GetAMSGlobalHandle(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
-	if(client <= 0 || client > MaxClients) {
-		return ThrowNativeError(SP_ERROR_INDEX, "Invalid client index %i", client);
+	if (client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
 	}
 	return view_as<StringMap>(GlobalAMS[client]);
 }
@@ -440,6 +448,9 @@ public any Native_GetAMSGlobalHandle(Handle pContext, int Params)
 public any Native_IsAMSReadyFor(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
+	if(client <= 0 || client > MaxClients) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
+	}
 	return GlobalAMS[client] != null;
 }
 
