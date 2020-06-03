@@ -1,15 +1,11 @@
-#pragma semicolon 1
-
-#include <sourcemod>
 #include <clientprefs>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <morecolors>
-//#tryinclude <freak_fortress_2_extras>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 // All the general informations here
 #define FAR_FUTURE 100000000.0
@@ -33,101 +29,101 @@
 #define BLOODRIDER_SNIPER	"models/freak_fortress_2/bloodriderv3/sniper.mdl"
 #define BLOODRIDER_SPY		"models/freak_fortress_2/bloodriderv3/spy.mdl"
 
-new BloodriderBossIdx;
-new bool:RoundInProgress = false;
-new bool:BossIsWinner = false;
-new String:BOuttro[PLATFORM_MAX_PATH];
-new bool:hooksEnabled = false;
-new bool:IsBloodrider[MAXPLAYERS+1];
-new bool:bloodisboss = false;
+int BloodriderBossIdx;
+bool RoundInProgress = false;
+bool BossIsWinner = false;
+char BOuttro[PLATFORM_MAX_PATH];
+bool hooksEnabled = false;
+bool IsBloodrider[MAXPLAYERS+1];
+bool bloodisboss = false;
 
 // So many bools here, goddamn
-new weapondifficulty;
-new bool:grapplinkhookboss;
-new bool:grapplinkhookplayers;
-new bool:givehookback;
-new bool:IntroOutroOn;
-new AdditionalVoiceOvers;
-new String:hookbossargs[MAX_WEAPON_ARG_LENGTH], String:hookplayersargs[MAX_WEAPON_ARG_LENGTH];
+int weapondifficulty;
+bool grapplinkhookboss;
+bool grapplinkhookplayers;
+bool givehookback;
+bool IntroOutroOn;
+int AdditionalVoiceOvers;
+char hookbossargs[MAX_WEAPON_ARG_LENGTH], hookplayersargs[MAX_WEAPON_ARG_LENGTH];
 
 // Regeneration stuff
-new bool:RegenerateLivesOn;
-new timeleft_stacks[MAXPLAYERS+1];
-new timeleft[MAXPLAYERS+1];
-new Handle:Timer_toReincarnate[MAXPLAYERS+1];
-new Handle:cooldownHUD;
+bool RegenerateLivesOn;
+int timeleft_stacks[MAXPLAYERS+1];
+int timeleft[MAXPLAYERS+1];
+Handle Timer_toReincarnate[MAXPLAYERS+1];
+Handle cooldownHUD;
 
 // Level up Stuff
-new LevelingUp;
-new bool:IsRandomDifficultyMode = false;
-new Minimum;
-new Maximum;
+int LevelingUp;
+bool IsRandomDifficultyMode = false;
+int Minimum;
+int Maximum;
 
 // Waves
-new bool:Waveenabled;
-new grenadeExtention=0;
-new startTime=0;
-new BloodMaxWaves=0;
-new grenadeCount=0;
+bool Waveenabled;
+int grenadeExtention=0;
+int startTime=0;
+int BloodMaxWaves=0;
+int grenadeCount=0;
 
 // Reanimators
-new MaxClientRevives;
-new ReviveMarkerDecayTime;
-new clientRevives[MAXPLAYERS+1]=0;
-new reviveMarker[MAXPLAYERS+1];
-new bool:ChangeClass[MAXPLAYERS+1] = { false, ... };
-new currentTeam[MAXPLAYERS+1] = {0, ... };
-new Float:Blood_LastPlayerPos[MAXPLAYERS+1][3];
+int MaxClientRevives;
+int ReviveMarkerDecayTime;
+int clientRevives[MAXPLAYERS+1]=0;
+int reviveMarker[MAXPLAYERS+1];
+bool ChangeClass[MAXPLAYERS+1] = { false, ... };
+int currentTeam[MAXPLAYERS+1] = {0, ... };
+float Blood_LastPlayerPos[MAXPLAYERS+1][3];
 
 // Speedmanagement (Two lines because it looks better)
-new String:ScoutSpeed[MAXPLAYERS+1], String:SoldierSpeed[MAXPLAYERS+1], String:PyroSpeed[MAXPLAYERS+1], String:DemoSpeed[MAXPLAYERS+1], String:HeavySpeed[MAXPLAYERS+1];
-new String:EngineerSpeed[MAXPLAYERS+1], String:MedicSpeed[MAXPLAYERS+1], String:SniperSpeed[MAXPLAYERS+1], String:SpySpeed[MAXPLAYERS+1];
-new Float:BloodriderSpeed[MAXPLAYERS+1];
+char ScoutSpeed[6], SoldierSpeed[6], PyroSpeed[6], DemoSpeed[6], HeavySpeed[6];
+char EngineerSpeed[6], MedicSpeed[6], SniperSpeed[6], SpySpeed[6];
+float BloodriderSpeed[MAXPLAYERS+1];
 
 // HUD
-new String:BLOOD_BossHud[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // HUD type: Boss
-new String:BLOOD_Client[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // HUD type: Player
-new String:BLOOD_Easy[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Easy
-new String:BLOOD_Normal[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Normal
-new String:BLOOD_Intermediate[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Intermediate
-new String:BLOOD_Difficult[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Difficult
-new String:BLOOD_Lunatic[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Lunatic
-new String:BLOOD_Insane[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Insane
-new String:BLOOD_Godlike[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Godlike
-new String:BLOOD_GrenadeHell[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Grenade Hell
-new String:BLOOD_TrueBloodrider[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // True Bloodrider
-new String:BLOOD_RNGDisplay[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // RNGLevel
-new String:BLOOD_Counter[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // counter HUD
-new String:BLOOD_Counter2[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // counter HUD
-new String:BLOOD_CombatModeNoMelee[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // string name: combatmode_nomelee
-new String:BLOOD_CombatModeWithMelee[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // string name: combatmode_withmelee
-new String:BLOOD_NoMoreRevives[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+char BLOOD_BossHud[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // HUD type: Boss
+char BLOOD_Client[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // HUD type: Player
+char BLOOD_Easy[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Easy
+char BLOOD_Normal[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Normal
+char BLOOD_Intermediate[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Intermediate
+char BLOOD_Difficult[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Difficult
+char BLOOD_Lunatic[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Lunatic
+char BLOOD_Insane[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Insane
+char BLOOD_Godlike[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Godlike
+char BLOOD_GrenadeHell[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // Grenade Hell
+char BLOOD_TrueBloodrider[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // True Bloodrider
+char BLOOD_RNGDisplay[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // RNGLevel
+char BLOOD_Counter[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // counter HUD
+char BLOOD_Counter2[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // counter HUD
+char BLOOD_CombatModeNoMelee[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // string name: combatmode_nomelee
+char BLOOD_CombatModeWithMelee[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // string name: combatmode_withmelee
+char BLOOD_NoMoreRevives[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
 
-new String:regenerationHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
-new String:regeneratedHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
-new String:warningHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
-new String:Bloodrider_DifficultyLevelString[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+char regenerationHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+char regeneratedHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+char warningHUD[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+char Bloodrider_DifficultyLevelString[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
 
-new Handle:ClientHUDS;
-new Handle:BossHUDS;
-new Handle:counterHUD;
-new Handle:StatHUDS;
+Handle ClientHUDS;
+Handle BossHUDS;
+Handle counterHUD;
+Handle StatHUDS;
 
 // Internal stuff
-new bool:Raging[MAXPLAYERS+1] = false;
-new bool:Nextlive[MAXPLAYERS+1] = false;
-new bool:cantGetLives[MAXPLAYERS+1];
+bool Raging[MAXPLAYERS+1] = false;
+bool Nextlive[MAXPLAYERS+1] = false;
+bool cantGetLives[MAXPLAYERS+1];
 
 // many, many timer replacements
-new Float:Bloodrider_FindBloodriderAt;
-new Float:Blood_HUDSync;
-new Float:NewGrenadeTimer;
-new Float:Blood_WaveTick;
-new Float:Blood_AdminTauntAt;
-new Float:Blood_RemoveUberAt;
-new Float:Blood_ReverifyGrapplinkhooksAt[MAXPLAYERS+1];
-new Float:Blood_RemoveReviveMarkerAt[MAXPLAYERS+1];
-new Float:Blood_MoveReviveMarkerAt[MAXPLAYERS+1];
+float Bloodrider_FindBloodriderAt;
+float Blood_HUDSync;
+float NewGrenadeTimer;
+float Blood_WaveTick;
+float Blood_AdminTauntAt;
+float Blood_RemoveUberAt;
+float Blood_ReverifyGrapplinkhooksAt[MAXPLAYERS+1];
+float Blood_RemoveReviveMarkerAt[MAXPLAYERS+1];
+float Blood_MoveReviveMarkerAt[MAXPLAYERS+1];
 
 /**
  * Stat Tracker - 28 December 2015 (Original date in Blitzkriegs plugin, as for Bloodrider, its the 18.09.2018)
@@ -147,7 +143,7 @@ int Blood_grapplinkKills[MAXPLAYERS+1];
 int Blood_Deaths[MAXPLAYERS+1];
 
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Bloodrider - the 9 Soul Grenade Spammer",
 	author = "M7",
 	description="Bloodriders abilities",
@@ -155,21 +151,21 @@ public Plugin:myinfo = {
 };
 
 
-Handle winCookie = null;
-Handle lossCookie = null;
-Handle killCookie = null;
-Handle killMeleeCookie = null;
-Handle killHookCookie = null;
-Handle deathCookie = null;
+Cookie winCookie = null;
+Cookie lossCookie = null;
+Cookie killCookie = null;
+Cookie killMeleeCookie = null;
+Cookie killHookCookie = null;
+Cookie deathCookie = null;
 
 void PrepareStatTrakCookie()
 {
-	winCookie = RegClientCookie("blood_wins", "Bloodrider Win Tracker", CookieAccess_Public);
-	lossCookie = RegClientCookie("blood_losses", "Bloodrider Loss Tracker", CookieAccess_Public);
-	killCookie = RegClientCookie("blood_grenade_kills", "Bloodrider Kill Tracker", CookieAccess_Public);
-	killMeleeCookie = RegClientCookie("blood_melee_kills", "Bloodrider Melee Kill Tracker", CookieAccess_Public);
-	killHookCookie = RegClientCookie("blood_hook_kills", "Bloodrider Hook Kill Tracker", CookieAccess_Public);
-	deathCookie = RegClientCookie("blood_deaths", "Bloodrider Death Tracker", CookieAccess_Public);
+	winCookie = new Cookie("blood_wins", "Bloodrider Win Tracker", CookieAccess_Public);
+	lossCookie = new Cookie("blood_losses", "Bloodrider Loss Tracker", CookieAccess_Public);
+	killCookie = new Cookie("blood_grenade_kills", "Bloodrider Kill Tracker", CookieAccess_Public);
+	killMeleeCookie = new Cookie("blood_melee_kills", "Bloodrider Melee Kill Tracker", CookieAccess_Public);
+	killHookCookie = new Cookie("blood_hook_kills", "Bloodrider Hook Kill Tracker", CookieAccess_Public);
+	deathCookie = new Cookie("blood_deaths", "Bloodrider Death Tracker", CookieAccess_Public);
 
 	for(int i = 0; i < MaxClients; i++)
 	{
@@ -195,33 +191,43 @@ stock void SaveStatCookie(int client)
 {
 	char statCookie[256];
 	IntToString(Blood_Wins[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, winCookie, statCookie);
+	winCookie.Set(client, statCookie);
+	
 	IntToString(Blood_Losses[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, lossCookie, statCookie);
+	lossCookie.Set(client, statCookie);
+	
 	IntToString(Blood_grenadeKills[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, killCookie, statCookie);
+	killCookie.Set(client, statCookie);
+	
 	IntToString(Blood_meleeKills[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, killMeleeCookie, statCookie);
+	killMeleeCookie.Set(client, statCookie);
+	
 	IntToString(Blood_grapplinkKills[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, killHookCookie, statCookie);
+	killHookCookie.Set(client, statCookie);
+	
 	IntToString(Blood_Deaths[client], statCookie, sizeof(statCookie));
-	SetClientCookie(client, deathCookie, statCookie);
+	deathCookie.Set(client, statCookie);
 }
 
 stock void LoadStatCookie(int client)
 {
 	char statCookie[256];
-	GetClientCookie(client, winCookie, statCookie, sizeof(statCookie));
+	winCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_Wins[client] = StringToInt(statCookie);
-	GetClientCookie(client, lossCookie, statCookie, sizeof(statCookie));
+	
+	lossCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_Losses[client] = StringToInt(statCookie);
-	GetClientCookie(client, killCookie, statCookie, sizeof(statCookie));
+	
+	killCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_grenadeKills[client] = StringToInt(statCookie);
-	GetClientCookie(client, killMeleeCookie, statCookie, sizeof(statCookie));
+	
+	killMeleeCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_meleeKills[client] = StringToInt(statCookie);
-	GetClientCookie(client, killHookCookie, statCookie, sizeof(statCookie));
+	
+	killHookCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_grapplinkKills[client] = StringToInt(statCookie);
-	GetClientCookie(client, deathCookie, statCookie, sizeof(statCookie));
+	
+	deathCookie.Get(client, statCookie, sizeof(statCookie));
 	Blood_Deaths[client] = StringToInt(statCookie);
 }
 
@@ -231,7 +237,7 @@ public void OnClientCookiesCached(int client)
 }
 
 // Level Up Enabled Indicator
-static const String:BloodCanLevelUpgrade[][] = {
+static const char BloodCanLevelUpgrade[][] = {
 	"vo/mvm_mann_up_mode01.mp3",
 	"vo/mvm_mann_up_mode02.mp3",
 	"vo/mvm_mann_up_mode03.mp3",
@@ -250,13 +256,13 @@ static const String:BloodCanLevelUpgrade[][] = {
 };
 
 // Round Result
-static const String:BloodIsDefeated[][] = {
+static const char BloodIsDefeated[][] = {
 	"vo/mvm_manned_up01.mp3",
 	"vo/mvm_manned_up02.mp3",
 	"vo/mvm_manned_up03.mp3"
 };
 
-static const String:BloodIsVictorious[][] = {
+static const char BloodIsVictorious[][] = {
 	"vo/mvm_game_over_loss01.mp3",
 	"vo/mvm_game_over_loss02.mp3",
 	"vo/mvm_game_over_loss03.mp3",
@@ -271,25 +277,25 @@ static const String:BloodIsVictorious[][] = {
 };
 
 // Class Reaction Lines
-static const String:ScoutReact[][] = {
+static const char ScoutReact[][] = {
 	"vo/scout_sf13_magic_reac03.mp3",
 	"vo/scout_sf13_magic_reac07.mp3",
 	"vo/scout_sf12_badmagic04.mp3"
 };
 
-static const String:SoldierReact[][] = {
+static const char SoldierReact[][] = {
 	"vo/soldier_sf13_magic_reac03.mp3",
 	"vo/soldier_sf12_badmagic07.mp3",
 	"vo/soldier_sf12_badmagic13.mp3"
 };
 
-static const String:PyroReact[][] = {
+static const char PyroReact[][] = {
 	"vo/pyro_autodejectedtie01.mp3",
 	"vo/pyro_painsevere02.mp3",
 	"vo/pyro_painsevere04.mp3"
 };
 
-static const String:DemoReact[][] = {
+static const char DemoReact[][] = {
 	"vo/demoman_sf13_magic_reac05.mp3",
 	"vo/demoman_sf13_bosses02.mp3",
 	"vo/demoman_sf13_bosses03.mp3",
@@ -298,7 +304,7 @@ static const String:DemoReact[][] = {
 	"vo/demoman_sf13_bosses06.mp3"
 };
 
-static const String:HeavyReact[][] = {
+static const char HeavyReact[][] = {
 	"vo/heavy_sf13_magic_reac01.mp3",
 	"vo/heavy_sf13_magic_reac03.mp3",
 	"vo/heavy_cartgoingbackoffense02.mp3",
@@ -306,7 +312,7 @@ static const String:HeavyReact[][] = {
 	"vo/heavy_negativevocalization06.mp3"
 };
 
-static const String:EngyReact[][] = {
+static const char EngyReact[][] = {
 	"vo/engineer_sf13_magic_reac01.mp3",
 	"vo/engineer_sf13_magic_reac02.mp3",
 	"vo/engineer_specialcompleted04.mp3",
@@ -314,7 +320,7 @@ static const String:EngyReact[][] = {
 	"vo/engineer_negativevocalization12.mp3"
 };
 
-static const String:MedicReact[][] = {
+static const char MedicReact[][] = {
 	"vo/medic_sf13_magic_reac01.mp3",
 	"vo/medic_sf13_magic_reac02.mp3",
 	"vo/medic_sf13_magic_reac03.mp3",
@@ -322,13 +328,13 @@ static const String:MedicReact[][] = {
 	"vo/medic_sf13_magic_reac07.mp3"
 };
 
-static const String:SniperReact[][] = {
+static const char SniperReact[][] = {
 	"vo/sniper_sf13_magic_reac01.mp3",
 	"vo/sniper_sf13_magic_reac02.mp3",
 	"vo/sniper_sf13_magic_reac04.mp3"
 };
 
-static const String:SpyReact[][] = {
+static const char SpyReact[][] = {
 	"vo/Spy_sf13_magic_reac01.mp3",
 	"vo/Spy_sf13_magic_reac02.mp3",
 	"vo/Spy_sf13_magic_reac03.mp3",
@@ -337,7 +343,7 @@ static const String:SpyReact[][] = {
 	"vo/Spy_sf13_magic_reac06.mp3"
 };
 
-public Bloodrider_PrecacheModels()
+public void Bloodrider_PrecacheModels()
 {
 	PrecacheModel(BLOODRIDER_SCOUT, true);
 	PrecacheModel(BLOODRIDER_SOLDIER, true);
@@ -350,68 +356,68 @@ public Bloodrider_PrecacheModels()
 	PrecacheModel(BLOODRIDER_SPY, true);
 }
 
-public Bloodrider_PrecacheSounds()
+public void Bloodrider_PrecacheSounds()
 {
 	//Class Voice Reaction Lines
-	for (new i = 0; i < sizeof(ScoutReact); i++)
+	for (int i = 0; i < sizeof(ScoutReact); i++)
 	{
 		PrecacheSound(ScoutReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SoldierReact); i++)
+	for (int i = 0; i < sizeof(SoldierReact); i++)
 	{
 		PrecacheSound(SoldierReact[i], true);
 	}
-	for (new i = 0; i < sizeof(PyroReact); i++)
+	for (int i = 0; i < sizeof(PyroReact); i++)
 	{
 		PrecacheSound(PyroReact[i], true);
 	}
-	for (new i = 0; i < sizeof(DemoReact); i++)
+	for (int i = 0; i < sizeof(DemoReact); i++)
 	{
 		PrecacheSound(DemoReact[i], true);
 	}
-	for (new i = 0; i < sizeof(HeavyReact); i++)
+	for (int i = 0; i < sizeof(HeavyReact); i++)
 	{
 		PrecacheSound(HeavyReact[i], true);
 	}
-	for (new i = 0; i < sizeof(EngyReact); i++)
+	for (int i = 0; i < sizeof(EngyReact); i++)
 	{
 		PrecacheSound(EngyReact[i], true);
 	}
-	for (new i = 0; i < sizeof(MedicReact); i++)
+	for (int i = 0; i < sizeof(MedicReact); i++)
 	{
 		PrecacheSound(MedicReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SniperReact); i++)
+	for (int i = 0; i < sizeof(SniperReact); i++)
 	{
 		PrecacheSound(SniperReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SpyReact); i++)
+	for (int i = 0; i < sizeof(SpyReact); i++)
 	{
 		PrecacheSound(SpyReact[i], true);
 	}
 	// Manning Up & Round Result Lines
-	for (new i = 0; i < sizeof(BloodCanLevelUpgrade); i++)
+	for (int i = 0; i < sizeof(BloodCanLevelUpgrade); i++)
 	{
 		PrecacheSound(BloodCanLevelUpgrade[i], true);
 	}
-	for (new i = 0; i < sizeof(BloodIsDefeated); i++)
+	for (int i = 0; i < sizeof(BloodIsDefeated); i++)
 	{
 		PrecacheSound(BloodIsDefeated[i], true);
 	}
-	for (new i = 0; i < sizeof(BloodIsVictorious); i++)
+	for (int i = 0; i < sizeof(BloodIsVictorious); i++)
 	{
 		PrecacheSound(BloodIsVictorious[i], true);
 	}
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("player_spawn", OnPlayerSpawn, EventHookMode_Pre);
 	HookEvent("teamplay_round_start", Event_TeamplayRoundStart, EventHookMode_PostNoCopy);
 	
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i)) 
 		{
@@ -430,20 +436,20 @@ public OnPluginStart2()
 	Bloodrider_PrecacheModels();
 	Bloodrider_PrecacheSounds();
 	
-	for (new clientIdx = 1; clientIdx <= MaxClients; clientIdx++)
+	for (int clientIdx = 1; clientIdx <= MaxClients; clientIdx++)
 		reviveMarker[clientIdx] = INVALID_ENTREF;
 }
 
 public void Event_TeamplayRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
-	Bloodrider_FindBloodriderAt=GetEngineTime()+0.6;
+	Bloodrider_FindBloodriderAt=GetGameTime()+0.6;
 }
 
-public Action:OnAnnounce(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnAnnounce(Event event, const char[] name, bool dontBroadcast)
 {
 	if(bloodisboss)
 	{
-		new String:strAudio[40];
+		char strAudio[40];
 		GetEventString(event, "sound", strAudio, sizeof(strAudio));
 		if(strncmp(strAudio, "Game.Your", 9) == 0 || strcmp(strAudio, "Game.Stalemate") == 0)
 		{
@@ -456,13 +462,13 @@ public Action:OnAnnounce(Handle:event, const String:name[], bool:dontBroadcast)
 	return Plugin_Continue;
 }
 
-public MoveMarker(client)
+public void MoveMarker(int client)
 {
 	Blood_MoveReviveMarkerAt[client] = FAR_FUTURE;
 	if (reviveMarker[client] == INVALID_ENTREF)
 		return;
 		
-	new marker = EntRefToEntIndex(reviveMarker[client]);
+	int marker = EntRefToEntIndex(reviveMarker[client]);
 	if (!IsValidEntity(marker))
 	{
 		reviveMarker[client] = INVALID_ENTREF;
@@ -472,25 +478,25 @@ public MoveMarker(client)
 	
 	if (!IsClientInGame(client))
 	{
-		AcceptEntityInput(marker, "kill");
+		RemoveEntity(marker);
 		reviveMarker[client] = INVALID_ENTREF;
 		Blood_RemoveReviveMarkerAt[client] = FAR_FUTURE;
 		return;
 	}
 
 	// must offset by 20, otherwise they can fall through the world
-	static Float:spawnPos[3];
+	static float spawnPos[3];
 	spawnPos[0] = Blood_LastPlayerPos[client][0];
 	spawnPos[1] = Blood_LastPlayerPos[client][1];
 	spawnPos[2] = Blood_LastPlayerPos[client][2] + 20.0;
 	TeleportEntity(marker, spawnPos, NULL_VECTOR, NULL_VECTOR);
 }
 
-public bool:IsValidMarker(marker) 
+public bool IsValidMarker(int marker) 
 {
 	if (IsValidEntity(marker)) 
 	{
-		decl String:buffer[128];
+		static char buffer[128];
 		GetEntityClassname(marker, buffer, sizeof(buffer));
 		if (strcmp(buffer,"entity_revive_marker",false) == 0)
 		{
@@ -500,10 +506,10 @@ public bool:IsValidMarker(marker)
 	return false;
 }
 
-public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontbroadcast) 
+public Action OnPlayerSpawn(Event event, const char[] name, bool dontBroadcast) 
 {
-	new userid = GetEventInt(event, "userid");
-	new clientIdx = GetClientOfUserId(userid);
+	int userid = event.GetInt("userid");
+	int clientIdx = GetClientOfUserId(userid);
 	
 	if(bloodisboss && MaxClientRevives != 0)
 	{
@@ -513,23 +519,23 @@ public Action:OnPlayerSpawn(Handle:event, const String:name[], bool:dontbroadcas
 	
 	if(RoundInProgress && bloodisboss && MaxClientRevives != 0 && givehookback)
 	{
-		Blood_ReverifyGrapplinkhooksAt[clientIdx] = GetEngineTime() + 0.1;
+		Blood_ReverifyGrapplinkhooksAt[clientIdx] = GetGameTime() + 0.1;
 	}
 	
 	return Plugin_Continue;
 }
 
-public Action:OnChangeClass(Handle:event, const String:name[], bool:dontbroadcast) 
+public Action OnChangeClass(Event event, const char[] name, bool dontBroadcast) 
 {
 	if(bloodisboss)
 	{
-		new client = GetClientOfUserId(GetEventInt(event, "userid"));
+		int client = GetClientOfUserId(event.GetInt("userid"));
 		ChangeClass[client] = true;
 	}
 	return Plugin_Continue;
 }
 
-public OnClientDisconnect(client) 
+public void OnClientDisconnect(int client) 
 {
 	if(bloodisboss)
 	{
@@ -542,7 +548,7 @@ public OnClientDisconnect(client)
 	}
  }
 
-public Blood_AddHooks()
+public void Blood_AddHooks()
 {
 	if (hooksEnabled)
 		return;
@@ -554,7 +560,7 @@ public Blood_AddHooks()
 	hooksEnabled = true;
 }
 
-public Blood_RemoveHooks()
+public void Blood_RemoveHooks()
 {
 	if (!hooksEnabled)
 		return;
@@ -566,7 +572,7 @@ public Blood_RemoveHooks()
 	hooksEnabled = false;
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if (!FF2_IsFF2Enabled())
 		return;
@@ -579,7 +585,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 	grenadeCount=0;
 	bloodisboss = false;
 		
-	for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+	for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 	{
 		if(!IsValidClient(clientIdx))
 			continue;
@@ -593,7 +599,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 		timeleft_stacks[clientIdx]=0;
 		BloodriderSpeed[clientIdx]=0.0;
 		
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if(bossIdx>=0)
 		{
 			if (FF2_HasAbility(bossIdx, this_plugin_name, CONFIG_BLOOD))
@@ -605,12 +611,12 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 				
 				weapondifficulty = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 1);
 				
-				grapplinkhookboss = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 2);
+				grapplinkhookboss = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 2) != 0;
 				FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, CONFIG_BLOOD, 3, hookbossargs, MAX_WEAPON_ARG_LENGTH);
 				
-				grapplinkhookplayers = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 4);
+				grapplinkhookplayers = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 4) != 0;
 				FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, CONFIG_BLOOD, 5, hookplayersargs, MAX_WEAPON_ARG_LENGTH);
-				givehookback = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 6);
+				givehookback = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 6) != 0;
 				
 				if(!weapondifficulty)
 				{
@@ -621,7 +627,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 				}
 				LevelingUp=FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 12); // Allow Bloodrider to change difficulty level on random mode?
 				
-				Waveenabled = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 13);
+				Waveenabled = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 13) != 0;
 				grenadeExtention = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 14);
 				startTime = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 15, 60);
 				BloodMaxWaves = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 16);
@@ -670,7 +676,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 			
 				// Everything is now inside this here
 				SwitchSouls(clientIdx, grapplinkhookboss, Waveenabled, false);
-				Blood_HUDSync=GetEngineTime()+0.2;
+				Blood_HUDSync=GetGameTime()+0.2;
 				RefreshDifficulty(weapondifficulty);
 				PrintToServer("Bloodrider's Difficulty will be %d", weapondifficulty);
 				
@@ -680,7 +686,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 					case 1:
 					{
 						ShowHudText(clientIdx, -1, BLOOD_CombatModeNoMelee[clientIdx]);
-						Blood_WaveTick=GetEngineTime()+1.0;
+						Blood_WaveTick=GetGameTime()+1.0;
 					}
 					case 0:
 					{
@@ -689,7 +695,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 				}
 				
 				if(AdditionalVoiceOvers == 1 || AdditionalVoiceOvers == 3)
-					Blood_AdminTauntAt = GetEngineTime() + 6.0;
+					Blood_AdminTauntAt = GetGameTime() + 6.0;
 				
 				if(grapplinkhookplayers)
 					GrapplinkhookForPlayers();
@@ -699,7 +705,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 		// stuff for Bloodrider main
 		if (bloodisboss)
 		{
-			for (new bloodIdx = 1; bloodIdx < MaxClients; bloodIdx++)
+			for (int bloodIdx = 1; bloodIdx < MaxClients; bloodIdx++)
 			{
 				// gotta initialize this, in case someone ducks until they die (lol)
 				if (IsValidClient(bloodIdx))
@@ -713,16 +719,16 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 	}
 }
 
-public Action:OnPlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	// ensure we should be doing any of this at all
 	if (!bloodisboss)
 		return;
 
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
-	new victim=GetClientOfUserId(GetEventInt(event, "userid"));
+	int attacker=GetClientOfUserId(event.GetInt("attacker"));
+	int victim=GetClientOfUserId(event.GetInt("userid"));
 
-	if ((GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER) != 0)
+	if ((event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER) != 0)
 		return; // sarysa, fix an error where dead ringer drops a revive marker
 		
 	if (IsBloodrider[victim])
@@ -739,10 +745,10 @@ public Action:OnPlayerDeath(Handle:event, const String:name[], bool:dontBroadcas
 	
 	if(IsBloodrider[attacker])
 	{
-		new bool:AllowgainingRage = bool:FF2_GetAbilityArgument(BloodriderBossIdx, this_plugin_name, LIFELOSE_BLOOD, 7);
-		new Float:rageonkill = FF2_GetAbilityArgumentFloat(BloodriderBossIdx, this_plugin_name, LIFELOSE_BLOOD, 8);
-		new Float:bRage = FF2_GetBossCharge(BloodriderBossIdx, 0);
-		new Float:BloodGiveRage;
+		bool AllowgainingRage = FF2_GetAbilityArgument(BloodriderBossIdx, this_plugin_name, LIFELOSE_BLOOD, 7) != 0;
+		float rageonkill = FF2_GetAbilityArgumentFloat(BloodriderBossIdx, this_plugin_name, LIFELOSE_BLOOD, 8);
+		float bRage = FF2_GetBossCharge(BloodriderBossIdx, 0);
+		float BloodGiveRage;
 
 		if(Nextlive[attacker] && AllowgainingRage)
 		{
@@ -754,10 +760,10 @@ public Action:OnPlayerDeath(Handle:event, const String:name[], bool:dontBroadcas
 			FF2_SetBossCharge(BloodriderBossIdx, 0, BloodGiveRage);
 		}
 		
-		new bool:AllowgainingHealth = bool:FF2_GetAbilityArgument(BloodriderBossIdx, this_plugin_name, RAGE_BLOOD, 6);
-		new Float:healthgained = FF2_GetAbilityArgumentFloat(BloodriderBossIdx, this_plugin_name, RAGE_BLOOD, 7);
-		new health = FF2_GetBossHealth(BloodriderBossIdx);
-		new maxhealth = FF2_GetBossMaxHealth(BloodriderBossIdx);
+		bool AllowgainingHealth = FF2_GetAbilityArgument(BloodriderBossIdx, this_plugin_name, RAGE_BLOOD, 6) != 0;
+		float healthgained = FF2_GetAbilityArgumentFloat(BloodriderBossIdx, this_plugin_name, RAGE_BLOOD, 7);
+		int health = FF2_GetBossHealth(BloodriderBossIdx);
+		int maxhealth = FF2_GetBossMaxHealth(BloodriderBossIdx);
 		
 		if(Raging[attacker] && AllowgainingHealth)
 		{
@@ -786,7 +792,7 @@ public Action:OnPlayerDeath(Handle:event, const String:name[], bool:dontBroadcas
 }	
 
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	grenadeCount=0;
 	RoundInProgress = false;
@@ -802,13 +808,13 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 
 		if(AdditionalVoiceOvers == 1 || AdditionalVoiceOvers == 3)
 		{
-			if(GetEventInt(event, "winning_team") == FF2_GetBossTeam())
+			if(event.GetInt("winning_team") == FF2_GetBossTeam())
 				BossIsWinner = true;
-			else if (GetEventInt(event, "winning_team") == ((FF2_GetBossTeam()==_:TFTeam_Blue) ? (_:TFTeam_Red) : (_:TFTeam_Blue)))
+			else if(event.GetInt("winning_team") == ((FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? (view_as<int>(TFTeam_Red)) : (view_as<int>(TFTeam_Blue))))
 				BossIsWinner = false;
 		}
 		
-		for(new client=1;client<=MaxClients;client++)
+		for(int client=1;client<=MaxClients;client++)
 		{
 			if(!IsValidClient(client))
 				continue;
@@ -824,7 +830,7 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 				}
 				
 				CPrintToChat(client, Blood_MyStats[client], Blood_Wins[client], Blood_Losses[client], Blood_grenadeKills[client], Blood_Deaths[client]);
-				for(new target=1;target<=MaxClients;target++)
+				for(int target=1;target<=MaxClients;target++)
 				{
 					if(!IsValidClient(target))
 						continue;
@@ -854,19 +860,19 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
 
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if (!strcmp(ability_name, RAGE_BLOOD)) 	
 	{
 		TF2_AddCondition(client, TFCond_Buffed, GetTimerDuration(boss, ability_name, 1, false)); 					// Minicrits
 		TF2_AddCondition(client, TFCond_DefenseBuffNoCritBlock, GetTimerDuration(boss, ability_name, 1, false));	// Defensive Buff
 		TF2_AddCondition(client, TFCond_RegenBuffed, GetTimerDuration(boss, ability_name, 1, false));				// Regen Buff
 		
-		new grenade=FF2_GetAbilityArgument(boss,this_plugin_name,ability_name, 2);	// Ammo
+		int grenade=FF2_GetAbilityArgument(boss,this_plugin_name,ability_name, 2);	// Ammo
 
 		SwitchSouls(client, grapplinkhookboss, Waveenabled, true);
 		SetAmmo(client, TFWeaponSlot_Primary, grenade);
@@ -874,7 +880,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 		NewGrenadeTimer = GetTimerDuration(boss, ability_name, 3, true);
 		Raging[client] = true;
 		
-		new Float:reflectionchance = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 4);
+		float reflectionchance = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 4);
 		if (reflectionchance>0.0)
 		{
 			if (GetRandomFloat(0.0, 1.0)<=reflectionchance)
@@ -885,7 +891,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 		
 		if (AdditionalVoiceOvers == 2 || AdditionalVoiceOvers == 3)
 		{
-			for(new i = 1; i <= MaxClients; i++ )
+			for(int i = 1; i <= MaxClients; i++ )
 			{
 				ClassResponses(i);
 			}
@@ -898,7 +904,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 		Blood_RemoveUberAt = GetTimerDuration(boss, ability_name, 1);
 		SetEntProp(client, Prop_Data, "m_takedamage", 0);
 
-		new lifelosegrenade=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 2);	// Ammo
+		int lifelosegrenade=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 2);	// Ammo
 
 		SwitchSouls(client, grapplinkhookboss, Waveenabled, true);
 		SetAmmo(client, TFWeaponSlot_Primary, lifelosegrenade);
@@ -928,7 +934,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 		
 		if (AdditionalVoiceOvers == 2 || AdditionalVoiceOvers == 3)
 		{
-			for(new i = 1; i <= MaxClients; i++ )
+			for(int i = 1; i <= MaxClients; i++ )
 			{
 				ClassResponses(i);
 			}
@@ -959,18 +965,18 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	return Plugin_Continue;
 }
 
-public OnGameFrame()
+public void OnGameFrame()
 {
-	Blood_HUDSyncTick(GetEngineTime());
-	
-	if (!RoundInProgress)
+	if (!RoundInProgress || !bloodisboss)
 		return;
 		
+	Blood_HUDSyncTick(GetGameTime());
+	
 	if (bloodisboss)
-		Blood_MiscStuffTick(GetEngineTime());
+		Blood_MiscStuffTick(GetGameTime());
 }
 
-public Blood_HUDSyncTick(Float:curTime)
+public void Blood_HUDSyncTick(float curTime)
 {
 	if(curTime>=Bloodrider_FindBloodriderAt)
 	{
@@ -979,16 +985,16 @@ public Blood_HUDSyncTick(Float:curTime)
 			Bloodrider_FindBloodriderAt=FAR_FUTURE;
 			return;
 		}
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if(!IsValidClient(clientIdx))
 				continue;
 			
-			new bossIdx=FF2_GetBossIndex(clientIdx);
+			int bossIdx=FF2_GetBossIndex(clientIdx);
 			if(bossIdx>=0 && FF2_HasAbility(bossIdx, this_plugin_name, CONFIG_BLOOD))
 			{
-				RegenerateLivesOn = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 7);
-				IntroOutroOn = bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 8);
+				RegenerateLivesOn = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 7) != 0;
+				IntroOutroOn = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 8) != 0;
 				AdditionalVoiceOvers = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CONFIG_BLOOD, 9);
 				
 				bloodisboss = true;
@@ -1022,9 +1028,9 @@ public Blood_HUDSyncTick(Float:curTime)
 			return;
 		}
 		
-		new String:BossHUDTxt[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
-		new String:ClientHudTxt[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		char BossHUDTxt[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+		char ClientHudTxt[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if (IsValidClient(clientIdx) && !(GetClientButtons(clientIdx) & IN_SCORE))
 			{
@@ -1054,7 +1060,7 @@ public Blood_HUDSyncTick(Float:curTime)
 			
 				if(!IsPlayerAlive(clientIdx))
 				{
-					new observerIdx=GetEntPropEnt(clientIdx, Prop_Send, "m_hObserverTarget");
+					int observerIdx=GetEntPropEnt(clientIdx, Prop_Send, "m_hObserverTarget");
 					SetHudTextParams(-1.0, 0.85, 0.4, 255, 255, 255, 255);	
 					if(IsValidClient(observerIdx) && observerIdx!=clientIdx)
 					{
@@ -1080,8 +1086,8 @@ public Blood_HUDSyncTick(Float:curTime)
 
 	if(curTime>=Blood_WaveTick)
 	{
-		static wavesDone=0;
-		static BloodCount=0;
+		static int wavesDone=0;
+		static int BloodCount=0;
 		if(!BloodCount && !wavesDone)
 		{
 			wavesDone++;
@@ -1090,7 +1096,7 @@ public Blood_HUDSyncTick(Float:curTime)
 			return;
 		}
 		
-		static BloodTimePassed=0;
+		static int BloodTimePassed=0;
 		if(FF2_GetRoundState()!=1)
 		{	
 			wavesDone=0;
@@ -1100,12 +1106,12 @@ public Blood_HUDSyncTick(Float:curTime)
 			return;
 		}
 	
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if(!IsValidClient(clientIdx))
 				continue;
 			
-			new String:waveTime[6];
+			char waveTime[6];
 			if(BloodCount/60>9)
 			{
 				IntToString(BloodCount/60, waveTime, sizeof(waveTime));
@@ -1124,7 +1130,7 @@ public Blood_HUDSyncTick(Float:curTime)
 				Format(waveTime, sizeof(waveTime), "%s:0%i", waveTime, BloodCount%60);
 			}
 			
-			new String:countdown[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
+			char countdown[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH];
 			SetHudTextParams(-1.0, 0.25, 1.1, BloodCount<=30 ? 255 : 0, BloodCount>10 ? 255 : 0, 0, 255);
 			
 			if(BloodMaxWaves>0)
@@ -1147,12 +1153,12 @@ public Blood_HUDSyncTick(Float:curTime)
 				if(IsPlayerAlive(clientIdx) && !IsBoss(clientIdx))
 				{
 					// Give them survival points based on number of gernades
-					new Handle:hPoints=CreateEvent("player_escort_score", true);
+					Handle hPoints=CreateEvent("player_escort_score", true);
 					SetEventInt(hPoints, "player", clientIdx);
 					SetEventInt(hPoints, "points", grenadeCount);
 					FireEvent(hPoints);
 						
-					new qPoints=FF2_GetQueuePoints(clientIdx)+(BloodTimePassed/4);
+					int qPoints=FF2_GetQueuePoints(clientIdx)+(BloodTimePassed/4);
 					FF2_SetQueuePoints(clientIdx, qPoints);
 					CPrintToChat(clientIdx, "{olive}[FF2]{default} You have earned %i queue points for surviving a wave of %i gernades for %i seconds", qPoints, grenadeCount, BloodTimePassed);
 						
@@ -1209,11 +1215,11 @@ public Blood_HUDSyncTick(Float:curTime)
 	}
 }
 
-public Blood_MiscStuffTick(Float:curTime)
+public void Blood_MiscStuffTick(float curTime)
 {
 	if (curTime >= NewGrenadeTimer)
 	{
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if(!IsValidClient(clientIdx))
 				continue;
@@ -1233,7 +1239,7 @@ public Blood_MiscStuffTick(Float:curTime)
 	
 	if (curTime >= Blood_RemoveUberAt)
 	{
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if(!IsValidClient(clientIdx))
 				continue;
@@ -1245,7 +1251,7 @@ public Blood_MiscStuffTick(Float:curTime)
 		Blood_RemoveUberAt = FAR_FUTURE;
 	}
 	
-	for (new clientIdx = 1; clientIdx < MaxClients; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MaxClients; clientIdx++)
 	{
 		if (curTime >= Blood_MoveReviveMarkerAt[clientIdx])
 			MoveMarker(clientIdx); // will also reset the timer
@@ -1279,22 +1285,22 @@ public Blood_MiscStuffTick(Float:curTime)
 	}
 }
 
-public WhatWereYouThinking()
+public void WhatWereYouThinking()
 {
-	new String:BloodAlert[PLATFORM_MAX_PATH];
+	char BloodAlert[PLATFORM_MAX_PATH];
 	strcopy(BloodAlert, PLATFORM_MAX_PATH, BloodCanLevelUpgrade[GetRandomInt(0, sizeof(BloodCanLevelUpgrade)-1)]);
 	if (AdditionalVoiceOvers == 1 || AdditionalVoiceOvers == 3)
 		EmitSoundToAll(BloodAlert);
 }
 
-public Action:RoundResultSound(Handle:hTimer, any:userid)
+public Action RoundResultSound(Handle hTimer, any userid)
 {
-	new String:BloodRoundResult[PLATFORM_MAX_PATH];
+	char BloodRoundResult[PLATFORM_MAX_PATH];
 	if (BossIsWinner)
 		strcopy(BloodRoundResult, PLATFORM_MAX_PATH, BloodIsVictorious[GetRandomInt(0, sizeof(BloodIsVictorious)-1)]);
 	else
 		strcopy(BloodRoundResult, PLATFORM_MAX_PATH, BloodIsDefeated[GetRandomInt(0, sizeof(BloodIsDefeated)-1)]);	
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsClientConnected(i) && GetClientTeam(i) != FF2_GetBossTeam())
 		{
@@ -1304,32 +1310,32 @@ public Action:RoundResultSound(Handle:hTimer, any:userid)
 	BossIsWinner = false;
 }
 
-public RemoveUber(Boss)
+public void RemoveUber(int Boss)
 {
 	SetEntProp(Boss, Prop_Data, "m_takedamage", 2);
 	TF2_AddCondition(Boss, TFCond_UberchargeFading, 3.0);
 }
 
-public Action:OnDeflectObject(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnDeflectObject(Event event, const char[] name, bool dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(event.GetInt("userid"));
 	
 	if(Waveenabled)
 	{
 		if(IsValidClient(client) && GetClientTeam(client) != FF2_GetBossTeam())
 		{
-			static deflected[MAXPLAYERS+1]=0;
-			static deflect;
+			static int deflected[MAXPLAYERS+1]=0;
+			static int deflect;
 			deflect+=deflected[client];
 			if(deflect>=5)
 			{
 				// Give them +1 points & +1 queue point for survival
-				new Handle:hPoints=CreateEvent("player_escort_score", true);
-				SetEventInt(hPoints, "player", client);
-				SetEventInt(hPoints, "points", GetEventInt(hPoints, "points")+1);
-				FireEvent(hPoints);
+				Event hPoints=CreateEvent("player_escort_score", true);
+				hPoints.SetInt("player", client);
+				hPoints.SetInt("points", hPoints.GetInt("points")+1);
+				hPoints.Fire();
 					
-				new pts=1;
+				int pts=1;
 				FF2_SetQueuePoints(client, FF2_GetQueuePoints(client)+pts);
 				CPrintToChat(client, "{olive}[FF2]{default} You have earned %i queue points for deflecting %i times", pts, deflected[client]);
 				deflect-=deflected[client];
@@ -1340,10 +1346,10 @@ public Action:OnDeflectObject(Handle:event, const String:name[], bool:dontBroadc
 	
 }
 
-public Action:FF2_OnLoseLife(index)
+public Action FF2_OnLoseLife(int index)
 {
-	new userid = FF2_GetBossUserId(index);
-	new client=GetClientOfUserId(userid);
+	int userid = FF2_GetBossUserId(index);
+	int client=GetClientOfUserId(userid);
 	if(index==-1 || !IsValidEdict(client) || !FF2_HasAbility(index, this_plugin_name, LIFELOSE_BLOOD) || !RegenerateLivesOn)
 		return Plugin_Continue;
 		
@@ -1363,17 +1369,17 @@ public Action:FF2_OnLoseLife(index)
 		FF2_SetBossHealth(index,FF2_GetBossMaxHealth(index));
 		SetHudTextParams(-1.0, 0.35, 10.0, 255, 255, 255, 255);
 		
-		for(new player=1; player<=MaxClients; player++)
+		for(int player=1; player<=MaxClients; player++)
 			if(IsValidClient(player) && GetClientTeam(player)!=FF2_GetBossTeam())
 				ShowSyncHudText(player, cooldownHUD, regenerationHUD[index], timeleft[index]);
 	}
 	return Plugin_Continue;
 }
 
-public Action:Timer_nowUcanReincarnate(Handle:hTimer,any:index)
+public Action Timer_nowUcanReincarnate(Handle hTimer,any index)
 {
 	timeleft[index]--;
-	new boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
 	if (FF2_GetRoundState()!=1)
 	{
 		KillTimer(Timer_toReincarnate[index]);
@@ -1396,7 +1402,7 @@ public Action:Timer_nowUcanReincarnate(Handle:hTimer,any:index)
 	}
 }
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	if(Waveenabled)
 	{
@@ -1407,24 +1413,24 @@ public OnEntityCreated(entity, const String:classname[])
 	}
 }
 
-public Hook_OnGrenadeSpawn(entity)
+public void Hook_OnGrenadeSpawn(int entity)
 {
-	new owner = GetEntPropEnt(entity, Prop_Data, "m_hOwnerEntity");
+	int owner = GetEntPropEnt(entity, Prop_Data, "m_hOwnerEntity");
 	if(owner > 0 && owner <= MaxClients && IsBoss(owner))
 	{
 		grenadeCount++;
 	}
 }
 
-public HealPlayer(clientIdx)
+public void HealPlayer(int clientIdx)
 {
-	new maxHealth = GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, clientIdx);
+	int maxHealth = GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, clientIdx);
 	maxHealth += 100;
 	SetEntProp(clientIdx, Prop_Send, "m_iHealth", maxHealth);
 	SetEntProp(clientIdx, Prop_Data, "m_iHealth", maxHealth);
 }
 
-SwitchSouls(client, bool:grapplinkhook=false, bool:waveon=false, bool:rageisactive=false)
+void SwitchSouls(int client, bool grapplinkhook=false, bool waveon=false, bool rageisactive=false)
 {
 	// First, lets switch up the class
 	switch(GetRandomInt(0, 8))
@@ -1452,7 +1458,7 @@ SwitchSouls(client, bool:grapplinkhook=false, bool:waveon=false, bool:rageisacti
 	// Second, remove and give the boss a Grenade Launcher and the respected melee (and Grapplinkhook, if enabled)
 	TF2_RemoveAllWeapons(client);
 	
-	new String:justattributes[256];
+	char justattributes[256];
 	if(grapplinkhook)
 	{
 		Format(justattributes, sizeof(justattributes), "214 ; %d ; %s", Blood_grapplinkKills[client], hookbossargs);
@@ -1620,14 +1626,14 @@ SwitchSouls(client, bool:grapplinkhook=false, bool:waveon=false, bool:rageisacti
 	SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
 }
 
-public BloodSpeed_Prethink(client)
+public void BloodSpeed_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", BloodriderSpeed[client]);
 }
 
-Grenadelauncher(client)
+void Grenadelauncher(int client)
 {
-	new index;
+	int index;
 	if(TF2_GetPlayerClass(client)==TFClass_Scout||TF2_GetPlayerClass(client)==TFClass_Soldier||TF2_GetPlayerClass(client)==TFClass_Pyro||TF2_GetPlayerClass(client)==TFClass_Heavy)
 		index = 18;
 	else
@@ -1664,10 +1670,10 @@ Grenadelauncher(client)
 		Nextlive[client] = false;
 }
 
-Grenadelauncherrage(client)
+void Grenadelauncherrage(int client)
 {
-	new index;
-	new String:snd[PLATFORM_MAX_PATH];
+	int index;
+	char snd[PLATFORM_MAX_PATH];
 	switch (GetRandomInt(0,4))
 	{
 		case 0: // Grenade launcher
@@ -1838,9 +1844,9 @@ Grenadelauncherrage(client)
 	}
 }
 
-GrapplinkhookForPlayers()
+void GrapplinkhookForPlayers()
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i)!=FF2_GetBossTeam()) 
 		{
@@ -1939,13 +1945,13 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 	return entity;
 }
 
-Handle S93SF_equipWearable = INVALID_HANDLE;
-stock void Wearable_EquipWearable(client, wearable)
+stock void Wearable_EquipWearable(int client, int wearable)
 {
-	if(S93SF_equipWearable==INVALID_HANDLE)
+	static Handle S93SF_equipWearable = null;
+	if(!S93SF_equipWearable)
 	{
-		Handle config=LoadGameConfigFile("equipwearable");
-		if(config==INVALID_HANDLE)
+		GameData config = new GameData("equipwearable");
+		if(!config)
 		{
 			LogError("[FF2] EquipWearable gamedata could not be found; make sure /gamedata/equipwearable.txt exists.");
 			return;
@@ -1953,9 +1959,9 @@ stock void Wearable_EquipWearable(client, wearable)
 
 		StartPrepSDKCall(SDKCall_Player);
 		PrepSDKCall_SetFromConf(config, SDKConf_Virtual, "EquipWearable");
-		CloseHandle(config);
+		delete config;
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
-		if((S93SF_equipWearable=EndPrepSDKCall())==INVALID_HANDLE)
+		if((S93SF_equipWearable=EndPrepSDKCall())==null)
 		{
 			LogError("[FF2] Couldn't load SDK function (CTFPlayer::EquipWearable). SDK call failed.");
 			return;
@@ -1965,18 +1971,21 @@ stock void Wearable_EquipWearable(client, wearable)
 }
 #endif
 
-stock SetAmmo(client, slot, ammo)
+stock void SetAmmo(int client, int slot, int ammo)
 {
-	new weapon2 = GetPlayerWeaponSlot(client, slot);
+	int weapon2 = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon2))
 	{
-		new iOffset = GetEntProp(weapon2, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		new iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		int iOffset = GetEntProp(weapon2, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+		static int iAmmoTable = 0;
+		if(!iAmmoTable) {
+			iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		}
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
 
-stock void RemoveAttachable(client, char[] itemName)
+stock void RemoveAttachable(int client, char[] itemName)
 {
 	int entity;
 	while((entity=FindEntityByClassname(entity, itemName))!=-1)
@@ -2010,7 +2019,7 @@ stock void RefreshDifficulty(int level)
 	}
 }
 
-stock ReadCenterText(bossIdx, const String:ability_name[], argInt, String:centerText[PLATFORM_MAX_PATH])
+stock void ReadCenterText(int bossIdx, const char[] ability_name, int argInt, char[] centerText)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, centerText, PLATFORM_MAX_PATH);
 	ReplaceString(centerText, PLATFORM_MAX_PATH, "\\n", "\n");
@@ -2094,8 +2103,8 @@ stock void DropReanimator(int client)
 			SetEntityRenderColor(marker, 0, 0, 255); // make the BLU Revive Marker distinguishable from the red one
 		DispatchSpawn(marker);
 		reviveMarker[client] = EntIndexToEntRef(marker);
-		Blood_MoveReviveMarkerAt[client] = GetEngineTime() + 0.01;
-		Blood_RemoveReviveMarkerAt[client] = GetEngineTime() + ReviveMarkerDecayTime;
+		Blood_MoveReviveMarkerAt[client] = GetGameTime() + 0.01;
+		Blood_RemoveReviveMarkerAt[client] = GetGameTime() + ReviveMarkerDecayTime;
 	} 
 }
 
@@ -2107,7 +2116,7 @@ stock void RemoveReanimator(int client)
 		ChangeClass[client] = false;
 		int marker = EntRefToEntIndex(reviveMarker[client]);
 		if (IsValidEntity(marker) && marker >= MaxClients)
-			AcceptEntityInput(marker, "Kill");
+			RemoveEntity(marker);
 	}
 	Blood_RemoveReviveMarkerAt[client] = FAR_FUTURE;
 	Blood_MoveReviveMarkerAt[client] = FAR_FUTURE;
@@ -2153,9 +2162,9 @@ stock bool IsInstanceOf(int entity, const char[] desiredClassname)
 	return strcmp(classname, desiredClassname) == 0;
 }
 
-ForceTeamWin(team)
+void ForceTeamWin(int team)
 {
-	new entity=FindEntityByClassname(-1, "team_control_point_master");
+	int entity=FindEntityByClassname(-1, "team_control_point_master");
 	if(entity==-1)
 	{
 		entity=CreateEntityByName("team_control_point_master");
@@ -2169,17 +2178,17 @@ ForceTeamWin(team)
 stock float GetTimerDuration(int boss, const char[] ability_name, int arg, bool isEngineTime=true)
 {
 	if(!isEngineTime)	return FF2_GetAbilityArgumentFloat(boss,this_plugin_name,ability_name,arg,5.0);
-	return GetEngineTime() + FF2_GetAbilityArgumentFloat(boss,this_plugin_name,ability_name,arg,5.0);
+	return GetGameTime() + FF2_GetAbilityArgumentFloat(boss,this_plugin_name,ability_name,arg,5.0);
 }
 
-stock bool:IsBoss(client)
+stock bool IsBoss(int client)
 {
 	if(FF2_GetBossIndex(client)==-1) return false;
 	if(GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	return true;
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;
