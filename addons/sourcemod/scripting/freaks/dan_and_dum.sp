@@ -1,14 +1,10 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <tf2items>
-#include <ff2_ams>
+#include <ff2_ams2>
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define DAN_REFRESH "dan_remove_statuseffects"
@@ -41,8 +37,6 @@ public Plugin myinfo =
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
-	
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);			// I guess this is for noaml maps?
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy); 
 	
@@ -52,57 +46,39 @@ public void OnPluginStart2()
 	PrecacheModel(PROJECTILE_PARTICLE, true);
 }
 
-public void event_round_start(Event event, const char[] name, bool dontBroadcast)
+public void FF2AMS_PreRoundStart(int clientIdx)
 {
-	HookAbilities();
-}
-
-public void HookAbilities()
-{
-	for(int clientIdx=1; clientIdx<=MaxClients; clientIdx++)
+	DumSpeed[clientIdx]=0.0;
+	DumSpeedDuration[clientIdx]=INACTIVE;
+	int bossIdx = FF2_GetBossIndex(clientIdx);
+	if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_REFRESH))
 	{
-		if(!IsValidClient(clientIdx))
-			continue;
-		
-		DumSpeed[clientIdx]=0.0;
-		DumSpeedDuration[clientIdx]=INACTIVE;
-		
-		int bossIdx=FF2_GetBossIndex(clientIdx);
-		if(bossIdx>=0)
-		{
-			if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_REFRESH))
-			{
-				AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, DAN_REFRESH, "DRSE");
-			}
-			if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_STRENGTH))
-			{
-				AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, DAN_STRENGTH, "DGS");				
-			}
-			if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_UBERCHARGE))
-			{
-				AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, DAN_UBERCHARGE, "DGU");				
-			}
-			if(FF2_HasAbility(bossIdx, this_plugin_name, DUM_INSANITY))
-			{
-				AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, DUM_INSANITY, "DUIN");				
-			}
-		}
+		FF2AMS_PushToAMS(clientIdx, this_plugin_name, DAN_REFRESH, "DRSE");
+	}
+	if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_STRENGTH))
+	{
+		FF2AMS_PushToAMS(clientIdx, this_plugin_name, DAN_STRENGTH, "DGS");				
+	}
+	if(FF2_HasAbility(bossIdx, this_plugin_name, DAN_UBERCHARGE))
+	{
+		FF2AMS_PushToAMS(clientIdx, this_plugin_name, DAN_UBERCHARGE, "DGU");				
+	}
+	if(FF2_HasAbility(bossIdx, this_plugin_name, DUM_INSANITY))
+	{
+		FF2AMS_PushToAMS(clientIdx, this_plugin_name, DUM_INSANITY, "DUIN");				
 	}
 }
 
-public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
-{
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
-		return;
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action) {
 }
 
 
-public bool DRSE_CanInvoke(int clientIdx)
+public AMSResult DRSE_CanInvoke(int clientIdx, int idx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void DRSE_Invoke(int clientIdx)
+public void DRSE_Invoke(int clientIdx, int idx)
 {
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
@@ -161,12 +137,12 @@ public void DRSE_Invoke(int clientIdx)
 	}
 }
 
-public bool DGS_CanInvoke(int clientIdx)
+public AMSResult DGS_CanInvoke(int clientIdx, int idx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void DGS_Invoke(int clientIdx)
+public void DGS_Invoke(int clientIdx, int idx)
 {
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
@@ -197,12 +173,12 @@ public void DGS_Invoke(int clientIdx)
 	}
 }
 
-public bool DGU_CanInvoke(int clientIdx)
+public AMSResult DGU_CanInvoke(int clientIdx, int idx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void DGU_Invoke(int clientIdx)
+public void DGU_Invoke(int clientIdx, int idx)
 {
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	float pos[3], pos2[3], dist;
@@ -250,12 +226,12 @@ public Action StopUber(Handle timer, any boss)
 }
 
 
-public bool DUIN_CanInvoke(int client)
+public AMSResult DUIN_CanInvoke(int client, int idx)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void DUIN_Invoke(int client)
+public void DUIN_Invoke(int client, int idx)
 {
 	int boss=FF2_GetBossIndex(client);
 	char DumNewSpeed[10], DumDuration[10]; // Foolproof way so that args always return floats instead of ints
@@ -279,7 +255,7 @@ public void DUIN_Invoke(int client)
 		}
 		if(DumDuration[0]!='\0')
 		{
-			DumSpeedDuration[client]=GetEngineTime()+StringToFloat(DumDuration); // Boss Move Speed Duration
+			DumSpeedDuration[client]=GetGameTime()+StringToFloat(DumDuration); // Boss Move Speed Duration
 		}
 		
 		SDKHook(client, SDKHook_PreThink, Dum_Prethink);
@@ -292,7 +268,7 @@ public void DUIN_Invoke(int client)
 public void Dum_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", DumSpeed[client]);
-	DumInsanity(client, GetEngineTime());
+	DumInsanity(client, GetGameTime());
 }
 
 public void DumInsanity(int client, float gameTime)
@@ -477,10 +453,8 @@ stock int AttachParticle(int entity, char[] particleType, float offset[]={0.0,0.
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity=EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+	if(IsValidEntity(entity) && entity>MaxClients)
+		RemoveEntity(entity);
 }
 
 /////////////////////////////////////////////////////
