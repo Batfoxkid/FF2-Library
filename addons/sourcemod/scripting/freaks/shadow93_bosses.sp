@@ -53,20 +53,14 @@
 	
 */
 
-#pragma semicolon 1
-#include <tf2>
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2items>
 #include <tf2_stocks>
 #include <ff2_dynamic_defaults>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-#if SOURCEMOD_V_MINOR > 7
-  #pragma newdecls required
-#endif
+#pragma semicolon 1
+#pragma newdecls required
 
 #define BOSSRAGE "boss_config"
 
@@ -536,7 +530,7 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 
 // A C T I O N S
 
-public Action FF2_OnAlivePlayersChanged(int players, int bosses)
+public void FF2_OnAlivePlayersChanged(int players, int bosses)
 {
 	liveplayers = players;
 	livebosses =  bosses;
@@ -548,7 +542,7 @@ public Action FF2_OnLoseLife(int boss)
 	int userid = FF2_GetBossUserId(boss);
 	int client = GetClientOfUserId(userid);
 	int rType = FF2_GetAbilityArgument(boss,this_plugin_name,BOSSRAGE, 1);
-	if(boss==-1 || !IsValidEdict(client) || !FF2_HasAbility(boss, this_plugin_name, BOSSRAGE))
+	if(boss==-1 || !IsValidEntity(client) || !FF2_HasAbility(boss, this_plugin_name, BOSSRAGE))
 	{
 			return Plugin_Continue;
 	}
@@ -609,7 +603,7 @@ void Teleport_Me(int client)
 	int teleportme;
 	bool AlivePlayers;
 	for(int ii=1;ii<=MaxClients;ii++)
-	if(IsValidEdict(ii) && IsValidClient(ii) && IsPlayerAlive(ii) && GetClientTeam(ii)!=FF2_GetBossTeam())
+	if(IsValidEntity(ii) && IsValidClient(ii) && IsPlayerAlive(ii) && GetClientTeam(ii)!=FF2_GetBossTeam())
 	{
 		AlivePlayers = true;
 		break;
@@ -623,7 +617,7 @@ void Teleport_Me(int client)
 	}
 	while (AlivePlayers && (!IsValidEdict(target) || (target==client) || !IsPlayerAlive(target)));
 	
-	if (IsValidEdict(target))
+	if (IsValidEntity(target))
 	{
 		GetEntPropVector(target, Prop_Data, "m_vecOrigin", pos_2);
 		GetEntPropVector(target, Prop_Send, "m_vecOrigin", pos_2);
@@ -771,7 +765,7 @@ stock int GetRandomDeadPlayer()
 	int clientCount;
 	for(int i=1;i<=MaxClients;i++)
 	{
-		if(IsValidEdict(i) && IsValidClient(i) && !IsValidBoss(i) && !IsPlayerAlive(i) && (GetClientTeam(i) > 1))
+		if(IsValidEntity(i) && IsValidClient(i) && !IsValidBoss(i) && !IsPlayerAlive(i) && (GetClientTeam(i) > 1))
 		{
 			clients[clientCount++] = i;
 		}
@@ -802,7 +796,7 @@ stock void DoDamage(int client, int target, int amount) // from Goomba Stomp.
 stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // from L4D Achievement Trophy
 {
 	int particle = CreateEntityByName("info_particle_system");
-	if (!IsValidEdict(particle)) return false;
+	if (!IsValidEntity(particle)) return false;
 	char tName[128];
 	float f_pos[3];
 	if (cache) f_pos[2] -= 3000;
@@ -820,7 +814,7 @@ stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // fro
 	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
-	CreateTimer(10.0, DeleteParticle, particle);
+	CreateTimer(10.0, DeleteParticle, EntIndexToEntRef(particle));
 	return true;
 }
 
@@ -1029,13 +1023,11 @@ public Action SentryBusting(Handle timer, any bClient)
 	return Plugin_Continue;
 }
 
-public Action DeleteParticle(Handle timer, any Ent)
+public Action DeleteParticle(Handle timer, int ref)
 {
-	if (!IsValidEntity(Ent)) return;
-	char cls[25];
-	GetEdictClassname(Ent, cls, sizeof(cls));
-	if (StrEqual(cls, "info_particle_system", false)) AcceptEntityInput(Ent, "Kill");
-	return;
+	int Ent = EntRefToEntIndex(ref);
+	if(IsValidEntity(Ent))
+		RemoveEntity(Ent);
 }
 
 
@@ -1218,7 +1210,7 @@ bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float 
 			pointB[1] = bossOrigin[1] + ymax;
 		}
 
-		for (new shouldZ = 0; shouldZ <= 1; shouldZ++)
+		for (int shouldZ = 0; shouldZ <= 1; shouldZ++)
 		{
 			pointA[2] = pointB[2] = shouldZ == 0 ? bossOrigin[2] : (bossOrigin[2] + zOffset);
 			if (!Resize_OneTrace(pointA, pointB))
