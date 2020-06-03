@@ -1,14 +1,11 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <freak_fortress_2_extras>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define INACTIVE 100000000.0
 
@@ -60,28 +57,20 @@ public void PrepareAbilities()
 			SpeedSteal[clientIdx]=ShieldChargesSpeed[clientIdx]=0.0;
 			SpeedStealDuration[clientIdx]=StrengthDuration[clientIdx]=JarateDuration[clientIdx]=InvisibilityDuration[clientIdx]=INACTIVE;
 			Rockets[clientIdx]=Fire[clientIdx]=ShieldCharges[clientIdx]=RocketsButton[clientIdx]=ShieldChargesButton[clientIdx]=0;
-			
-			int bossIdx=FF2_GetBossIndex(clientIdx);
-			if(bossIdx>=0)
-			{
-				if(FF2_HasAbility(bossIdx, this_plugin_name, COPYCAT))
-				{
-					CopyCat_TriggerAMS[clientIdx]=AMS_IsSubabilityReady(bossIdx, this_plugin_name, COPYCAT);
-					if(CopyCat_TriggerAMS[clientIdx])
-					{
-						AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, COPYCAT, "COPY"); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(bossIdx, this_plugin_name, SKILLSTEAL))
-				{
-					SkillSteal_TriggerAMS[clientIdx]=AMS_IsSubabilityReady(bossIdx, this_plugin_name, SKILLSTEAL);
-					if(SkillSteal_TriggerAMS[clientIdx])
-					{
-						AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, SKILLSTEAL, "SKST"); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			}
 		}
+	}
+}
+
+public void FF2AMS_PreRoundStart(int clientIdx)
+{
+	int bossIdx = FF2_GetBossIndex(clientIdx);
+	if(FF2_HasAbility(bossIdx, this_plugin_name, COPYCAT))
+	{
+		CopyCat_TriggerAMS[clientIdx]=FF2AMS_PushToAMS(clientIdx, this_plugin_name, COPYCAT, "COPY");
+	}
+	if(FF2_HasAbility(bossIdx, this_plugin_name, SKILLSTEAL))
+	{
+		SkillSteal_TriggerAMS[clientIdx]=FF2AMS_PushToAMS(clientIdx, this_plugin_name, SKILLSTEAL, "SKST");
 	}
 }
 
@@ -110,34 +99,34 @@ public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[]
 	int clientIdx=GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	if(!strcmp(ability_name,COPYCAT))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			CopyCat_TriggerAMS[clientIdx]=false;
 		}
 		
 		if(!CopyCat_TriggerAMS[clientIdx])
-			COPY_Invoke(clientIdx);
+			COPY_Invoke(clientIdx, -1);
 	}
 	else if(!strcmp(ability_name,SKILLSTEAL))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			SkillSteal_TriggerAMS[clientIdx]=false;
 		}
 		
 		if(!SkillSteal_TriggerAMS[clientIdx])
-			SKST_Invoke(clientIdx);
+			SKST_Invoke(clientIdx, -1);
 	}
 	return Plugin_Continue;
 }
 
 
-public bool COPY_CanInvoke(int clientIdx)
+public AMSResult COPY_CanInvoke(int clientIdx, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void COPY_Invoke(int clientIdx)
+public void COPY_Invoke(int clientIdx, int index)
 {
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	
@@ -159,12 +148,12 @@ public void COPY_Invoke(int clientIdx)
 	}
 }
 
-public bool SKST_CanInvoke(int clientIdx)
+public AMSResult SKST_CanInvoke(int clientIdx, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public void SKST_Invoke(int clientIdx)
+public void SKST_Invoke(int clientIdx, int index)
 {
 	int bossIdx=FF2_GetBossIndex(clientIdx);
 	
@@ -234,9 +223,9 @@ public void SKST_Invoke(int clientIdx)
 		}
 		case TFClass_Engineer:
 		{
-			SpawnWeapon(clientIdx, "tf_weapon_pda_engineer_build", 25, 101, 5, "292 ; 3 ; 293 ; 59 ; 391 ; 2 ; 495 ; 60", 0); // Build PDA
-			SpawnWeapon(clientIdx, "tf_weapon_pda_engineer_destroy", 26, 101, 5, "391 ; 2", 0); // Destroy PDA
-			int entity = SpawnWeapon(clientIdx, "tf_weapon_builder", 28, 101, 5, "391 ; 2", 0); // Builder
+			SpawnWeapon(clientIdx, "tf_weapon_pda_engineer_build", 25, 101, 5, "292 ; 3 ; 293 ; 59 ; 391 ; 2 ; 495 ; 60", false); // Build PDA
+			SpawnWeapon(clientIdx, "tf_weapon_pda_engineer_destroy", 26, 101, 5, "391 ; 2", false); // Destroy PDA
+			int entity = SpawnWeapon(clientIdx, "tf_weapon_builder", 28, 101, 5, "391 ; 2", false); // Builder
 			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 0);
 			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 1);
 			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 2);
@@ -395,13 +384,13 @@ void UseRocket(int clientIdx)
 		SetEntityModel(proj,s);
 	FF2_GetAbilityArgumentString(bossIdx,this_plugin_name,SKILLSTEAL,7,s,PLATFORM_MAX_PATH);
 	if(strlen(s)>2)
-		CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s,_,true)));
+		CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s, _, true)));
 }
 
-public void event_player_hurt(Handle hEvent, const char[] strEventName, bool bDontBroadcast)
+public void event_player_hurt(Event hEvent, const char[] strEventName, bool bDontBroadcast)
 {
-	int victim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
-	int attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
+	int victim = GetClientOfUserId(hEvent.GetInt("userid"));
+	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
 	int index = FF2_GetBossIndex(attacker);
 	
 	if(victim != attacker && IsValidClient(attacker) && FF2_HasAbility(index, this_plugin_name, SKILLSTEAL))
@@ -414,7 +403,7 @@ public void event_player_hurt(Handle hEvent, const char[] strEventName, bool bDo
 	}
 }
 
-public Charging_Prethink(int clientIdx)
+public void Charging_Prethink(int clientIdx)
 {
 	SetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed", ShieldChargesSpeed[clientIdx]);
 }
@@ -490,7 +479,7 @@ stock bool IsPlayerInvincible(int iClient)
 	return TF2_IsPlayerInCondition(iClient, TFCond_Ubercharged) || TF2_IsPlayerInCondition(iClient, TFCond_UberchargedCanteen) || TF2_IsPlayerInCondition(iClient, TFCond_Bonked);
 }
 
-stock AttachParticle(entity, char[] particleType, float offset[]={0.0,0.0,0.0}, bool attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset[3] = {0.0, 0.0, 0.0}, bool attach=true)
 {
 	int particle=CreateEntityByName("info_particle_system");
 
@@ -500,6 +489,7 @@ stock AttachParticle(entity, char[] particleType, float offset[]={0.0,0.0,0.0}, 
 	position[0]+=offset[0];
 	position[1]+=offset[1];
 	position[2]+=offset[2];
+	
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
 
 	Format(targetName, sizeof(targetName), "target%i", entity);
@@ -520,13 +510,80 @@ stock AttachParticle(entity, char[] particleType, float offset[]={0.0,0.0,0.0}, 
 	return particle;
 }
 
-public Action Timer_RemoveEntity(Handle timer, any entid)
+public Action Timer_RemoveEntity(Handle timer, int entid)
 {
 	int entity=EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
+	if(IsValidEntity(entity) && entity>MaxClients)
+		RemoveEntity(entity);
+}
+
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, const char[] att, bool visible=true)
+{
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	if(hWeapon == INVALID_HANDLE)
+		return -1;
+
+	TF2Items_SetClassname(hWeapon, name);
+	TF2Items_SetItemIndex(hWeapon, index);
+	TF2Items_SetLevel(hWeapon, level);
+	TF2Items_SetQuality(hWeapon, qual);
+	char atts[32][32];
+	int count = ExplodeString(att, ";", atts, 32, 32);
+
+	if(count % 2)
+		--count;
+
+	if(count > 0)
 	{
-		AcceptEntityInput(entity, "Kill");
+		TF2Items_SetNumAttributes(hWeapon, count/2);
+		int i2;
+		for(int i; i<count; i+=2)
+		{
+			int attrib = StringToInt(atts[i]);
+			if(!attrib)
+			{
+				LogError("Bad weapon attribute passed: %s ; %s", atts[i], atts[i+1]);
+				delete hWeapon;
+				return -1;
+			}
+
+			TF2Items_SetAttribute(hWeapon, i2, attrib, StringToFloat(atts[i+1]));
+			i2++;
+		}
 	}
+	else
+	{
+		TF2Items_SetNumAttributes(hWeapon, 0);
+	}
+
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
+	delete hWeapon;
+	if(entity == -1)
+		return -1;
+
+	EquipPlayerWeapon(client, entity);
+
+	if(visible)
+	{
+		SetEntProp(entity, Prop_Send, "m_bValidatedAttachedEntity", 1);
+	}
+	else
+	{
+		SetEntProp(entity, Prop_Send, "m_iWorldModelIndex", -1);
+		SetEntPropFloat(entity, Prop_Send, "m_flModelScale", 0.001);
+	}
+	return entity;
+}
+
+bool IsValidClient(int client)
+{
+	if(client <= 0 || client > MaxClients)
+		return false;
+	
+	else if(IsClientSourceTV(client) || IsClientReplay(client))
+		return false;
+	
+	return IsClientInGame(client) && !GetEntProp(client, Prop_Send, "m_bIsCoaching");
 }
 
 #file "FF2 Subplugin: Abilities for Double"
