@@ -1,13 +1,9 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <morecolors>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define PLUGIN_VERSION "1.10.5"
@@ -586,12 +582,12 @@ public Action Timer_ResetGravity(Handle timer, Handle data)
 	return Plugin_Continue;
 }
 
-public Action OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
+public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	int boss=FF2_GetBossIndex(GetClientOfUserId(GetEventInt(event, "attacker")));
+	int boss=FF2_GetBossIndex(GetClientOfUserId(event.GetInt("attacker")));
 	if(boss!=-1 && FF2_HasAbility(boss, this_plugin_name, "special_dissolve"))
 	{
-		CreateTimer(0.1, Timer_DissolveRagdoll, GetEventInt(event, "userid"), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.1, Timer_DissolveRagdoll, event.GetInt("userid"), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return Plugin_Continue;
 }
@@ -631,9 +627,7 @@ public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity=EntRefToEntIndex(entid);
 	if(IsValidEntity(entity) && entity>MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
 
 stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
@@ -664,9 +658,9 @@ stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool
 	return particle;
 }
 
-public Action OnDeflect(Handle event, const char[] name, bool dontBroadcast)
+public Action OnDeflect(Event event, const char[] name, bool dontBroadcast)
 {
-	int boss=FF2_GetBossIndex(GetClientOfUserId(GetEventInt(event, "userid")));
+	int boss=FF2_GetBossIndex(GetClientOfUserId(event.GetInt("userid")));
 	if(boss!=-1)
 	{
 		if(UberRageCount[boss]>11)
