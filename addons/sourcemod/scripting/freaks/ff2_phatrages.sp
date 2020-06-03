@@ -1453,7 +1453,7 @@ public void IonAttack(DataPack& data)
 	nData.Reset();
 
 	if (Iondistance > -50)
-		CreateDataTimer(0.1, DrawIon, nData, TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.1, DrawIon, nData, TIMER_FLAG_NO_MAPCHANGE);
 	else
 	{
 		position[0] = startPosition[0];
@@ -1542,8 +1542,6 @@ public void IonAttack(DataPack& data)
 public Action DrawIon(Handle Timer, DataPack data)
 {
 	IonAttack(data);
-	
-	return (Plugin_Stop);
 }
 
 public bool TraceEntityFilterPlayer(int entity, int contentsMask)
