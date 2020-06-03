@@ -1,65 +1,63 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <ff2_dynamic_defaults>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define INACTIVE 100000000.0
 
 // There you are! (Stun + Overlay)
 #define STUNOVERLAY "there_you_are"
 #define STUNOVERLAYALIAS "TYA"
-new bool:ThereYouAre_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+bool ThereYouAre_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
 // Data Mining (Speedchange + Disguise)
 #define DATAMINING "data_mining"
 #define DATAMININGALIAS "DAMI"
-new Float:NewSpeedData[MAXPLAYERS+1];
-new Float:NewSpeedDurationData[MAXPLAYERS+1];
-new bool:DataMining_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float NewSpeedData[MAXPLAYERS+1];
+float NewSpeedDurationData[MAXPLAYERS+1];
+bool DataMining_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
 // Data corruption (Lag + Drug + sound + Speedchange)
 #define CORRUPTION "data_corruption"
 #define CORRUPTIONALIAS "DACO"
-new Float:NewSpeedCorruption[MAXPLAYERS+1];
-new Float:NewSpeedDurationCorruption[MAXPLAYERS+1];
-new bool:Corruption_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new Float:CorruptionUnscramble=INACTIVE;
-new bool:Corruptionscramble[MAXPLAYERS+1]=false;
-new Float:g_DrugAngles[56] = {0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0, 39.0, 36.0, 33.0, 30.0, 27.0, 24.0, 21.0, 18.0, 15.0, 12.0, 9.0, 6.0, 3.0, 0.0, -3.0, -6.0, -9.0, -12.0, -15.0, -18.0, -21.0, -24.0, -27.0, -30.0, -33.0, -36.0, -39.0, -42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0, -15.0, -12.0, -9.0, -6.0, -3.0 };
-new Handle:specialDrugTimers[MAXPLAYERS+1];
-new fov_offset;
-new zoom_offset;
-new gLaser1;
-new gHalo1;
+float NewSpeedCorruption[MAXPLAYERS+1];
+float NewSpeedDurationCorruption[MAXPLAYERS+1];
+bool Corruption_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float CorruptionUnscramble=INACTIVE;
+bool Corruptionscramble[MAXPLAYERS+1]=false;
+float g_DrugAngles[56] = {0.0, 3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 21.0, 24.0, 27.0, 30.0, 33.0, 36.0, 39.0, 42.0, 39.0, 36.0, 33.0, 30.0, 27.0, 24.0, 21.0, 18.0, 15.0, 12.0, 9.0, 6.0, 3.0, 0.0, -3.0, -6.0, -9.0, -12.0, -15.0, -18.0, -21.0, -24.0, -27.0, -30.0, -33.0, -36.0, -39.0, -42.0, -39.0, -36.0, -33.0, -30.0, -27.0, -24.0, -21.0, -18.0, -15.0, -12.0, -9.0, -6.0, -3.0 };
+Handle specialDrugTimers[MAXPLAYERS+1];
+int fov_offset;
+int zoom_offset;
+int gLaser1;
+int gHalo1;
 #define FFADE_OUT	0x0002        // Fade out
 
 // Class Reaction Lines
-static const String:ScoutReact[][] = {
+static const char ScoutReact[][] = {
 	"vo/scout_sf13_magic_reac03.mp3",
 	"vo/scout_sf13_magic_reac07.mp3",
 	"vo/scout_sf12_badmagic04.mp3"
 };
 
-static const String:SoldierReact[][] = {
+static const char SoldierReact[][] = {
 	"vo/soldier_sf13_magic_reac03.mp3",
 	"vo/soldier_sf12_badmagic07.mp3",
 	"vo/soldier_sf12_badmagic13.mp3"
 };
 
-static const String:PyroReact[][] = {
+static const char PyroReact[][] = {
 	"vo/pyro_autodejectedtie01.mp3",
 	"vo/pyro_painsevere02.mp3",
 	"vo/pyro_painsevere04.mp3"
 };
 
-static const String:DemoReact[][] = {
+static const char DemoReact[][] = {
 	"vo/demoman_sf13_magic_reac05.mp3",
 	"vo/demoman_sf13_bosses02.mp3",
 	"vo/demoman_sf13_bosses03.mp3",
@@ -68,7 +66,7 @@ static const String:DemoReact[][] = {
 	"vo/demoman_sf13_bosses06.mp3"
 };
 
-static const String:HeavyReact[][] = {
+static const char HeavyReact[][] = {
 	"vo/heavy_sf13_magic_reac01.mp3",
 	"vo/heavy_sf13_magic_reac03.mp3",
 	"vo/heavy_cartgoingbackoffense02.mp3",
@@ -76,7 +74,7 @@ static const String:HeavyReact[][] = {
 	"vo/heavy_negativevocalization06.mp3"
 };
 
-static const String:EngyReact[][] = {
+static const char EngyReact[][] = {
 	"vo/engineer_sf13_magic_reac01.mp3",
 	"vo/engineer_sf13_magic_reac02.mp3",
 	"vo/engineer_specialcompleted04.mp3",
@@ -84,7 +82,7 @@ static const String:EngyReact[][] = {
 	"vo/engineer_negativevocalization12.mp3"
 };
 
-static const String:MedicReact[][] = {
+static const char MedicReact[][] = {
 	"vo/medic_sf13_magic_reac01.mp3",
 	"vo/medic_sf13_magic_reac02.mp3",
 	"vo/medic_sf13_magic_reac03.mp3",
@@ -92,13 +90,13 @@ static const String:MedicReact[][] = {
 	"vo/medic_sf13_magic_reac07.mp3"
 };
 
-static const String:SniperReact[][] = {
+static const char SniperReact[][] = {
 	"vo/sniper_sf13_magic_reac01.mp3",
 	"vo/sniper_sf13_magic_reac02.mp3",
 	"vo/sniper_sf13_magic_reac04.mp3"
 };
 
-static const String:SpyReact[][] = {
+static const char SpyReact[][] = {
 	"vo/Spy_sf13_magic_reac01.mp3",
 	"vo/Spy_sf13_magic_reac02.mp3",
 	"vo/Spy_sf13_magic_reac03.mp3",
@@ -109,132 +107,116 @@ static const String:SpyReact[][] = {
 
 #define MULTIKILLOVERLAY "special_multi_killoverlay"
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "FF2: Abilities for Monika",
 	author	= "M7",
 	version = "1.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", event_round_end, EventHookMode_PostNoCopy);
 	
 	HookEvent("player_death", event_player_death);
 	
-	fov_offset = FindSendPropOffs("CBasePlayer", "m_iFOV");
-	zoom_offset = FindSendPropOffs("CBasePlayer", "m_iDefaultFOV");
+	fov_offset = FindSendPropInfo("CBasePlayer", "m_iFOV");
+	zoom_offset = FindSendPropInfo("CBasePlayer", "m_iDefaultFOV");
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	gLaser1 = PrecacheModel("materials/sprites/laser.vmt");
 	gHalo1 = PrecacheModel("materials/sprites/halo01.vmt");
 	PrecacheSound("ambient/halloween/mysterious_perc_01.wav",true);
 	
 	// Class Voice Reaction Lines
-	for (new i = 0; i < sizeof(ScoutReact); i++)
+	for (int i = 0; i < sizeof(ScoutReact); i++)
 	{
 		PrecacheSound(ScoutReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SoldierReact); i++)
+	for (int i = 0; i < sizeof(SoldierReact); i++)
 	{
 		PrecacheSound(SoldierReact[i], true);
 	}
-	for (new i = 0; i < sizeof(PyroReact); i++)
+	for (int i = 0; i < sizeof(PyroReact); i++)
 	{
 		PrecacheSound(PyroReact[i], true);
 	}
-	for (new i = 0; i < sizeof(DemoReact); i++)
+	for (int i = 0; i < sizeof(DemoReact); i++)
 	{
 		PrecacheSound(DemoReact[i], true);
 	}
-	for (new i = 0; i < sizeof(HeavyReact); i++)
+	for (int i = 0; i < sizeof(HeavyReact); i++)
 	{
 		PrecacheSound(HeavyReact[i], true);
 	}
-	for (new i = 0; i < sizeof(EngyReact); i++)
+	for (int i = 0; i < sizeof(EngyReact); i++)
 	{
 		PrecacheSound(EngyReact[i], true);
 	}
-	for (new i = 0; i < sizeof(MedicReact); i++)
+	for (int i = 0; i < sizeof(MedicReact); i++)
 	{
 		PrecacheSound(MedicReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SniperReact); i++)
+	for (int i = 0; i < sizeof(SniperReact); i++)
 	{
 		PrecacheSound(SniperReact[i], true);
 	}
-	for (new i = 0; i < sizeof(SpyReact); i++)
+	for (int i = 0; i < sizeof(SpyReact); i++)
 	{
 		PrecacheSound(SpyReact[i], true);
 	}
 }
 
-public Action:event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_start(Handle event, const char[] name, bool dontBroadcast)
 {
 	PrepareAbilities();
 }
 
-public PrepareAbilities()
+public void PrepareAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
-			ThereYouAre_TriggerAMS[client]=false;
-			DataMining_TriggerAMS[client]=false;
-			Corruption_TriggerAMS[client]=false;
-			
 			NewSpeedData[client]=NewSpeedCorruption[client]=0.0;
 			NewSpeedDurationData[client]=NewSpeedDurationCorruption[client]=INACTIVE;
 			
 			CorruptionUnscramble=INACTIVE;
 			Corruptionscramble[client]=false;
-			
-			new boss=FF2_GetBossIndex(client);
-			if(boss>=0)
-			{
-				if(FF2_HasAbility(boss, this_plugin_name, STUNOVERLAY))
-				{
-					ThereYouAre_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, STUNOVERLAY);
-					if(ThereYouAre_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, STUNOVERLAY, STUNOVERLAYALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(boss, this_plugin_name, DATAMINING))
-				{
-					DataMining_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, DATAMINING);
-					if(DataMining_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, DATAMINING, DATAMININGALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-				if(FF2_HasAbility(boss, this_plugin_name, CORRUPTION))
-				{
-					Corruption_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, CORRUPTION);
-					if(Corruption_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, CORRUPTION, CORRUPTIONALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			}
 		}
 	}
 }
 
-public PlayerSpawnEvent(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int boss = FF2_GetBossIndex(boss);
+	if(FF2_HasAbility(boss, this_plugin_name, STUNOVERLAY))
+	{
+		ThereYouAre_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, STUNOVERLAY, STUNOVERLAYALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, DATAMINING))
+	{
+		DataMining_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, DATAMINING, DATAMININGALIAS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, CORRUPTION))
+	{
+		Corruption_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, CORRUPTION, CORRUPTIONALIAS);
+	}
+}
+
+public void PlayerSpawnEvent(Event event, const char[] name, bool dontBroadcast)
+{
+	int client = GetClientOfUserId(event.GetInt("userid"));
 	SetEntData(client, fov_offset, 90, 4, true);
 	SetEntData(client, zoom_offset, 90, 4, true);
 	ClientCommand(client, "r_screenoverlay 0");
 }
 
-public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_end(Handle event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -256,18 +238,18 @@ public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadc
 	CreateTimer(0.1, EndCorruption);
 }
 
-public Action:event_player_death(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_player_death(Event event, const char[] name, bool dontBroadcast)
 {
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
-	new client=GetClientOfUserId(GetEventInt(event, "userid"));
-	new boss=FF2_GetBossIndex(attacker); // Boss is an attacker
+	int attacker=GetClientOfUserId(event.GetInt("attacker"));
+	int client=GetClientOfUserId(event.GetInt("userid"));
+	int boss=FF2_GetBossIndex(attacker); // Boss is an attacker
 	if(boss>=0)
 	{
-		new String:overlay[PLATFORM_MAX_PATH];
-		new String:buffer[PLATFORM_MAX_PATH];
+		char overlay[PLATFORM_MAX_PATH];
+		char buffer[PLATFORM_MAX_PATH];
 	
-		new number=FF2_GetAbilityArgument(boss, this_plugin_name, MULTIKILLOVERLAY, 1);
-		new random=2*GetRandomInt(1, number); // Only even numbers
+		int number=FF2_GetAbilityArgument(boss, this_plugin_name, MULTIKILLOVERLAY, 1);
+		int random=2*GetRandomInt(1, number); // Only even numbers
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, MULTIKILLOVERLAY, random , buffer, sizeof(buffer));
 	
 		Format(overlay, sizeof(overlay), "r_screenoverlay \"%s\"", buffer);
@@ -283,10 +265,10 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	return Plugin_Continue;
 }
 
-public Action:remove_overlay(Handle:timer)
+public Action remove_overlay(Handle timer)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -297,71 +279,71 @@ public Action:remove_overlay(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 	
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,STUNOVERLAY))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			ThereYouAre_TriggerAMS[client]=false;
 		}
 		
 		if(!ThereYouAre_TriggerAMS[client])
-			TYA_Invoke(client);
+			TYA_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,DATAMINING))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			DataMining_TriggerAMS[client]=false;
 		}
 		
 		if(!DataMining_TriggerAMS[client])
-			DAMI_Invoke(client);
+			DAMI_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,CORRUPTION))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Corruption_TriggerAMS[client]=false;
 		}
 		
 		if(!Corruption_TriggerAMS[client])
-			DACO_Invoke(client);
+			DACO_Invoke(client, -1);
 	}
 	
 	return Plugin_Continue;
 }
 
 
-public bool:TYA_CanInvoke(client)
+public AMSResult TYA_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public TYA_Invoke(client)
+public void TYA_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3], Float:sentryPosition[3];
-	new String:TYA_overlay[PLATFORM_MAX_PATH];
-	new String:TYA_buffer[PLATFORM_MAX_PATH];
+	int boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3], sentryPosition[3];
+	char TYA_overlay[PLATFORM_MAX_PATH];
+	char TYA_buffer[PLATFORM_MAX_PATH];
 	
-	new Float:TYA_Stunduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 1, 5.0);
-	new Float:TYA_Stundistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 2, FF2_GetRageDist(boss, this_plugin_name, STUNOVERLAY));
-	new Float:TYA_Sentryduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 3, 7.0);
-	new Float:TYA_Sentrydistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 4, FF2_GetRageDist(boss, this_plugin_name, STUNOVERLAY));
-	new bool:TeleportOnTop = bool:FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 5);
-	new bool:TeleportAtSide = bool:FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 6);
-	new Float:SelfStunDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 7);
-	new numberofoverlays=FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 8, -1);
+	float TYA_Stunduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 1, 5.0);
+	float TYA_Stundistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 2, FF2_GetRageDist(boss, this_plugin_name, STUNOVERLAY));
+	float TYA_Sentryduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 3, 7.0);
+	float TYA_Sentrydistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 4, FF2_GetRageDist(boss, this_plugin_name, STUNOVERLAY));
+	bool TeleportOnTop = FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 5) != 0;
+	bool TeleportAtSide = FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 6) != 0;
+	float SelfStunDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 7);
+	int numberofoverlays=FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 8, -1);
 	
 	if(ThereYouAre_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_there_you_are", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -371,13 +353,13 @@ public TYA_Invoke(client)
 	
 	DD_PerformTeleport(client, SelfStunDuration, TeleportOnTop, TeleportAtSide, false, false);
 	
-	new random=2*GetRandomInt(1, numberofoverlays); // Only even numbers
+	int random=2*GetRandomInt(1, numberofoverlays); // Only even numbers
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, STUNOVERLAY, random, TYA_buffer, sizeof(TYA_buffer));
 	
 	Format(TYA_overlay, sizeof(TYA_overlay), "r_screenoverlay \"%s\"", TYA_buffer);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -393,7 +375,7 @@ public TYA_Invoke(client)
 	CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, random+1, 6.0), timer_no_monika, _, TIMER_FLAG_NO_MAPCHANGE);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
 	
-	new sentry;
+	int sentry;
 	while((sentry=FindEntityByClassname(sentry, "obj_sentrygun"))!=-1)
 	{
 		GetEntPropVector(sentry, Prop_Send, "m_vecOrigin", sentryPosition);
@@ -406,10 +388,10 @@ public TYA_Invoke(client)
 	}
 }
 
-public Action:timer_no_monika(Handle:timer)
+public Action timer_no_monika(Handle timer)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -421,23 +403,23 @@ public Action:timer_no_monika(Handle:timer)
 }
 
 
-public bool:DAMI_CanInvoke(client)
+public AMSResult DAMI_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public DAMI_Invoke(client)
+public void DAMI_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
-	decl String:MiningSpeed[10], String:MiningDuration[10]; // Foolproof way so that args always return floats instead of ints
+	static char MiningSpeed[10], MiningDuration[10]; // Foolproof way so that args always return floats instead of ints
 	
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 1, MiningSpeed, sizeof(MiningSpeed));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 2, MiningDuration, sizeof(MiningDuration));
 	
 	if(DataMining_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_data_mining_start", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -458,12 +440,12 @@ public DAMI_Invoke(client)
 		}
 		if(MiningDuration[0]!='\0')
 		{
-			NewSpeedDurationData[client]=GetEngineTime()+StringToFloat(MiningDuration); // Boss Move Speed Duration
+			NewSpeedDurationData[client]=GetGameTime()+StringToFloat(MiningDuration); // Boss Move Speed Duration
 		}
 		SDKHook(client, SDKHook_PreThink, DataMining_Prethink);
 	}
 	
-	new Float:dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, DATAMINING, 3);
+	float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, DATAMINING, 3);
 	if(dist2)
 	{
 		if(dist2==-1)
@@ -474,9 +456,9 @@ public DAMI_Invoke(client)
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 4, MiningSpeed, sizeof(MiningSpeed));
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 5, MiningDuration, sizeof(MiningDuration));
 		
-		new Float:pos[3], Float:pos2[3], Float:dist;
+		float pos[3], pos2[3], dist;
 		GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-		for(new target=1;target<=MaxClients;target++)
+		for(int target=1;target<=MaxClients;target++)
 		{
 			if(!IsValidClient(target))
 				continue;
@@ -487,27 +469,27 @@ public DAMI_Invoke(client)
 			{
 				SDKHook(target, SDKHook_PreThink, DataMining_Prethink);
 				NewSpeedData[target]=StringToFloat(MiningSpeed); // Victim Move Speed
-				NewSpeedDurationData[target]=GetEngineTime()+StringToFloat(MiningDuration); // Victim Move Speed Duration
+				NewSpeedDurationData[target]=GetGameTime()+StringToFloat(MiningDuration); // Victim Move Speed Duration
 			}
 		}
 	}
 }
 
-public DataMining_Prethink(client)
+public void DataMining_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", NewSpeedData[client]);
-	Datamining(client, GetEngineTime());
+	Datamining(client, GetGameTime());
 }
 
-public Datamining(client, Float:gameTime)
+public void Datamining(int client, float gameTime)
 {
 	// Move Speed
 	if(gameTime>=NewSpeedDurationData[client])
 	{
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			new String:snd[PLATFORM_MAX_PATH];
+			char snd[PLATFORM_MAX_PATH];
 			if(FF2_RandomSound("sound_data_mining_finish", snd, sizeof(snd), boss))
 			{
 				EmitSoundToAll(snd, client);
@@ -522,20 +504,20 @@ public Datamining(client, Float:gameTime)
 }
 
 
-public bool:DACO_CanInvoke(client)
+public AMSResult DACO_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public DACO_Invoke(client)
+public void DACO_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
-	decl String:CorruptionSpeed[10], String:CorruptionDuration[10]; // Foolproof way so that args always return floats instead of ints
+	static char CorruptionSpeed[10], CorruptionDuration[10]; // Foolproof way so that args always return floats instead of ints
 	
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CORRUPTION, 1, CorruptionSpeed, sizeof(CorruptionSpeed));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CORRUPTION, 2, CorruptionDuration, sizeof(CorruptionDuration));
-	new bool:reactionvoicelines = bool:FF2_GetAbilityArgument(boss, this_plugin_name, CORRUPTION, 5);
+	bool reactionvoicelines = FF2_GetAbilityArgument(boss, this_plugin_name, CORRUPTION, 5) != 0;
 	
 	if(CorruptionSpeed[0]!='\0' || CorruptionDuration[0]!='\0')
 	{
@@ -545,14 +527,14 @@ public DACO_Invoke(client)
 		}
 		if(CorruptionDuration[0]!='\0')
 		{
-			NewSpeedDurationCorruption[client]=GetEngineTime()+StringToFloat(CorruptionDuration); // Boss Move Speed Duration
+			NewSpeedDurationCorruption[client]=GetGameTime()+StringToFloat(CorruptionDuration); // Boss Move Speed Duration
 		}
 		SDKHook(client, SDKHook_PreThink, Corruption_Prethink);
 	}
 	
-	new Float:pos[3], Float:pos2[3], Float:dist;
+	float pos[3], pos2[3], dist;
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	new Float:dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CORRUPTION, 3);
+	float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CORRUPTION, 3);
 	if(dist2)
 	{
 		if(dist2==-1)
@@ -560,7 +542,7 @@ public DACO_Invoke(client)
 			dist2=FF2_GetRageDist(boss, this_plugin_name, CORRUPTION);
 		}
 		
-		for(new target=1;target<=MaxClients;target++)
+		for(int target=1;target<=MaxClients;target++)
 		{
 			if(!IsValidClient(target))
 				continue;
@@ -576,13 +558,13 @@ public DACO_Invoke(client)
 				AcceptEntityInput(target, "SetForcedTauntCam");
 				Corruption_Create(target);
 				Corruptionscramble[target]=true;
-				CorruptionUnscramble=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CORRUPTION, 4);
+				CorruptionUnscramble=GetGameTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CORRUPTION, 4);
 				SDKHook(target, SDKHook_PreThink, Corruption2_Prethink);
 			}
 		}
 	}
 		
-	new Float:vec[3];
+	float vec[3];
 	GetClientAbsOrigin(client, vec);
 	vec[2] += 10;
 			
@@ -601,7 +583,7 @@ public DACO_Invoke(client)
 	
 	if(DataMining_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_date_corruption_effect", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -613,7 +595,7 @@ public DACO_Invoke(client)
 			EmitSoundToAll(snd, client, _, _, _, _, _, client, pos);
 			EmitSoundToAll(snd, client, _, _, _, _, _, client, pos);
 
-			for(new victim=1; victim<=MaxClients; victim++)
+			for(int victim=1; victim<=MaxClients; victim++)
 			{
 				if(IsClientInGame(victim) && victim!=client)
 				{
@@ -625,9 +607,11 @@ public DACO_Invoke(client)
 	}
 }
 
-public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:velocity[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	if(boss==-1)
 	{
 		return Plugin_Continue;
@@ -677,20 +661,20 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:velocity[3], Floa
 	return Plugin_Continue;
 }
 
-public Corruption_Prethink(client)
+public void Corruption_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", NewSpeedData[client]);
-	DataCorruption(client, GetEngineTime());
+	DataCorruption(client, GetGameTime());
 }
-public DataCorruption(client, Float:gameTime)
+public void DataCorruption(int client, float gameTime)
 {
 	// Move Speed
 	if(gameTime>=NewSpeedDurationCorruption[client])
 	{
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			new String:snd[PLATFORM_MAX_PATH];
+			char snd[PLATFORM_MAX_PATH];
 			if(FF2_RandomSound("sound_date_corruption_finish", snd, sizeof(snd), boss))
 			{
 				EmitSoundToAll(snd, client);
@@ -703,16 +687,16 @@ public DataCorruption(client, Float:gameTime)
 		SDKUnhook(client, SDKHook_PreThink, Corruption_Prethink);
 	}
 }
-public Corruption2_Prethink(client)
+public void Corruption2_Prethink(int client)
 {
-	Datacorrupted(client, GetEngineTime());
+	Datacorrupted(client, GetGameTime());
 }
 
-public Datacorrupted(client, Float:gameTime)
+public void Datacorrupted(int client, float gameTime)
 {
 	if(gameTime>=CorruptionUnscramble)
 	{
-		for(new i = 1; i <= MaxClients; i++ )
+		for(int i = 1; i <= MaxClients; i++ )
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i))
 			{
@@ -724,9 +708,9 @@ public Datacorrupted(client, Float:gameTime)
 		}
 	}
 }
-public Action:EndCorruption(Handle:timer)
+public Action EndCorruption(Handle timer)
 {
-	for(new i = 1; i <= MaxClients; i++ )
+	for(int i = 1; i <= MaxClients; i++ )
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
 		{
@@ -740,21 +724,21 @@ public Action:EndCorruption(Handle:timer)
 /* 
 * Create colorfull drug on client
 */
-stock Corruption_Create(client)
+stock void Corruption_Create(int client)
 {
-	specialDrugTimers[ client ] = CreateTimer(0.1, Corruption_Timer, client, TIMER_REPEAT);	
+	specialDrugTimers[ client ] = CreateTimer(0.1, Corruption_Timer, GetClientSerial(client), TIMER_REPEAT);	
 }
 
 /* 
 * Kill drug on selected client
 */
-stock Corruption_Kill(client)
+stock void Corruption_Kill(int client)
 {
 	if ( IsClientInGame( client ) && IsClientConnected( client ) )
 	{
 		specialDrugTimers[ client ] = INVALID_HANDLE;	
 		
-		new Float:angs[3];
+		float angs[3];
 		GetClientEyeAngles(client, angs);
 			
 		angs[2] = 0.0;
@@ -771,10 +755,10 @@ stock Corruption_Kill(client)
 /*
 * Run drug timer
 */
-public Action:Corruption_Timer(Handle:timer, any:client)
+public Action Corruption_Timer(Handle timer, int serial)
 {
-	static Repeat = 0;
-	
+	static int Repeat = 0;
+	int client = GetClientFromSerial(serial);
 	if ( !IsClientInGame( client ) )
 	{
 		Corruption_Kill( client );
@@ -796,7 +780,7 @@ public Action:Corruption_Timer(Handle:timer, any:client)
 	SetVariantInt(0);
 	AcceptEntityInput(client, "SetForcedTauntCam");
 	
-	new Float:angs[3];
+	float angs[3];
 	GetClientEyeAngles(client, angs);
 
 	angs[2] = g_DrugAngles[Repeat % 56];
@@ -818,7 +802,7 @@ public Action:Corruption_Timer(Handle:timer, any:client)
 	
 	Repeat++;
 	
-	new clients[2];
+	int clients[2];
 	clients[0] = client;	
 	
 	sendfademsg(client, 255, 255, FFADE_OUT, GetRandomInt(0,255), GetRandomInt(0,255), GetRandomInt(0,255), 150);
@@ -827,12 +811,12 @@ public Action:Corruption_Timer(Handle:timer, any:client)
 
 }
 
-stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
-	decl String:targetName[128];
-	new Float:position[3];
+	static char targetName[128];
+	float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2]+=offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -854,17 +838,15 @@ stock AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attac
 	AcceptEntityInput(particle, "start");
 	return particle;
 }
-public Action:Timer_RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity=EntRefToEntIndex(entid);
+	int entity=EntRefToEntIndex(entid);
 	if(IsValidEntity(entity) && entity>MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
-public Action:Timer_EnableSentry(Handle:timer, any:sentryid)
+public Action Timer_EnableSentry(Handle timer, any sentryid)
 {
-	new sentry=EntRefToEntIndex(sentryid);
+	int sentry=EntRefToEntIndex(sentryid);
 	if(FF2_GetRoundState()==1 && sentry>MaxClients)
 	{
 		SetEntProp(sentry, Prop_Send, "m_bDisabled", 0);
@@ -872,9 +854,9 @@ public Action:Timer_EnableSentry(Handle:timer, any:sentryid)
 	return Plugin_Continue;
 }
 
-stock sendfademsg(client, duration, holdtime, fadeflag, r, g, b, a)
+stock void sendfademsg(int client, int duration, int holdtime, int fadeflag, int r, int g, int b, int a)
 {
-	new Handle:fademsg;
+	Handle fademsg;
 	
 	if (client == 0)
 		fademsg = StartMessageAll("Fade");
@@ -891,11 +873,11 @@ stock sendfademsg(client, duration, holdtime, fadeflag, r, g, b, a)
 	EndMessage();
 }
 
-stock Responses(client) // Simple Class responses
+stock void Responses(int client) // Simple Class responses
 {
 	if(IsValidClient(client, true) && GetClientTeam(client)!=FF2_GetBossTeam())
 	{
-		new String:Reaction[PLATFORM_MAX_PATH];
+		char Reaction[PLATFORM_MAX_PATH];
 		switch(TF2_GetPlayerClass(client))
 		{
 			case TFClass_Scout: // Scout
@@ -939,14 +921,14 @@ stock Responses(client) // Simple Class responses
 	}
 }
 
-stock bool:IsBoss(client)
+stock bool IsBoss(int client)
 {
 	if(FF2_GetBossIndex(client)==-1) return false;
 	if(GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	return true;
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(isPlayerAlive) return IsClientInGame(client) && IsPlayerAlive(client);
