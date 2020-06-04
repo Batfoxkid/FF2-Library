@@ -1,8 +1,9 @@
-#include <sourcemod>
 #include <tf2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <sdkhooks>
+
+#pragma newdecls required
 
 #define PLUGIN_AUTHOR "Naydef"
 #define PLUGIN_VERSION "0.4"
@@ -54,7 +55,7 @@
 #define ABILITY_4 "ff2_falleffectparticle" // Not now!
 
 
-public Plugin:myinfo =
+public Plugin myinfo =
 {
 	name = "[TF2] Freak Fortress 2: Fall Effects", 
 	author = PLUGIN_AUTHOR,
@@ -63,7 +64,7 @@ public Plugin:myinfo =
 	url = "http://www.sourcemod.net/"
 };
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	if(!IsTF2())
 	{
@@ -73,9 +74,9 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 	return APLRes_Success;
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	for(new i=1; i<=MaxClients; i++)
+	for(int i=1; i<=MaxClients; i++)
 	{
 		if(IsValidClient(i))
 		{
@@ -84,33 +85,35 @@ public OnPluginStart2()
 	}
 }
 
-public OnClientPostAdminCheck(client)
+public void OnClientPostAdminCheck(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamagePost, Hook_OnTakeDamagePost);
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action) // Not used.
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action) // Not used.
 {
 	return Plugin_Continue;
 }
 
-public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
+public void Hook_OnTakeDamagePost(int victim, int attacker, int inflictor, 
+					float damage, int damagetype, int weapon,
+					const float damageForce[3], const float damagePosition[3], int damagecustom)
 {
 	if(damagetype & DMG_FALL)
 	{
-		new bossindex=FF2_GetBossIndex(victim);
+		int bossindex=FF2_GetBossIndex(victim);
 		if(bossindex==-1) return;
 		if(FF2_HasAbility(bossindex, this_plugin_name, ABILITY_1))
 		{
-			new String:buffer[PLATFORM_MAX_PATH];
-			new numberofsounds=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_1, 2, -1);
+			char buffer[PLATFORM_MAX_PATH];
+			int numberofsounds=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_1, 2, -1);
 			if(numberofsounds<=0)
 			{
 				FF2_GetBossSpecial(bossindex, buffer, sizeof(buffer), 0);
 				LogError("[FF2 FallEffect Subplugin] Sounds less than 1 | Boss %s", buffer);
 				return;
 			}
-			new random=GetRandomInt(1, numberofsounds);
+			int random=GetRandomInt(1, numberofsounds);
 			FF2_GetAbilityArgumentString(bossindex, this_plugin_name, ABILITY_1, 2+random , buffer, sizeof(buffer));
 			if(!buffer[0])
 			{
@@ -118,7 +121,7 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 				LogError("[FF2 FallEffect Subplugin] Sound string is NULL! | Boss: %s", buffer);
 				return;
 			}
-			new String:buffer1[PLATFORM_MAX_PATH];
+			char buffer1[PLATFORM_MAX_PATH];
 			Format(buffer1, sizeof(buffer1), "sound/%s", buffer);
 			if(!FileExists(buffer1))
 			{
@@ -127,17 +130,17 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 				return;
 			}
 			PrecacheSound(buffer);
-			new distance=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_1, 1, -1);
+			int distance=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_1, 1, -1);
 			if(distance<=0)
 			{
 				EmitSoundToAll(buffer, victim, SNDCHAN_AUTO);
 			}
 			else
 			{
-				new Float:PVectorBoss[3];
-				new Float:PVector[3];
+				float PVectorBoss[3];
+				float PVector[3];
 				GetEntPropVector(victim, Prop_Send, "m_vecOrigin", PVectorBoss);
-				for(new i=1; i<=MaxClients; i++)
+				for(int i=1; i<=MaxClients; i++)
 				{
 					if(IsValidClient(i))
 					{
@@ -152,14 +155,14 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 		}
 		if(FF2_HasAbility(bossindex, this_plugin_name, ABILITY_2))
 		{
-			new distance=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_2, 1, -1);
-			new IsBossShaked=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_2, 2, -1);
-			new Float:amplitude=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 3, -1.0);
-			new Float:duration=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 4, -1.0);
-			new Float:frequency=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 5, -1.0);
+			int distance=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_2, 1, -1);
+			int IsBossShaked=FF2_GetAbilityArgument(bossindex, this_plugin_name, ABILITY_2, 2, -1);
+			float amplitude=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 3, -1.0);
+			float duration=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 4, -1.0);
+			float frequency=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_2, 5, -1.0);
 			if(distance<=0)
 			{
-				for(new i=1; i<=MaxClients; i++)
+				for(int i=1; i<=MaxClients; i++)
 				{
 					if(IsValidClient(i))
 					{
@@ -184,10 +187,10 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 			}
 			else
 			{
-				new Float:PVectorBoss[3];
-				new Float:PVector[3];
+				float PVectorBoss[3];
+				float PVector[3];
 				GetEntPropVector(victim, Prop_Send, "m_vecOrigin", PVectorBoss);
-				for(new i=1; i<=MaxClients; i++)
+				for(int i=1; i<=MaxClients; i++)
 				{
 					if(IsValidClient(i))
 					{
@@ -216,18 +219,18 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 		}
 		if(FF2_HasAbility(bossindex, this_plugin_name, ABILITY_3))
 		{
-			new Float:PVectorBoss[3];
-			new Float:PVector[3];
+			float PVectorBoss[3];
+			float PVector[3];
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", PVectorBoss);
-			new Float:damagedist=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_3, 1, -1.0);
-			new Float:pdamage=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_3, 2, -1.0);
+			float damagedist=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_3, 1, -1.0);
+			float pdamage=FF2_GetAbilityArgumentFloat(bossindex, this_plugin_name, ABILITY_3, 2, -1.0);
 			if(pdamage<0.0)
 			{
-				new String:buffer[64];
+				char buffer[64];
 				FF2_GetBossSpecial(bossindex, buffer, sizeof(buffer), 0);
 				LogMessage("[FF2 FallEffect Subplugin] Negative damage?!?! | Boss: %s", buffer);
 			}
-			for(new i=1; i<=MaxClients; i++)
+			for(int i=1; i<=MaxClients; i++)
 			{
 				if(IsValidClient(i) && IsPlayerAlive(i) && FF2_GetBossIndex(i)==-1)
 				{
@@ -248,7 +251,7 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 		}
 		if(FF2_HasAbility(bossindex, this_plugin_name, ABILITY_4))
 		{
-			new String:buffer[64];
+			char buffer[64];
 			FF2_GetBossSpecial(bossindex, buffer, sizeof(buffer), 0);
 			LogError("[FF2 FallEffect Subplugin] This version of the plugin does not support \"ff2_falleffectparticle\" ability! | Boss: %s", buffer);
 		}
@@ -256,7 +259,7 @@ public Hook_OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagety
 }
 
 
-stock bool:IsValidClient(client, bool:replaycheck=true)//From Freak Fortress 2
+stock bool IsValidClient(int client, bool replaycheck=true)//From Freak Fortress 2
 {
 	if(client<=0 || client>MaxClients)
 	{
@@ -283,9 +286,9 @@ stock bool:IsValidClient(client, bool:replaycheck=true)//From Freak Fortress 2
 	return true;
 }
 
-public ShakeScreen(client, Float:amplitude, Float:duration, Float:frequency)
+public void ShakeScreen(int client, float amplitude, float duration, float frequency)
 {
-	new Handle:usermessg=StartMessageOne("Shake", client);
+	Handle usermessg=StartMessageOne("Shake", client);
 	if(usermessg!=INVALID_HANDLE)
 	{
 		BfWriteByte(usermessg, 0);
@@ -296,7 +299,7 @@ public ShakeScreen(client, Float:amplitude, Float:duration, Float:frequency)
 	}
 }
 
-bool:IsTF2()
+bool IsTF2()
 {
 	return (GetEngineVersion()==Engine_TF2) ?  true : false;
 }
