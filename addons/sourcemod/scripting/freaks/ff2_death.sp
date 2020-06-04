@@ -8,18 +8,18 @@
 //////////////////////
 
 //////////// Plugin inits
-#pragma semicolon 1
 
-#include <sourcemod>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <tf2items>
 #undef REQUIRE_PLUGIN
 #tryinclude <ff2_dynamic_defaults>
-#tryinclude <morecolors>
 #define REQUIRE_PLUGIN
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 public Plugin myinfo = {
 	name	= "Freak Fortress 2: Deathreus Boss Pack",
@@ -114,7 +114,7 @@ int FlapForce;							// 2
 
 float HeffeUpdateHUD[MAXPLAYERS];		// Internal
 float FlapDrain;						// 1
-float FlapRate;							// 3
+//float FlapRate;							// 3  /** < 01Pollux: deprecated, its assigned to a value that is never used */
 
 char FlapSound[PLATFORM_MAX_PATH];		// 4
 
@@ -259,7 +259,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 		{
 			FlapDrain = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "dot_heffe_jump", 1, 5.0);						// Amount of rage drained per second
 			FlapForce = FF2_GetAbilityArgument(iIndex, this_plugin_name, "dot_heffe_jump", 2, 75);								// Force multiplier of the jump
-			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "dot_heffe_jump", 3, 1.5);		// Time between flaps
+//			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "dot_heffe_jump", 3, 1.5);		// Time between flaps
 			FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "dot_heffe_jump", 4, FlapSound, PLATFORM_MAX_PATH);			// Sound played on flap
 			
 			if(!IsEmptyString(FlapSound))
@@ -1066,7 +1066,7 @@ public Action Timer_HeffeTick(Handle hTimer, any iClient)
 {
 	if(g_bButtonPressed)
 	{
-		int Boss = FF2_GetBossIndex(iClient);
+//		int Boss = FF2_GetBossIndex(iClient);
 		if((GetClientButtons(iClient) & IN_JUMP)/* && GetEngineTime() >= g_flFlapRate*/)	// Enforce a time limit between flaps
 		{
 			float flPos[3], flRot[3], flVel[3];
@@ -1079,7 +1079,7 @@ public Action Timer_HeffeTick(Handle hTimer, any iClient)
 			flVel[2] = (750.0+175.0*FlapForce/70);
 			
 			TeleportEntity(iClient, NULL_VECTOR, NULL_VECTOR, flVel);
-			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, "dot_heffe_jump", 2, 1.5);
+//			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, "dot_heffe_jump", 2, 1.5);
 			
 			if(!IsEmptyString(FlapSound))
 				EmitAmbientSound(FlapSound, flPos, iClient);
@@ -1181,7 +1181,7 @@ public Action Timer_DissolveRagdoll(Handle hTimer, Handle pack)
 //	Stocks start below this point  //
 /////////////////////////////////////
 
-public void NoRage_Think(iClient)
+public void NoRage_Think(int iClient)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		SDKUnhook(iClient, SDKHook_PreThink, NoRage_Think);
@@ -1313,7 +1313,7 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 					EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 
-					for (new enemy = 1; enemy < MaxClients; enemy++)
+					for (int enemy = 1; enemy < MaxClients; enemy++)
 					{
 						if (IsClientInGame(enemy) && enemy != iClient)
 						{
@@ -1531,7 +1531,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 	
-						for (new enemy = 1; enemy < MaxClients; enemy++)
+						for (int enemy = 1; enemy < MaxClients; enemy++)
 						{
 							if (IsClientInGame(enemy) && enemy != iClient)
 							{
@@ -1675,7 +1675,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 	}
 }
 
-public void AimThink(iClient)
+public void AimThink(int iClient)
 {
 	int iClosest = GetClosestClient(iClient);
 	if(!IsValidClient(iClosest, true))
@@ -1862,7 +1862,7 @@ stock int GetIndexOfWeaponSlot(int iClient, int iSlot)
 	return (iWeapon > MaxClients && IsValidEntity(iWeapon) ? GetEntProp(iWeapon, Prop_Send, "m_iItemDefinitionIndex") : -1);
 }
 
-stock RemoveWeapons(int iClient)
+stock void RemoveWeapons(int iClient)
 {
 	if (IsValidClient(iClient, true, true))
 	{
@@ -1879,7 +1879,7 @@ stock RemoveWeapons(int iClient)
 	}
 }
 
-stock SwitchtoSlot(int iClient, int iSlot)
+stock void SwitchtoSlot(int iClient, int iSlot)
 {
 	if (iSlot >= 0 && iSlot <= 5 && IsClientInGame(iClient) && IsPlayerAlive(iClient))
 	{
@@ -2181,7 +2181,7 @@ int ShootProjectile(int iClient, char strEntname[48] = "")
 	return iSpell;
 }
 
-public bool IsInInvalidCondition(iClient)
+public bool IsInInvalidCondition(int iClient)
 {
 	return TF2_IsPlayerInCondition(iClient, TFCond_Dazed) || TF2_IsPlayerInCondition(iClient, TFCond_Taunting) || GetEntityMoveType(iClient)==MOVETYPE_NONE;
 }
@@ -2230,7 +2230,7 @@ stock int FindSpellBook(int iClient)
 
 public bool TraceEntityFilterPlayer(int iEntity, int contentsMask)
 {
-	return (iEntity > GetMaxClients() || !iEntity);
+	return (iEntity > MaxClients || !iEntity);
 }
 
 stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
