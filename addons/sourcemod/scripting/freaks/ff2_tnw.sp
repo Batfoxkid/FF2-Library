@@ -1,42 +1,41 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-public Plugin:myinfo = {
+#pragma semicolon 1
+#pragma newdecls required
+
+public Plugin myinfo = {
 	name	= "Freak Fortress 2: Timed Weapon Rage",
 	author	= "Deathreus",
 	version = "1.0"
 };
 
-new BossTeam = _:TFTeam_Blue;
+int BossTeam = view_as<int>(TFTeam_Blue);
 
-new Float:WeaponTime[MAXPLAYERS+1];
+float WeaponTime[MAXPLAYERS+1];
 
-public OnPluginStart2() 
+public void OnPluginStart2() 
 {
 	HookEvent("arena_round_start", Event_RoundStart);
 	LoadTranslations("freak_fortress_2.phrases");
 }
 
-public FF2_OnAbility2(iIndex, const String:pluginName[], const String:abilityName[], iStatus) {
+public void FF2_OnAbility2(int iIndex, const char[] pluginName, const char[] abilityName, int iStatus) {
 	if (!strcmp(abilityName, "rage_timed_new_weapon"))
 		Rage_Timed_New_Weapon(iIndex, abilityName);
 }
 
-public Event_RoundStart(Handle:hEvent, const String:sName[], bool:bDontBroadcast) {
+
+public void Event_RoundStart(Event hEvent, const char[] sName, bool bDontBroadcast) {
 	BossTeam = FF2_GetBossTeam();
 }
 
-Rage_Timed_New_Weapon(iBIndex, const String:ability_name[])
+void Rage_Timed_New_Weapon(int iBIndex, const char[] ability_name)
 {
-	new iBoss = GetClientOfUserId(FF2_GetBossUserId(iBIndex));
-	decl String:sAttributes[256], String:sClassname[96];
+	int iBoss = GetClientOfUserId(FF2_GetBossUserId(iBIndex));
+	static char sAttributes[256], sClassname[96];
 	WeaponTime[iBoss] = FF2_GetAbilityArgumentFloat(iBIndex, this_plugin_name, ability_name, 8, 10.0);
 
 	// Weapons classname
@@ -45,21 +44,21 @@ Rage_Timed_New_Weapon(iBIndex, const String:ability_name[])
 	FF2_GetAbilityArgumentString(iBIndex, this_plugin_name, ability_name, 3, sAttributes, 256);
 
 	// Slot of the weapon 0=Primary(Or sapper), 1=Secondary(Or spies revolver), 2=Melee, 3=PDA1(Build tool, disguise kit), 4=PDA2(Destroy tool, cloak), 5=Building
-	new iSlot = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 4);
+	int iSlot = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 4);
 	TF2_RemoveWeaponSlot(iBoss, iSlot);
 	
-	new iIndex = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 2);
+	int iIndex = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 2);
 	
-	new bool:bHide = bool:FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 9, 0);
+	bool bHide = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 9, 0) != 0;
 
-	new iWep = SpawnWeapon(iBoss, sClassname, iBIndex, 100, 5, sAttributes, bHide);
+	int iWep = SpawnWeapon(iBoss, sClassname, iIndex, 100, 5, sAttributes, bHide);
 	
 	// Make them equip it?
 	if (FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 7))
 		SetEntPropEnt(iBoss, Prop_Send, "m_hActiveWeapon", iWep);
 	
-	new iAmmo = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 5, 0);
-	new iClip = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 6, 0);
+	int iAmmo = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 5, 0);
+	int iClip = FF2_GetAbilityArgument(iBIndex, this_plugin_name, ability_name, 6, 0);
 	if(iAmmo || iClip) FF2_SetAmmo(iBoss, iWep, iAmmo, iClip);
 
 	if(WeaponTime[iBoss] > 0.0)
@@ -70,7 +69,7 @@ Rage_Timed_New_Weapon(iBIndex, const String:ability_name[])
 	}
 }
 
-public Boss_Think(iBoss)
+public void Boss_Think(int iBoss)
 {
 	if(GetEngineTime() >= WeaponTime[iBoss])
 	{
@@ -81,7 +80,7 @@ public Boss_Think(iBoss)
 	}
 }
 
-stock RemoveWeapons(iClient)
+stock void RemoveWeapons(int iClient)
 {
 	if (IsValidClient(iClient, true, true))
 	{
@@ -98,12 +97,12 @@ stock RemoveWeapons(iClient)
 	}
 }
 
-stock SwitchtoSlot(iClient, iSlot)
+stock void SwitchtoSlot(int iClient, int iSlot)
 {
 	if (iSlot >= 0 && iSlot <= 5 && IsValidClient(iClient, true))
 	{
-		decl String:sClassname[96];
-		new iWep = GetPlayerWeaponSlot(iClient, iSlot);
+		char sClassname[96];
+		int iWep = GetPlayerWeaponSlot(iClient, iSlot);
 		if (iWep > MaxClients && IsValidEdict(iWep) && GetEdictClassname(iWep, sClassname, sizeof(sClassname)))
 		{
 			FakeClientCommandEx(iClient, "use %s", sClassname);
@@ -112,7 +111,7 @@ stock SwitchtoSlot(iClient, iSlot)
 	}
 }
 
-stock bool:IsValidClient(iClient, bool:bAlive = false, bool:bTeam = false)
+stock bool IsValidClient(int iClient, bool bAlive = false, bool bTeam = false)
 {
 	if(iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
 		return false;
@@ -130,15 +129,15 @@ stock bool:IsValidClient(iClient, bool:bAlive = false, bool:bTeam = false)
 }
 
 // If startEnt isn't valid shifting it back to the nearest valid one
-stock FindEntityByClassname2(startEnt, const String:sClassname[])
+stock int FindEntityByClassname2(int startEnt, const char[] sClassname)
 {
 	while (startEnt > -1 && !IsValidEntity(startEnt)) startEnt--;
 	return FindEntityByClassname(startEnt, sClassname);
 }
 
-stock SpawnWeapon(iClient, String:sClassname[], iIndex, iLevel, iQuality, const String:sAttribute[] = "", bool:bHide = false)
+stock int SpawnWeapon(int iClient, char[] sClassname, int iIndex, int iLevel, int iQuality, const char[] sAttribute = "", bool bHide = false)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	if (hWeapon == INVALID_HANDLE)
 		return -1;
 		
@@ -147,22 +146,22 @@ stock SpawnWeapon(iClient, String:sClassname[], iIndex, iLevel, iQuality, const 
 	TF2Items_SetLevel(hWeapon, iLevel);
 	TF2Items_SetQuality(hWeapon, iQuality);
 	
-	decl String:sAttributes[32][32];
-	new iCount = ExplodeString(sAttribute, " ; ", sAttributes, 32, 32);
+	char sAttributes[32][32];
+	int iCount = ExplodeString(sAttribute, " ; ", sAttributes, 32, 32);
 	if (iCount % 2)
 		--iCount;
 		
 	if (iCount > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, iCount/2);
-		new i2;
-		for(new i; i < iCount; i += 2)
+		int i2;
+		for(int i; i < iCount; i += 2)
 		{
-			new iAttrib = StringToInt(sAttributes[i]);
+			int iAttrib = StringToInt(sAttributes[i]);
 			if (!iAttrib)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", sAttributes[i], sAttributes[i+1]);
-				CloseHandle(hWeapon);
+				delete hWeapon;
 				return -1;
 			}
 			TF2Items_SetAttribute(hWeapon, i2, iAttrib, StringToFloat(sAttributes[i+1]));
@@ -172,9 +171,9 @@ stock SpawnWeapon(iClient, String:sClassname[], iIndex, iLevel, iQuality, const 
 	else
 		TF2Items_SetNumAttributes(hWeapon, 0);
 		
-	new iEntity = TF2Items_GiveNamedItem(iClient, hWeapon);
+	int iEntity = TF2Items_GiveNamedItem(iClient, hWeapon);
 	EquipPlayerWeapon(iClient, iEntity);
-	CloseHandle(hWeapon);
+	delete hWeapon;
 	
 	if (bHide)
 	{
@@ -185,27 +184,28 @@ stock SpawnWeapon(iClient, String:sClassname[], iIndex, iLevel, iQuality, const 
 	return iEntity;
 }
 
-ApplyDefaultWeapons(iClient)
+void ApplyDefaultWeapons(int iClient)
 {
 	if(!IsValidClient(iClient))
 	{
 		return;
 	}
 	TF2_RemoveAllWeapons(iClient);
-	new boss=FF2_GetBossIndex(iClient);
+	int boss=FF2_GetBossIndex(iClient);
 
-	decl String:weapon[64], String:attributes[256];
-	new Handle:config = FF2_GetSpecialKV(boss);
-
-	for(new j=1; ; j++)
+	char weapon[64], attributes[256];
+	static KeyValues config;
+	config = view_as<KeyValues>(FF2_GetSpecialKV(boss));
+	
+	for(int j=1; ; j++)
 	{
-		KvRewind(config);
+		config.Rewind();
 		Format(weapon, 10, "weapon%i", j);
 
-		if(KvJumpToKey(config, weapon))
+		if(config.JumpToKey(weapon))
 		{
-			KvGetString(config, "name", weapon, sizeof(weapon));
-			KvGetString(config, "attributes", attributes, sizeof(attributes));
+			config.GetString("name", weapon, sizeof(weapon));
+			config.GetString("attributes", attributes, sizeof(attributes));
 			if(attributes[0]!='\0')
 			{
 
@@ -220,8 +220,8 @@ ApplyDefaultWeapons(iClient)
 					//2: x3.1 damage
 			}
 
-			new BossWeapon=SpawnWeapon(iClient, weapon, KvGetNum(config, "index"), 101, 5, attributes);
-			if(!KvGetNum(config, "show", 0))
+			int BossWeapon=SpawnWeapon(iClient, weapon, config.GetNum("index"), 101, 5, attributes);
+			if(!config.GetNum("show", 0))
 			{
 				SetEntProp(BossWeapon, Prop_Send, "m_iWorldModelIndex", -1);
 				SetEntPropFloat(BossWeapon, Prop_Send, "m_flModelScale", 0.0001);
