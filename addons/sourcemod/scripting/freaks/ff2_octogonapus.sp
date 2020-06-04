@@ -6,14 +6,16 @@
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma newdecls required 
+
 int BossTeam = view_as<int>(TFTeam_Blue);
 
 float g_flBeamDamage = 1337.0;
 float g_flBeamSize = 25.0;
 bool g_bIgnoreWalls = false;
 bool g_bIgnoreInvulnerability = false;
-float g_vMins[3] = {-24.5, -24.5, 0.0};
-float g_vMaxs[3] = {24.5, 24.5, 85.0};
+float[] g_vMins = {-24.5, -24.5, 0.0};
+float[] g_vMaxs = {24.5, 24.5, 85.0};
 int g_iBeamR = 34;
 int g_iBeamG = 34;
 int g_iBeamB = 255;
@@ -31,8 +33,8 @@ public void OnPluginStart2()
 	if(FF2_GetRoundState() == 1)	// Late-load
 	{
 		BossTeam = FF2_GetBossTeam();
-		int iBoss;
-		for(int iIndex; (iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
+//		int iBoss;
+		for(int iIndex; (GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
 		{
 			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_octogonapus"))
 			{
@@ -47,12 +49,12 @@ public void OnPluginStart2()
 				char sBuffer[32], sMinMax[3][16];
 				FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "rage_octogonapus", 7, sBuffer, sizeof(sBuffer));
 				ExplodeString(sBuffer, ",", sMinMax, 3, sizeof(sMinMax[]));
-				for (new i = 0; i < 3; i++)
+				for (int i = 0; i < 3; i++)
 					g_vMins[i] = StringToFloat(sMinMax[i]);
 				
 				FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "rage_octogonapus", 8, sBuffer, sizeof(sBuffer));
 				ExplodeString(sBuffer, ",", sMinMax, 3, sizeof(sMinMax[]));
-				for (new i = 0; i < 3; i++)
+				for (int i = 0; i < 3; i++)
 					g_vMaxs[i] = StringToFloat(sMinMax[i]);
 			}
 		}
@@ -95,12 +97,12 @@ public void Event_RoundStart(Event hEvent, const char[] sName, bool bDontBroadca
 				char sBuffer[32], sMinMax[3][16];
 				FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "rage_octogonapus", 7, sBuffer, sizeof(sBuffer));
 				ExplodeString(sBuffer, ",", sMinMax, 3, sizeof(sMinMax[]));
-				for (new i = 0; i < 3; i++)
+				for (int i = 0; i < 3; i++)
 					g_vMins[i] = StringToFloat(sMinMax[i]);
 				
 				FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "rage_octogonapus", 8, sBuffer, sizeof(sBuffer));
 				ExplodeString(sBuffer, ",", sMinMax, 3, sizeof(sMinMax[]));
-				for (new i = 0; i < 3; i++)
+				for (int i = 0; i < 3; i++)
 					g_vMaxs[i] = StringToFloat(sMinMax[i]);
 			}
 		}
@@ -279,7 +281,7 @@ public Action OctogonapusReset(Handle hTimer, any iBoss)
 	SetEntityMoveType(iBoss, MOVETYPE_WALK);
 }
 
-public void RespawnPlayer(iClient)
+public void RespawnPlayer(int iClient)
 {
 	TF2_RespawnPlayer(iClient);
 	UnhookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
