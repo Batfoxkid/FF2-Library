@@ -1,45 +1,40 @@
-#pragma semicolon 1
 
-#include <sourcemod>
 #include <tf2_stocks>
-#include <tf2>
-#include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-new BossTeam=_:TFTeam_Blue;
+#pragma semicolon 1
+#pragma newdecls required
 
-public Plugin:myinfo = {
+int BossTeam=view_as<int>(TFTeam_Blue);
+
+public Plugin myinfo = {
     name = "Freak Fortress 2: Completely Stripped Version of Darth's Ability Pack Fix",
     author = "Darthmule, edit by Deathreus",
     version = "1.2",
 };
 
-#define MAX_PLAYERS 33
-
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 }
 
-public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
 {
     if (!strcmp(ability_name, "rage_condition"))
         Rage_Condition(ability_name, index);
 }
 
-Rage_Condition(const String:ability_name[], index)
+void Rage_Condition(const char[] ability_name, int index)
 {
-    new Boss        =   GetClientOfUserId(FF2_GetBossUserId(index));
-    new cEffect     =   FF2_GetAbilityArgument(index,this_plugin_name,ability_name, 1);        // Effect (cases)
-    new Float:fDuration   =   FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 2);        // Duration (if valid)
-    new Float:Range =   FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 3);   // Range
+    int Boss        =   GetClientOfUserId(FF2_GetBossUserId(index));
+    int cEffect     =   FF2_GetAbilityArgument(index,this_plugin_name,ability_name, 1);        // Effect (cases)
+    float fDuration   =   FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 2);        // Duration (if valid)
+    float Range =   FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 3);   // Range
     
-    decl Float:pos[3];
-    decl Float:pos2[3];
-    decl Float:distance;
-    decl i;
+    static float pos[3];
+    static float pos2[3];
+    static float distance;
+    int i;
     
     GetEntPropVector(Boss, Prop_Send, "m_vecOrigin", pos);
     for(i=1; i<=MaxClients; i++)
