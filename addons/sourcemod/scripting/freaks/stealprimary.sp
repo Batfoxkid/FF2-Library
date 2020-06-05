@@ -129,7 +129,7 @@ public void STEA_Invoke(int client, int index)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealsentry)
 			{
-				AcceptEntityInput(sentry, "Kill");
+				RemoveEntity(sentry);
 			}
 		}
 	}
@@ -142,7 +142,7 @@ public void STEA_Invoke(int client, int index)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealdispenser)
 			{
-				AcceptEntityInput(dispenser, "Kill");
+				RemoveEntity(dispenser);
 			}
 		}
 	}
@@ -155,7 +155,7 @@ public void STEA_Invoke(int client, int index)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealteleporters)
 			{
-				AcceptEntityInput(teleporters, "Kill");
+				RemoveEntity(teleporters);
 			}
 		}
 	}
