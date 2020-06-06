@@ -1,27 +1,24 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 
+#pragma semicolon 1
+#pragma newdecls required
+
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
-new RoundInProgress = false;
+bool RoundInProgress = false;
 
 #define DE_STRING "dot_example"
-new bool:DE_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new DE_Product[MAX_PLAYERS_ARRAY]; // internal
-new DE_SomeNumber[MAX_PLAYERS_ARRAY]; // arg1
+bool DE_CanUse[MAX_PLAYERS_ARRAY]; // internal
+int DE_Product[MAX_PLAYERS_ARRAY]; // internal
+int DE_SomeNumber[MAX_PLAYERS_ARRAY]; // arg1
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: DOT Template",
 	author = "sarysa",
 	version = "1.0.0",
@@ -30,16 +27,16 @@ public Plugin:myinfo = {
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 }
 
 // this method required, but is not used by DOTs at all. Only use if you have DOTs and non-DOTs in the same file.
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], status) { return Plugin_Continue; }
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status) { return Plugin_Continue; }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	PrintToServer("DOTtest: Event_RoundStart()");
 		
@@ -48,20 +45,20 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	RoundInProgress = true;
 	
 	// initialize each DOT's array
-	for (new i = 0; i < MAX_PLAYERS; i++)
+	for (int i = 0; i < MAX_PLAYERS; i++)
 	{
 		DE_CanUse[i] = false;
 		DE_Product[i] = 0;
 	}
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	// round has ended, this'll kill the looping timer
 	RoundInProgress = false;
 	
 	// cleanup
-	for (new i = 0; i < MAX_PLAYERS; i++)
+	for (int i = 0; i < MAX_PLAYERS; i++)
 	{
 		DE_CanUse[i] = false;
 		DE_Product[i] = 0;
@@ -71,7 +68,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 /**
  * METHODS REQUIRED BY dot subplugin
  */
-DOTPostRoundStartInit()
+void DOTPostRoundStartInit()
 {
 	if (!RoundInProgress)
 	{
@@ -79,9 +76,9 @@ DOTPostRoundStartInit()
 		return;
 	}
 	
-	for (new bossClientIdx = 1; bossClientIdx < MAX_PLAYERS; bossClientIdx++)
+	for (int bossClientIdx = 1; bossClientIdx < MAX_PLAYERS; bossClientIdx++)
 	{
-		new bossIdx = FF2_GetBossIndex(bossClientIdx);
+		int bossIdx = FF2_GetBossIndex(bossClientIdx);
 		if (bossIdx < 0)
 			continue; // this may seem weird, but rages often break on duo bosses if the leader suicides. these DOTs can be an exception. :D
 			
@@ -95,7 +92,7 @@ DOTPostRoundStartInit()
 	}
 }
 
-OnDOTAbilityActivated(bossClientIdx)
+void OnDOTAbilityActivated(int bossClientIdx)
 {
 	if (DE_CanUse[bossClientIdx])
 	{
@@ -104,7 +101,7 @@ OnDOTAbilityActivated(bossClientIdx)
 	}
 }
 
-OnDOTAbilityDeactivated(bossClientIdx)
+void OnDOTAbilityDeactivated(int bossClientIdx)
 {
 	if (DE_CanUse[bossClientIdx])
 	{
@@ -113,13 +110,13 @@ OnDOTAbilityDeactivated(bossClientIdx)
 	}
 }
 
-OnDOTUserDeath(bossClientIdx, isInGame)
+void OnDOTUserDeath(int bossClientIdx, int isInGame)
 {
 	DE_Product[bossClientIdx] = 0;
 	PrintToServer("Boss died. Cleaning up product: %d", DE_Product[bossClientIdx]);
 }
 
-OnDOTAbilityTick(bossClientIdx, tickCount)
+void OnDOTAbilityTick(int bossClientIdx, int tickCount)
 {
 	if (DE_CanUse[bossClientIdx] && tickCount % 3 == 0)
 	{
