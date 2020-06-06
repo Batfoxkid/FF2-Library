@@ -31,15 +31,14 @@ Conflicts: special_dropprop
 
 */
 
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define SOUND_ICE "weapons/icicle_freeze_victim_01.wav"
 #define SOUND_GOLD "weapons/saxxy_turntogold_05.wav"
@@ -59,10 +58,10 @@ enum {
 	Ragdoll_BecomeAsh,
 };
 
-new Handle:g_TransparencyTimers[MAXPLAYERS + 1] = { INVALID_HANDLE, ... };
-new g_LastInjured[MAXPLAYERS+1];
+Handle g_TransparencyTimers[MAXPLAYERS + 1] = { INVALID_HANDLE, ... };
+int g_LastInjured[MAXPLAYERS+1];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Powerlord Abilities",
 	description = "Rage Transparency and Special Ragdolls Freak Fortress Abilities.",
 	author = "Powerlord",
@@ -70,31 +69,31 @@ public Plugin:myinfo = {
 };
 
 //Poot your hooks etc. here
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start);
 	HookEvent("teamplay_round_win", event_round_end);
 	HookEvent("player_death", event_player_death);
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	PrecacheSound(SOUND_ICE, true);
 	PrecacheSound(SOUND_GOLD, true);
 	
-	for (new i = 0; i < sizeof(g_LastInjured); i++)
+	for (int i = 0; i < sizeof(g_LastInjured); i++)
 	{
 		g_LastInjured[i] = -1;
 	}
 	
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 	}
 	
 }
 
-public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int index,const char[] plugin_name, const char[] ability_name, int action)
 {
 	if (!strcmp(ability_name, "rage_transparency"))
 		rage_transparency(ability_name, index);
@@ -102,7 +101,7 @@ public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:abili
 	return Plugin_Continue;
 }
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	if (StrEqual(classname, "tf_ragdoll"))
 	{
@@ -110,24 +109,24 @@ public OnEntityCreated(entity, const String:classname[])
 	}
 }
 
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 }
 
-public Action:RagdollSpawn(entity)
+public Action RagdollSpawn(int entity)
 {
-	new player = GetEntProp(entity, Prop_Send, "m_iPlayerIndex");
+	int player = GetEntProp(entity, Prop_Send, "m_iPlayerIndex");
 	if (player >= 1 && player <= MaxClients && g_LastInjured[player] > 0)
 	{
-		new a_index=FF2_GetBossIndex(g_LastInjured[player]);
+		int a_index=FF2_GetBossIndex(g_LastInjured[player]);
 		if (a_index!=-1)
 		{
 			if (FF2_HasAbility(a_index,this_plugin_name,"special_ragdoll"))
 			{
-				new ragdollType = FF2_GetAbilityArgument(a_index,this_plugin_name, "special_ragdoll", 1, 0);
+				int ragdollType = FF2_GetAbilityArgument(a_index,this_plugin_name, "special_ragdoll", 1, 0);
 				
-				new String:soundFile[65] = "";
+				char soundFile[65] = "";
 
 				switch (ragdollType)
 				{
@@ -181,7 +180,9 @@ public Action:RagdollSpawn(entity)
 	}
 }
 
-public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
+public void OnTakeDamagePost(int victim, int attacker, int inflictor, 
+					float damage, int damagetype, int weapon,
+				const float damageForce[3], const float damagePosition[3], int damagecustom)
 {
 	if (victim >= 1 && victim <= MaxClients)
 	{
@@ -189,27 +190,27 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 	}
 }
 
-public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
-	for (new i = 0; i < sizeof(g_LastInjured); i++)
+	for (int i = 0; i < sizeof(g_LastInjured); i++)
 	{
 		g_LastInjured[i] = -1;
 	}
 }
 
-public Action:event_player_death(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_player_death(Event event, const char[] name, bool dontBroadcast)
 {
-	new deathflags = GetEventInt(event, "death_flags");
+	int deathflags = event.GetInt("death_flags");
 	if (deathflags & TF_DEATHFLAG_DEADRINGER)
 		return Plugin_Continue;
 
-	new client = GetEventInt(event, "victim_entindex");
+	int client = event.GetInt("victim_entindex");
 	
 	if (g_TransparencyTimers[client] != INVALID_HANDLE)
 	{
-		new Handle:timer = g_TransparencyTimers[client];
+		Handle timer = g_TransparencyTimers[client];
+		delete timer;
 		g_TransparencyTimers[client] = INVALID_HANDLE;
-		KillTimer(timer);
 		
 		if (IsValidEntity(client))
 		{
@@ -220,13 +221,13 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	return Plugin_Continue;
 }
 
-public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsClientConnected(i) && g_TransparencyTimers[i] != INVALID_HANDLE)
 		{
-			new Handle:timer = g_TransparencyTimers[i];
+			Handle timer = g_TransparencyTimers[i];
 			g_TransparencyTimers[i] = INVALID_HANDLE;
 			KillTimer(timer);
 			
@@ -238,28 +239,28 @@ public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadc
 	}
 }
 
-public OnClientDisconnect(client)
+public void OnClientDisconnect(int client)
 {
 	if (g_TransparencyTimers[client] != INVALID_HANDLE)
 	{
-		new Handle:timer = g_TransparencyTimers[client];
+		Handle timer = g_TransparencyTimers[client];
 		g_TransparencyTimers[client] = INVALID_HANDLE;
 		KillTimer(timer);
 	}
 }
 
-SetClientAlpha(client, alpha)
+void SetClientAlpha(int client, int alpha)
 {
-	if (IsClientConnected(client) && IsValidEntity(client))
+	if (IsClientInGame(client) && IsValidEntity(client))
 	{
 		SetEntityRenderMode(client, RENDER_TRANSCOLOR);
 		SetEntityRenderColor(client, DEFAULT_COLOR, DEFAULT_COLOR, DEFAULT_COLOR, alpha);
 		
 		// Make weapons transparent. TF2 has 6 weapon slots (0-5) according to RemoveWeaponSlot
 		// Not all classes have all weapon slots
-		for (new i = 0; i < 6; i++)
+		for (int i = 0; i < 6; i++)
 		{
-			new entity = GetPlayerWeaponSlot(client, i);
+			int entity = GetPlayerWeaponSlot(client, i);
 			if (entity > -1 && IsValidEntity(entity))
 			{
 				SetEntityRenderMode(entity, RENDER_TRANSCOLOR);
@@ -272,46 +273,45 @@ SetClientAlpha(client, alpha)
 	}
 }
 
-rage_transparency(const String:ability_name[], index)
+void rage_transparency(const char[] ability_name, int index)
 {
-	new Float:transparencyAmount = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 1, 50.0);
-	new Float:transparencyDuration = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 2, 20.0);
-	new alphaValue = RoundToNearest(((100 - transparencyAmount) / 100) * ALPHA_OPAQUE);
-	new client = GetClientOfUserId(FF2_GetBossUserId(index));
+	float transparencyAmount = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 1, 50.0);
+	float transparencyDuration = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 2, 20.0);
+	int alphaValue = RoundToNearest(((100 - transparencyAmount) / 100) * ALPHA_OPAQUE);
+	int client = GetClientOfUserId(FF2_GetBossUserId(index));
 
 	SetClientAlpha(client, alphaValue);
 
-	decl Handle:data;
+	DataPack data;
 
 	g_TransparencyTimers[client] = CreateDataTimer(transparencyDuration, Timer_UndoTransparency, data, TIMER_FLAG_NO_MAPCHANGE);
-	WritePackCell(data, client);
-	WritePackString(data, ability_name);
-	
+	data.WriteCell(client);
+	data.WriteString(ability_name);
 }
 
-public Action:Timer_UndoTransparency(Handle:timer, Handle:data)
+public Action Timer_UndoTransparency(Handle timer, DataPack data)
 {
-	ResetPack(data);
+	data.Reset();
 
-	new client = ReadPackCell(data);
+	int client = data.ReadCell();
 
 	// This check shouldn't be necessary, but just in case...
 	if (client == 0)
 		return Plugin_Continue;
 	
-	decl String:ability_name[MAX_NAME_LENGTH];
-	ReadPackString(data, ability_name, MAX_NAME_LENGTH);
+	static char ability_name[MAX_NAME_LENGTH];
+	data.ReadString(ability_name, MAX_NAME_LENGTH);
 	
 	g_TransparencyTimers[client] = INVALID_HANDLE;
 
 	SetClientAlpha(client, ALPHA_OPAQUE);
 
-	new index = FF2_GetBossIndex(client);
+	int index = FF2_GetBossIndex(client);
 	
 	if (index > -1)
 	{
-		decl String:soundFile[PLATFORM_MAX_PATH];
-		new slot = FF2_GetAbilityArgument(index, this_plugin_name, "rage_transparency", 3, 4);
+		static char soundFile[PLATFORM_MAX_PATH];
+		int slot = FF2_GetAbilityArgument(index, this_plugin_name, "rage_transparency", 3, 4);
 		TF2_RemovePlayerDisguise(client);
 		if (FF2_RandomSound("sound_ability", soundFile, PLATFORM_MAX_PATH, index, slot))
 			EmitSoundToAll(soundFile);
