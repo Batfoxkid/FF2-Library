@@ -1,16 +1,13 @@
-#pragma semicolon 1
-
-#include <tf2>
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2items>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin> 
 
-public Plugin:myinfo = {
+#pragma semicolon 1
+#pragma newdecls required
+
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Nightmare Sniper's Ability",
 	author = "M7",
 };
@@ -27,85 +24,59 @@ enum Operators
 
 #define INACTIVE 100000000.0
 #define NIGHTMARE "nightmare_rage"
-new Float:EndNightmareAt;
-new Float:EndFFAt;
-new bool:SniperFF=false; // We use this in case FF is set from RAGE, and not from round events like end-of-round friendly fire 
-new bool:NoVoice[MAXPLAYERS+1]=false; // Block voices while RAGE is active
-new TFClassType:LastClass[MAXPLAYERS+1];
-new String:NightmareModel[PLATFORM_MAX_PATH], String:NightmareClassname[64], String:NightmareAttributes[768];
-new NightmareIndex, NightmareClass;
-new bool:NightmareVoice;
-new bool:Nightmare_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+float EndNightmareAt;
+float EndFFAt;
+bool SniperFF=false; // We use this in case FF is set from RAGE, and not from round events like end-of-round friendly fire 
+bool NoVoice[MAXPLAYERS+1]=false; // Block voices while RAGE is active
+TFClassType LastClass[MAXPLAYERS+1];
+char NightmareModel[PLATFORM_MAX_PATH], NightmareClassname[64], NightmareAttributes[124];
+int NightmareIndex, NightmareClass;
+bool NightmareVoice;
+bool Nightmare_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	AddNormalSoundHook(SoundHook);
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
-		return;
-		
-	PrepareAbilities();
-}
-
-public PrepareAbilities()
-{
-	for(new client=1;client<=MaxClients;client++)
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, NIGHTMARE))
 	{
-		EndNightmareAt = INACTIVE;
-		EndFFAt = INACTIVE;
-		SniperFF=false;
-		NoVoice[client]=false;
-		
-		if(IsValidClient(client))
-		{
-			Nightmare_TriggerAMS[client]=false;
-			
-			new boss=FF2_GetBossIndex(client);
-			if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, NIGHTMARE))
-			{
-				Nightmare_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, NIGHTMARE);
-				if(Nightmare_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, NIGHTMARE, "NIGH"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-		}
+		Nightmare_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, NIGHTMARE, "NIGH");
 	}
 }
 
-public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int status)
 {
     //Make sure that RAGE is only allowed to be used when a FF2 round is active
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
 		
-	new client=GetClientOfUserId(FF2_GetBossUserId(index));
+	int client=GetClientOfUserId(FF2_GetBossUserId(index));
 	if(!strcmp(ability_name,NIGHTMARE))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Nightmare_TriggerAMS[client]=false;
 		}
 		
 		if(!Nightmare_TriggerAMS[client])
-			NIGH_Invoke(client);
+			NIGH_Invoke(client, -1);
 	}
 	return Plugin_Continue;
 }
 
-public bool:NIGH_CanInvoke(client)
+public AMSResult NIGH_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public NIGH_Invoke(client)
+public void NIGH_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	char NightmareHealth[768];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 3, NightmareModel, sizeof(NightmareModel)); // Model that the players gets
@@ -113,12 +84,12 @@ public NIGH_Invoke(client)
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 5, NightmareClassname, sizeof(NightmareClassname));
 	NightmareIndex=FF2_GetAbilityArgument(boss, this_plugin_name, NIGHTMARE, 6);
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 7, NightmareAttributes, sizeof(NightmareAttributes));
-	NightmareVoice=bool:FF2_GetAbilityArgument(boss, this_plugin_name, NIGHTMARE, 8);
+	NightmareVoice=FF2_GetAbilityArgument(boss, this_plugin_name, NIGHTMARE, 8) != 0;
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 9, NightmareHealth, sizeof(NightmareHealth));
 	
 	if(Nightmare_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_nightmare_rage", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -126,10 +97,10 @@ public NIGH_Invoke(client)
 		}
 	}
 	
-	HookConVarChange(FindConVar("mp_friendlyfire"), HideCvarNotify);
+	FindConVar("mp_friendlyfire").AddChangeHook(HideCvarNotify);
 	
 	// And now proceed to rage
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidLivingPlayer(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -138,15 +109,15 @@ public NIGH_Invoke(client)
 				
 			//Then set the class to whatever class you want and give them a custom weapon (it should be the bosses weapon and class, otherwise it would kinda destroy the purpose of this RAGE)
 			LastClass[i]=TF2_GetPlayerClass(i);
-			if(TF2_GetPlayerClass(i)!=TFClassType:NightmareClass)
+			if(TF2_GetPlayerClass(i)!=view_as<TFClassType>(NightmareClass))
 			{
-				TF2_SetPlayerClass(i, TFClassType:NightmareClass);
+				TF2_SetPlayerClass(i, view_as<TFClassType>(NightmareClass));
 			}
 			
 			SpawnWeapon(i, NightmareClassname, NightmareIndex, 5, 8, NightmareAttributes);
 				
 			//Then Remove all Wearables
-			new entity, owner;
+			int entity, owner;
 			while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
 				if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)!=FF2_GetBossTeam())
 					TF2_RemoveWearable(owner, entity);
@@ -163,8 +134,8 @@ public NIGH_Invoke(client)
 			AcceptEntityInput(i, "SetCustomModel");
 			SetEntProp(i, Prop_Send, "m_bUseClassAnimations", 1);
 			
-			new playing=0;
-			for(new player=1;player<=MaxClients;player++)
+			int playing=0;
+			for(int player=1;player<=MaxClients;player++)
 			{
 				if(!IsValidClient(player))
 					continue;
@@ -174,7 +145,7 @@ public NIGH_Invoke(client)
 				}
 			}
 			
-			new health=ParseFormula(boss, NightmareHealth, GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, i), playing);
+			int health=RoundToCeil(ParseFormula(NightmareHealth, playing));
 			if(health)
 			{
 				SetEntityHealth(i, health);
@@ -184,9 +155,9 @@ public NIGH_Invoke(client)
 			EndNightmareAt=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, NIGHTMARE, 1, 10.0);
 
 			//Since it should confuse players, we need FriendlyFire aswell
-			if(!GetConVarBool(FindConVar("mp_friendlyfire")))
+			if(!FindConVar("mp_friendlyfire").BoolValue)
 			{
-				SetConVarBool(FindConVar("mp_friendlyfire"), true);
+				FindConVar("mp_friendlyfire").BoolValue = true;
 			}
 			SniperFF=true;
 			
@@ -202,26 +173,26 @@ public NIGH_Invoke(client)
 	}
 }
 
-public Nightmare_Prethink(client)
+public void Nightmare_Prethink(int client)
 {
-	NightmareTick(client, GetEngineTime());
+	NightmareTick(client, GetGameTime());
 }
 
-public NightmareTick(client, Float:gTime)
+public void NightmareTick(int client, float gTime)
 {
 	if(gTime >= EndFFAt)
 	{
-		if(GetConVarBool(FindConVar("mp_friendlyfire")))
+		if(FindConVar("mp_friendlyfire").BoolValue)
 		{
-			SetConVarBool(FindConVar("mp_friendlyfire"), false);
-			UnhookConVarChange(FindConVar("mp_friendlyfire"), HideCvarNotify);
+			FindConVar("mp_friendlyfire").BoolValue = false;
+			FindConVar("mp_friendlyfire").RemoveChangeHook(HideCvarNotify);
 		}
 		SniperFF=false;
 		EndFFAt=INACTIVE;
 	}
 	if(gTime >= EndNightmareAt)
 	{
-		for (new i=1;i<=MaxClients;i++)
+		for (int i=1;i<=MaxClients;i++)
 		{
 			if(IsValidLivingPlayer(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 			{
@@ -241,22 +212,22 @@ public NightmareTick(client, Float:gTime)
 	}
 }
 
-public HideCvarNotify(Handle:convar, const String:oldValue[], const String:newValue[])
+public void HideCvarNotify(ConVar convar, const char[] oldValue, const char[] newValue)
 {
-    new flags = GetConVarFlags(convar);
+    int flags = convar.Flags;
     flags &= ~FCVAR_NOTIFY;
-    SetConVarFlags(convar, flags);
+    convar.Flags = flags;
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	//Make sure that Friendlyfire is disabled
 	EndFFAt=INACTIVE;
 	EndNightmareAt=INACTIVE;
-	if(SniperFF && GetConVarBool(FindConVar("mp_friendlyfire")))
+	if(SniperFF && FindConVar("mp_friendlyfire").BoolValue)
 	{
-		SetConVarBool(FindConVar("mp_friendlyfire"), false);
-		UnhookConVarChange(FindConVar("mp_friendlyfire"), HideCvarNotify);
+		FindConVar("mp_friendlyfire").BoolValue = false;
+		FindConVar("mp_friendlyfire").RemoveChangeHook(HideCvarNotify);
 	}
 	
 	if(SniperFF)
@@ -264,7 +235,7 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 		SniperFF=false;
 	}
 	
-	for(new i=1;i<=MaxClients;i++)
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if(IsValidClient(i))
 		{
@@ -281,7 +252,7 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	return Plugin_Continue;
 }
 
-stock bool:IsValidLivingPlayer(client)
+stock bool IsValidLivingPlayer(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
@@ -289,7 +260,7 @@ stock bool:IsValidLivingPlayer(client)
 	return IsClientInGame(client) && IsPlayerAlive(client);
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
@@ -297,20 +268,20 @@ stock bool:IsValidClient(client)
 	return IsClientInGame(client);
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVisible=false)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, char[] att, bool isVisible=false)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, " ; ", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, " ; ", atts, 32, 32);
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 			TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 			i2++;
@@ -320,8 +291,8 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVis
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 		return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
-	CloseHandle(hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
+	delete hWeapon;
 	
 	if(!isVisible)
 	{
@@ -339,10 +310,11 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVis
 	return entity;
 }
 
-public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], &Ent, &channel, &Float:volume, &level, &pitch, &flags)
+public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char vl[PLATFORM_MAX_PATH],
+				  int& client, int& channel, float& volume, int& level, int& pitch, int& flags,
+				  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
-	new client = Ent;
-	if(client <=  MAXPLAYERS && client > 0)
+	if(client <=  MaxClients && client > 0)
 	{
 		if(NoVoice[client]) // Block voice lines.
 		{
@@ -356,174 +328,290 @@ public Action:SoundHook(clients[64], &numClients, String:vl[PLATFORM_MAX_PATH], 
 	return Plugin_Continue;
 }
 
-/*
-	Health Parser
+
+/**
+ * Remade FF2 formula parser by Nergal.
  */
-stock Operate(Handle:sumArray, &bracket, Float:value, Handle:_operator)
+
+enum {
+	TokenInvalid,
+	TokenNum,
+	TokenLParen, TokenRParen,
+	TokenLBrack, TokenRBrack,
+	TokenPlus, TokenSub,
+	TokenMul, TokenDiv,
+	TokenPow,
+	TokenVar
+};
+
+enum {
+	LEXEME_SIZE=64,
+	dot_flag = 1,
+};
+
+enum struct Token {
+	char lexeme[LEXEME_SIZE];
+	int size;
+	int tag;
+	float val;
+}
+
+enum struct LexState {
+	Token tok;
+	int i;
+}
+
+float ParseFormula(const char[] formula, const int players)
 {
-	new Float:sum=GetArrayCell(sumArray, bracket);
-	switch(GetArrayCell(_operator, bracket))
-	{
-		case Operator_Add:
-		{
-			SetArrayCell(sumArray, bracket, sum+value);
+	LexState ls;
+	GetToken(ls, formula);
+	return ParseAddExpr(ls, formula, players + 0.0);
+}
+
+float ParseAddExpr(LexState ls, const char[] formula, const float n)
+{
+	float val = ParseMulExpr(ls, formula, n);
+	if( ls.tok.tag==TokenPlus ) {
+		GetToken(ls, formula);
+		float a = ParseAddExpr(ls, formula, n);
+		return val + a;
+	} else if( ls.tok.tag==TokenSub ) {
+		GetToken(ls, formula);
+		float a = ParseAddExpr(ls, formula, n);
+		return val - a;
+	}
+	return val;
+}
+
+float ParseMulExpr(LexState ls, const char[] formula, const float n)
+{
+	float val = ParsePowExpr(ls, formula, n);
+	if( ls.tok.tag==TokenMul ) {
+		GetToken(ls, formula);
+		float m = ParseMulExpr(ls, formula, n);
+		return val * m;
+	} else if( ls.tok.tag==TokenDiv ) {
+		GetToken(ls, formula);
+		float m = ParseMulExpr(ls, formula, n);
+		return val / m;
+	}
+	return val;
+}
+
+float ParsePowExpr(LexState ls, const char[] formula, const float n)
+{
+	float val = ParseFactor(ls, formula, n);
+	if( ls.tok.tag==TokenPow ) {
+		GetToken(ls, formula);
+		float e = ParsePowExpr(ls, formula, n);
+		float p = Pow(val, e);
+		return p;
+	}
+	return val;
+}
+
+float ParseFactor(LexState ls, const char[] formula, const float n)
+{
+	switch( ls.tok.tag ) {
+		case TokenNum: {
+			float f = ls.tok.val;
+			GetToken(ls, formula);
+			return f;
 		}
-		case Operator_Subtract:
-		{
-			SetArrayCell(sumArray, bracket, sum-value);
+		case TokenVar: {
+			GetToken(ls, formula);
+			return n;
 		}
-		case Operator_Multiply:
-		{
-			SetArrayCell(sumArray, bracket, sum*value);
+		case TokenLParen: {
+			GetToken(ls, formula);
+			float f = ParseAddExpr(ls, formula, n);
+			if( ls.tok.tag != TokenRParen ) {
+				LogError("VSH2/FF2 :: expected ')' bracket but got '%s'", ls.tok.lexeme);
+				return 0.0;
+			}
+			GetToken(ls, formula);
+			return f;
 		}
-		case Operator_Divide:
-		{
-			if(!value)
-			{
-				LogError("[SHADoW93 Minions] Detected a divide by 0!");
-				bracket=0;
+		case TokenLBrack: {
+			GetToken(ls, formula);
+			float f = ParseAddExpr(ls, formula, n);
+			if( ls.tok.tag != TokenRBrack ) {
+				LogError("VSH2/FF2 :: expected ']' bracket but got '%s'", ls.tok.lexeme);
+				return 0.0;
+			}
+			GetToken(ls, formula);
+			return f;
+		}
+	}
+	return 0.0;
+}
+
+bool LexOctal(LexState ls, const char[] formula)
+{
+	int lit_flags = 0;
+	while( formula[ls.i] != 0 && (IsCharNumeric(formula[ls.i])) ) {
+		switch( formula[ls.i] ) {
+			case '0', '1', '2', '3', '4', '5', '6', '7': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+			}
+			default: {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				LogError("VSH2/FF2 :: invalid octal literal: '%s'", ls.tok.lexeme);
+				return false;
+			}
+		}
+	}
+	return true;
+#pragma unused lit_flags		//REMOVEME
+}
+
+bool LexHex(LexState ls, const char[] formula)
+{
+	while( formula[ls.i] != 0 && (IsCharNumeric(formula[ls.i]) || IsCharAlpha(formula[ls.i])) ) {
+		switch( formula[ls.i] ) {
+			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+				'a', 'b', 'c', 'd', 'e', 'f',
+				'A', 'B', 'C', 'D', 'E', 'F': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+			}
+			default: {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				LogError("VSH2/FF2 :: invalid hex literal: '%s'", ls.tok.lexeme);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool LexDec(LexState ls, const char[] formula)
+{
+	int lit_flags = 0;
+	while( formula[ls.i] != 0 && (IsCharNumeric(formula[ls.i]) || formula[ls.i]=='.') ) {
+		switch( formula[ls.i] ) {
+			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+			}
+			case '.': {
+				if( lit_flags & dot_flag ) {
+					LogError("VSH2/FF2 :: extra dot in decimal literal");
+					return false;
+				}
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				lit_flags |= dot_flag;
+			}
+			default: {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				LogError("VSH2/FF2 :: invalid decimal literal: '%s'", ls.tok.lexeme);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void GetToken(LexState ls, const char[] formula)
+{
+	int len = strlen(formula);
+	Token empty;
+	ls.tok = empty;
+	while( ls.i<len ) {
+		switch( formula[ls.i] ) {
+			case ' ', '\t', '\n': {
+				ls.i++;
+			}
+			case '0': { /// possible hex, octal, binary, or float.
+				ls.tok.tag = TokenNum;
+				ls.i++;
+				switch( formula[ls.i] ) {
+					case 'o', 'O': {
+						/// Octal.
+						ls.i++;
+						if( LexOctal(ls, formula) ) {
+							ls.tok.val = StringToInt(ls.tok.lexeme, 8) + 0.0;
+						}
+						return;
+					}
+					case 'x', 'X': {
+						/// Hex.
+						ls.i++;
+						if( LexHex(ls, formula) ) {
+							ls.tok.val = StringToInt(ls.tok.lexeme, 16) + 0.0;
+						}
+						return;
+					}
+					case '.', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9': {
+						/// Decimal/Float.
+						if( LexDec(ls, formula) ) {
+							ls.tok.val = StringToFloat(ls.tok.lexeme);
+						}
+						return;
+					}
+				}
+			}
+			case '.', '1', '2', '3', '4', '5', '6', '7', '8', '9': {
+				ls.tok.tag = TokenNum;
+				/// Decimal/Float.
+				if( LexDec(ls, formula) ) {
+					ls.tok.val = StringToFloat(ls.tok.lexeme);
+				}
 				return;
 			}
-			SetArrayCell(sumArray, bracket, sum/value);
-		}
-		case Operator_Exponent:
-		{
-			SetArrayCell(sumArray, bracket, Pow(sum, value));
-		}
-		default:
-		{
-			SetArrayCell(sumArray, bracket, value);  //This means we're dealing with a constant
-		}
-	}
-	SetArrayCell(_operator, bracket, Operator_None);
-}
-
-stock OperateString(Handle:sumArray, &bracket, String:value[], size, Handle:_operator)
-{
-	if(!StrEqual(value, ""))  //Make sure 'value' isn't blank
-	{
-		Operate(sumArray, bracket, StringToFloat(value), _operator);
-		strcopy(value, size, "");
-	}
-}
-
-public ParseFormula(boss, const String:key[], defaultValue, playing)
-{
-	decl String:formula[1024], String:bossName[64];
-	FF2_GetBossSpecial(boss, bossName, sizeof(bossName));
-	strcopy(formula, sizeof(formula), key);
-	new size=1;
-	new matchingBrackets;
-	for(new i; i<=strlen(formula); i++)  //Resize the arrays once so we don't have to worry about it later on
-	{
-		if(formula[i]=='(')
-		{
-			if(!matchingBrackets)
-			{
-				size++;
+			case '(': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenLParen;
+				return;
 			}
-			else
-			{
-				matchingBrackets--;
+			case ')': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenRParen;
+				return;
 			}
-		}
-		else if(formula[i]==')')
-		{
-			matchingBrackets++;
-		}
-	}
-
-	new Handle:sumArray=CreateArray(_, size), Handle:_operator=CreateArray(_, size);
-	new bracket;  //Each bracket denotes a separate sum (within parentheses).  At the end, they're all added together to achieve the actual sum
-	SetArrayCell(sumArray, 0, 0.0);  //TODO:  See if these can be placed naturally in the loop
-	SetArrayCell(_operator, bracket, Operator_None);
-
-	new String:character[2], String:value[16];  //We don't decl value because we directly append characters to it and there's no point in decl'ing character
-	for(new i; i<=strlen(formula); i++)
-	{
-		character[0]=formula[i];  //Find out what the next char in the formula is
-		switch(character[0])
-		{
-			case ' ', '\t':  //Ignore whitespace
-			{
-				continue;
+			case '[': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenLBrack;
+				return;
 			}
-			case '(':
-			{
-				bracket++;  //We've just entered a new parentheses so increment the bracket value
-				SetArrayCell(sumArray, bracket, 0.0);
-				SetArrayCell(_operator, bracket, Operator_None);
+			case ']': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenRBrack;
+				return;
 			}
-			case ')':
-			{
-				OperateString(sumArray, bracket, value, sizeof(value), _operator);
-				if(GetArrayCell(_operator, bracket)!=Operator_None)  //Something like (5*)
-				{
-					LogError("[M7 Minions] %s's %s formula has an invalid operator at character %i", bossName, key, i+1);
-					CloseHandle(sumArray);
-					CloseHandle(_operator);
-					return defaultValue;
-				}
-
-				if(--bracket<0)  //Something like (5))
-				{
-					LogError("[M7 Minions] %s's %s formula has an unbalanced parentheses at character %i", bossName, key, i+1);
-					CloseHandle(sumArray);
-					CloseHandle(_operator);
-					return defaultValue;
-				}
-
-				Operate(sumArray, bracket, GetArrayCell(sumArray, bracket+1), _operator);
+			case '+': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenPlus;
+				return;
 			}
-			case '\0':  //End of formula
-			{
-				OperateString(sumArray, bracket, value, sizeof(value), _operator);
+			case '-': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenSub;
+				return;
 			}
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
-			{
-				StrCat(value, sizeof(value), character);  //Constant?  Just add it to the current value
+			case '*': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenMul;
+				return;
 			}
-			case 'n', 'x':  //n and x denote player variables
-			{
-				Operate(sumArray, bracket, float(playing), _operator);
+			case '/': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenDiv;
+				return;
 			}
-			case '+', '-', '*', '/', '^':
-			{
-				OperateString(sumArray, bracket, value, sizeof(value), _operator);
-				switch(character[0])
-				{
-					case '+':
-					{
-						SetArrayCell(_operator, bracket, Operator_Add);
-					}
-					case '-':
-					{
-						SetArrayCell(_operator, bracket, Operator_Subtract);
-					}
-					case '*':
-					{
-						SetArrayCell(_operator, bracket, Operator_Multiply);
-					}
-					case '/':
-					{
-						SetArrayCell(_operator, bracket, Operator_Divide);
-					}
-					case '^':
-					{
-						SetArrayCell(_operator, bracket, Operator_Exponent);
-					}
-				}
+			case '^': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenPow;
+				return;
+			}
+			case 'x', 'n', 'X', 'N': {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				ls.tok.tag = TokenVar;
+				return;
+			}
+			default: {
+				ls.tok.lexeme[ls.tok.size++] = formula[ls.i++];
+				LogError("VSH2/FF2 :: invalid formula token '%s'.", ls.tok.lexeme);
+				return;
 			}
 		}
 	}
-
-	new result=RoundFloat(GetArrayCell(sumArray, 0));
-	CloseHandle(sumArray);
-	CloseHandle(_operator);
-	if(result<=0)
-	{
-		LogError("[Nightmare] %s has an invalid %s formula for minions, using default health!", bossName, key);
-		return defaultValue;
-	}
-	return result;
 }
