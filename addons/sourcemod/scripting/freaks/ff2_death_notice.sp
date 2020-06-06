@@ -1,268 +1,223 @@
 #include <sdkhooks>
-#include <ff2_helper>
+#include <ff2menu_included>
+#include <tf2_stocks>
+#include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-#define this_ability_name "ff2_fakedeath"
+#pragma semicolon 1
+#pragma newdecls required
 
-bool IsBatFF2;
-bool CanFireFakeDeath[MAXCLIENTS];
+#define this_ability_name "energy_overload"
+#define MAXCLIENTS (MAXPLAYERS + 1)
+#define IsRoundActive()	(FF2_IsFF2Enabled() && FF2_GetRoundState() == 1)
+#define IsValidPlayer(%1)	(%1 <= MaxClients && %1 > 0 && IsClientInGame(%1))
+
 bool IsActive;
-bool isFakeEvent;
 
-Handle GetItemDefinition;
+bool IsInRush[MAXCLIENTS];
 
-Address CEconItemSchema;
-Address m_pszItemIconClassname;
+public Plugin myinfo = 
+{
+	name			= "Stamina Rush",
+	author		= "[01]Pollux."
+};
+
+public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
+{
+	MarkNativeAsOptional("FF2MenuRage_PeekValue");
+	MarkNativeAsOptional("FF2MenuRage_SetValue");
+}
 
 public void OnPluginStart2()
 {
-	Prep_GameData();
-	
-	#if defined _FFBAT_included
-	int Ver[3];
-	FF2_GetForkVersion(Ver);
-	if(Ver[0] && Ver[1])
-		IsBatFF2 = true;
-	#endif
-	
-	HookEvent("player_hurt", Post_PlayerHurt, EventHookMode_Post);
-	HookEvent("player_death", Post_PlayerDeath, EventHookMode_Post);
-	HookEvent("arena_round_start", Post_RoundStart, EventHookMode_Post);
 	HookEvent("arena_win_panel", Post_RoundEnd, EventHookMode_PostNoCopy);
-	if(IsRoundActive())
-		Post_RoundStart(null, "plugin_lateload", false);
-}
-
-void Prep_GameData()
-{
-	GameData cfg = new GameData("brs_gamedata");
-	
-	StartPrepSDKCall(SDKCall_Raw);
-	PrepSDKCall_SetFromConf(cfg, SDKConf_Signature, "CEconItemSchema::GetItemDefinition");
-	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
-	PrepSDKCall_AddParameter(SDKType_PlainOldData, SDKPass_Plain);
-	GetItemDefinition = EndPrepSDKCall();
-	
-	StartPrepSDKCall(SDKCall_Static);
-	PrepSDKCall_SetFromConf(cfg, SDKConf_Signature, "GEconItemSchema");
-	PrepSDKCall_SetReturnInfo(SDKType_PlainOldData, SDKPass_Plain);
-	Handle CEcon = EndPrepSDKCall();
-	CEconItemSchema = SDKCall(CEcon);
-	
-	m_pszItemIconClassname = view_as<Address>(cfg.GetOffset("CEconItemDefinition::m_pszItemIconClassname"));
-	
-	delete cfg;
-}
-
-public Action FF2_OnAbility2(int boss, const char[] Plugin_Name, const char[] Ability_Name, int status) {
-}
-
-public void Post_RoundStart(Event hEvent, const char[] sName, bool broadcast) 
-{
-	for(int x = 1; x <= MaxClients; x++) 
-	{
-		if(!IsClientInGame(x))
-			continue;
-		
-		FF2Prep player = FF2Prep(x);
-		if(!player.HasAbility(this_plugin_name, this_ability_name))
-			continue;
-		
-		if(!IsActive)	IsActive = true;
-		CanFireFakeDeath[x] = true;
-	}
+	HookEvent("arena_round_start", Post_RoundStart, EventHookMode_PostNoCopy);
 }
 
 public void Post_RoundEnd(Event hevent, const char[] name, bool dontBroadcast)
 {
 	if(IsActive)
 	{
-		for(int x = 1; x <= MaxClients; x++) {
-			if(CanFireFakeDeath[x])	CanFireFakeDeath[x] = false;
+		for (int x = 1; x <= MaxClients; x++) {
+			if(!IsValidPlayer(x))
+				continue;
+			if(FF2_GetBossIndex(x) >= 0) {
+				if(IsInRush[x]) {
+					RemoveFromHook(x);
+				}
+			}
 		}
 		IsActive = false;
 	}
 }
 
-public void Post_PlayerDeath(Event hEvent, const char[] sName, bool broadcast) 
+public void Post_RoundStart(Event hevent, const char[] name, bool dontBroadcast)
 {
-	if(!IsActive)
+	for (int boss; boss <= 12; boss++) 
+	{
+		int client = GetClientOfUserId(FF2_GetBossUserId(boss));
+		if(!IsValidPlayer(client))
+			continue;
+		if(FF2_HasAbility(boss, this_plugin_name, this_ability_name))
+		{
+			IsActive = true;
+			break;
+		}
+	}
+}
+
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status){
+}
+
+public Action FF2MenuRage_OnStartRage(int boss, int &pts, int& rcost, const char[] Plugin_Name, const char[] Ability_Name)
+{
+	if(strcmp(Plugin_Name, this_plugin_name))
+		return Plugin_Continue;
+	if(!strcmp(Ability_Name, this_ability_name)) {
+		int client = GetClientOfUserId(FF2_GetBossUserId(boss));
+		switch(IsInRush[client]) {
+			case true: {
+				int cost = FF2_GetArgNamedI(boss, this_plugin_name, this_ability_name, "exit cost", 10);
+				if(pts >= cost) {
+					FF2MenuRage_SetValue(client, "points", pts - cost);
+				} else FF2MenuRage_SetValue(client, "points", 0);
+				RemoveFromHook(client);
+			}
+			case false: {
+				int cost = FF2_GetArgNamedI(boss, this_plugin_name, this_ability_name, "enter cost", 0);
+				if(pts < cost) {
+					static char message[64];
+					FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "too low", message, sizeof(message));
+					PrintHintText(client, message, cost);
+					return Plugin_Stop;
+				}
+				FF2MenuRage_SetValue(client, "points", pts - cost);
+				AddToHook(client);
+			}
+		}
+		return Plugin_Stop;
+	}
+	return Plugin_Continue;
+}
+
+float flNextThink[MAXCLIENTS];
+public void Post_RushThinkPost(int client)
+{
+	if(flNextThink[client] > GetGameTime())
 		return;
 	
-	int client = GetClientOfUserId(hEvent.GetInt("attacker"));
-	FF2Prep boss = FF2Prep(client);
-	if(!boss.HasAbility(this_plugin_name, this_ability_name))
+	int boss = FF2_GetBossIndex(client);
+	int pts = FF2MenuRage_PeekValue(client, "points");
+	pts -= FF2_GetArgNamedI(boss, this_plugin_name, this_ability_name, "drain rate", 1);
+	if(pts < 0) {
+		RemoveFromHook(client);
+		return;
+	}
+	
+	FF2MenuRage_SetValue(client, "points", pts);
+	float flthink = FF2_GetArgNamedF(boss, this_plugin_name, this_ability_name, "think time", 0.5);
+	flNextThink[client] = GetGameTime() + flthink;
+}
+
+public Action On_RushTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int damagecustom)
+{
+	if(!IsRoundActive())
+		return Plugin_Continue;
+	
+	if(IsPlayerAlive(victim) && IsPlayerAlive(attacker)) {
+		if(!IsInRush[victim])
+			return Plugin_Continue;
+		if(!IsValidEntity(inflictor))
+			return Plugin_Continue;
+		
+		static char cls[64];
+		if(GetEntityClassname(inflictor, cls, sizeof(cls)) && (StrContains(cls, "sentry") != -1))
+		{
+			damagetype |= DMG_PREVENT_PHYSICS_FORCE;
+			return Plugin_Changed;
+		}
+	}
+	return Plugin_Continue;
+}
+
+void ApplyOnEnter(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(boss < 0)
 		return;
 	
 	static char buffer[64];
+	if(FF2_RandomSound("sound_start_rush", buffer, sizeof(buffer), boss))
+		FF2_EmitVoiceToAll(buffer, client);
 	
-	int victim = GetClientOfUserId(hEvent.GetInt("userid"));
-	float vecPos[3];
-	GetClientEyePosition(victim, vecPos);
+	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "particle_start", buffer, sizeof(buffer));
+	if(strlen(buffer) > 3) {
+		static float pos[3];
+		FixParticlesName(buffer, sizeof(buffer), TF2_GetClientTeam(client));
+		GetClientAbsOrigin(client, pos);
+		CreateTimedParticle(client, buffer, pos, 1.5);
+	}
+	char[][] Cond = new char[12][4];
+	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "conds", buffer, sizeof(buffer));
+	int size = ExplodeString(buffer, " - ", Cond, 12, 4);
 	
-	boss.GetArgS(this_plugin_name, this_ability_name, "particle", 1, buffer, sizeof(buffer));
-	FixParticleTeam(buffer, sizeof(buffer), TF2_GetClientTeam(client));
-	CreateTimedParticle(victim, buffer, vecPos, 1.4);
-	switch(isFakeEvent)
-	{
-		case true: {
-			if(FF2_RandomSound("sound_fake_death", buffer, sizeof(buffer), boss.boss))
-				FF2_EmitVoiceToAll2(buffer, client);
-			
-		}
-		case false: {
-			if(FF2_RandomSound("sound_real_death", buffer, sizeof(buffer), boss.boss))
-				FF2_EmitVoiceToAll2(buffer, client);
-		}
+	while(size > 0) {
+		TF2_AddCondition(client, view_as<TFCond>(StringToInt(Cond[size-1])), TFCondDuration_Infinite);
+		--size;
 	}
 }
 
-public void Post_PlayerHurt(Event hEvent, const char[] sName, bool broadcast) 
+
+void ApplyOnExit(int client)
 {
-	int ui_attacker = hEvent.GetInt("attacker");
-	int attacker = GetClientOfUserId(ui_attacker);
-	if(!attacker || !IsClientInGame(attacker)) 
+	int boss = FF2_GetBossIndex(client);
+	if(boss < 0)
 		return;
 	
-	FF2Prep boss = FF2Prep(attacker);
-	if(!boss.HasAbility(this_plugin_name, this_ability_name))
-		return;
+	static char buffer[64];
+	if(FF2_RandomSound("sound_end_rush", buffer, sizeof(buffer), boss))
+		FF2_EmitVoiceToAll(buffer, client);
 	
-	if(!CanFireFakeDeath[attacker])
-		return;
-	
-	int ui_victim = hEvent.GetInt("userid");
-	int health = hEvent.GetInt("health");
-	if(health <= 0)
-		return;
-	
-	int min = boss.GetArgI(this_plugin_name, this_ability_name, "min", 2, 25);
-	int damageamount = hEvent.GetInt("damageamount");
-	if(damageamount <= min)
-		return;
-	int weaponid = hEvent.GetInt("weaponid");
-	if(damageamount > 0)
-	{
-		static char Allow[32], weapons[64];
-		
-		if(!boss.GetArgS(this_plugin_name, this_ability_name, "allow", 3, Allow, sizeof(Allow)))
-			return;
-		
-		int wep = GetEntPropEnt(attacker, Prop_Send, "m_hActiveWeapon");
-		min = GetEntProp(wep, Prop_Send, "m_iItemDefinitionIndex");
-		IntToString(min, weapons, sizeof(weapons));
-		
-		if(StrContains(Allow, weapons) == -1)
-			return;
-		
-		if(!GetWeaponIconName(min, weapons, sizeof(weapons)))
-			return;
-		
-		FireFakeDeathEvent(ui_victim, ui_attacker, weaponid, weapons, DMG_CRIT | DMG_PREVENT_PHYSICS_FORCE);
+	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "particle_end", buffer, sizeof(buffer));
+	if(strlen(buffer) > 3) {
+		static float pos[3];
+		FixParticlesName(buffer, sizeof(buffer), TF2_GetClientTeam(client));
+		GetClientAbsOrigin(client, pos);
+		CreateTimedParticle(client, buffer, pos, 1.5);
 	}
-	return;
-}
-
-void FireFakeDeathEvent(int victim, int attacker, int weaponid, char[] weapon, int damagebits)
-{
-	Event DeathNotice = CreateEvent("player_death", true);
-	if(DeathNotice == null) {
-		FF2_LogError("[FF2] Attempted to create an invalid Event for \"player_death\"!");
-		return;
-	}
-	DeathNotice.SetInt("userid", victim);
-	DeathNotice.SetInt("attacker", attacker);
-	DeathNotice.SetInt("weaponid", weaponid);
-	DeathNotice.SetString("weapon", weapon)
-	DeathNotice.SetInt("damagebits", damagebits);
-	isFakeEvent = true;
-	DeathNotice.Fire(false);
-	isFakeEvent = false;
-}
-
-public void OnEntityCreated(int entity, const char[] cls)
-{
-	if(!strcmp(cls, "entity_revivemarker"))
-		if(isFakeEvent)
-			SDKHook(entity, SDKHook_Spawn, OnReviveMarkerCreated);
-}
-
-public void OnReviveMarkerCreated(int marker)
-{
-	RemoveEntity(marker);
-	SDKUnhook(marker, SDKHook_Spawn, OnReviveMarkerCreated);
-}
-
-bool GetWeaponIconName(int index, char[] name, int size)
-{
-	Address pItem = Econ_GetItem(index);
-	if(pItem==Address_Null)
-		return false;
+	char[][] Cond = new char[12][4];
+	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "conds", buffer, sizeof(buffer));
+	int size = ExplodeString(buffer, " - ", Cond, 12, 4);
 	
-	Address pData = Econ_GetData(pItem);
-	if(pData==Address_Null)
-		return false;
-	
-	return !!LoadStringFromAddress(pData, name, size);
-}
-
-//LoadStringFromAddress by nosoop
-stock int LoadStringFromAddress(Address addr, char[] buffer, int maxlen, bool &bIsNullPointer = false) {
-	if (!addr) {
-		bIsNullPointer = true;
-		return 0;
-	}
-	
-	int c;
-	char ch;
-	do {
-		ch = LoadFromAddress(addr + view_as<Address>(c), NumberType_Int8);
-		buffer[c] = ch;
-	} while (ch && ++c < maxlen - 1);
-	return c;
-}
-
-stock Address Econ_GetItem(int index) {
-	Address pItem = SDKCall(GetItemDefinition, CEconItemSchema, index);
-	return pItem;
-}
-
-stock Address Econ_GetData(Address pItem) {
-	Address pData = view_as<Address>(LoadFromAddress(pItem + m_pszItemIconClassname, NumberType_Int32));
-	return pData;
-}
-
-stock void FF2_EmitVoiceToAll2(const char[] sound, int entity = SOUND_FROM_PLAYER)
-{
-#if defined _FFBAT_included
-	if(IsBatFF2)
-		FF2_EmitVoiceToAll(sound, entity);
-	else EmitSoundToAll(sound, entity);
-#else
-	EmitSoundToAll(sound, entity);
-#endif
-}
-
-stock void FixParticleTeam(char[] buffer, int size, const TFTeam iTeam)
-{
-	if(StrContains(buffer, "...") == -1)
-		return;
-	switch(iTeam)
-	{
-		case TFTeam_Red: {
-			ReplaceString(buffer, size, "...", "red");
-			return;
-		}
-		case TFTeam_Blue: {
-			ReplaceString(buffer, size, "...", "blue");
-			return;
-		}
+	while(size > 0) {
+		TF2_RemoveCondition(client, view_as<TFCond>(StringToInt(Cond[size-1])));
+		--size;
 	}
 }
 
-stock void CreateTimedParticle(int owner, const char[] Name, float SpawnPos[3], float duration)
+void AddToHook(int client) {
+	if(IsInRush[client])
+		return;
+	IsInRush[client] = true;
+	SDKHook(client, SDKHook_OnTakeDamageAlive, On_RushTakeDamage);
+	SDKHook(client, SDKHook_PostThinkPost, Post_RushThinkPost);
+	if(IsClientInGame(client) && IsPlayerAlive(client))
+		ApplyOnEnter(client);
+}
+
+void RemoveFromHook(int client) {
+	if(!IsInRush[client])
+		return;
+	IsInRush[client] = false;
+	SDKUnhook(client, SDKHook_OnTakeDamageAlive, On_RushTakeDamage);
+	SDKUnhook(client, SDKHook_PostThinkPost, Post_RushThinkPost);
+	if(IsClientInGame(client) && IsPlayerAlive(client))
+		ApplyOnExit(client);
+}
+
+stock void CreateTimedParticle(int owner, const char[] Name, float SpawnPos[3], float duration, bool bFollow = true)
 {
-	CreateTimer(duration, Timer_KillEntity, EntIndexToEntRef(AttachParticle(owner, Name, SpawnPos)), TIMER_FLAG_NO_MAPCHANGE);
+	CreateTimer(duration, Timer_KillEntity, EntIndexToEntRef(AttachParticle(owner, Name, SpawnPos, bFollow)), TIMER_FLAG_NO_MAPCHANGE);
 }
 
 public Action Timer_KillEntity(Handle timer, any EntRef)
@@ -272,7 +227,7 @@ public Action Timer_KillEntity(Handle timer, any EntRef)
 		RemoveEntity(entity);
 }
 
-stock int AttachParticle(int owner, const char[] ParticleName, float SpawnPos[3])
+stock int AttachParticle(int owner, const char[] ParticleName, float SpawnPos[3], bool bFollow)
 {
 	int entity = CreateEntityByName("info_particle_system");
 
@@ -287,9 +242,26 @@ stock int AttachParticle(int owner, const char[] ParticleName, float SpawnPos[3]
 	DispatchKeyValue(entity, "effect_name", ParticleName);
 	DispatchSpawn(entity);
 	
+	if(bFollow) {
+		SetVariantString(buffer);
+		AcceptEntityInput(entity, "SetParent", entity, entity);
+	}
+	
 	SetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity", owner);
 	ActivateEntity(entity);
 	AcceptEntityInput(entity, "start");
 	
 	return entity; 
+}
+
+stock bool FixParticlesName(char[] buffer, int size, const TFTeam iTeam)
+{
+	if((StrContains(buffer, "...") != -1) && iTeam == TFTeam_Red)  {
+		ReplaceString(buffer, size, "...", "red");
+		return true;
+	} else if((StrContains(buffer, "...") != -1) && iTeam == TFTeam_Blue) {
+		ReplaceString(buffer, size, "...", "blue");
+		return true;
+	}
+	else return false;
 }
