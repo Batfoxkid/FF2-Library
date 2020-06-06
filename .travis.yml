@@ -8,13 +8,13 @@ addons:
 
 # Set the build environment
 env:
-    - SMVERSION=1.9  # Stable
-    - SMVERSION=1.10 # Unstable
+    - SMVERSION=1.10 # Stable
+    - SMVERSION=1.11 # Unstable
 
 # Allow 1.10 to fail
 jobs:
     allow_failures:
-        - env: SMVERSION=1.10
+        - env: SMVERSION=1.11
 
 # And compile!
 install:
