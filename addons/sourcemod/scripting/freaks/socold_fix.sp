@@ -1,30 +1,24 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
-#include <sdkhooks>
-#include <tf2_stocks>
-#include <tf2items>
-#include <ff2_ams>
-#include <ff2_dynamic_defaults>
-#include <tf2attributes>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
+#pragma newdecls required
+
 #define BARON_LIFE			"freak_fortress_2/blackbaron/socoldfix.mp3"		// life lost, will be stopped when round ends
-new g_baron_life;
-new baron_boss;
+int g_baron_life;
+int baron_boss;
 
 #define BARON "instrumental_to_vocal"
 #define INACTIVE 100000000.0
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "Change Theme on Lifelose",
 	author	= "M7",
 	version = "1.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
 	
@@ -36,7 +30,7 @@ public OnPluginStart2()
 	PrecacheSound(BARON_LIFE);
 }
 
-public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -45,17 +39,17 @@ public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
 	baron_boss = 0;
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Event event, const char[] name, bool dontBroadcast)
 {
 	GetBossVars();
 }
 
-GetBossVars()
+void GetBossVars()
 {
 	if (FF2_HasAbility(0, this_plugin_name, BARON))
 	{
-		new userid = FF2_GetBossUserId(0);
-		new client = GetClientOfUserId(userid);
+		int userid = FF2_GetBossUserId(0);
+		int client = GetClientOfUserId(userid);
 		if (client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			baron_boss = client;
@@ -66,9 +60,9 @@ GetBossVars()
 	baron_boss = 0;
 }
 
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -79,25 +73,25 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnLoseLife(index)
+public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 {		
 	if (!g_baron_life && baron_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == baron_boss && IsPlayerAlive(baron_boss))
 	{		
 		FF2_StopMusic(0);
 		
-		EmitSoundToAll(baron_LIFE);
+		EmitSoundToAll(BARON_LIFE);
 		
 		g_baron_life++;
 	}
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnMusic(String:path[], &Float:time)
+public Action FF2_OnMusic(char[] path, float& time)
 {
 	if (g_baron_life)
 	{
@@ -107,7 +101,7 @@ public Action:FF2_OnMusic(String:path[], &Float:time)
 	return Plugin_Continue;
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(isPlayerAlive) return IsClientInGame(client) && IsPlayerAlive(client);
