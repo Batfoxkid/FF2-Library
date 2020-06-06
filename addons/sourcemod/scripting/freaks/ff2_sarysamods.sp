@@ -1,15 +1,10 @@
-// best viewed with tab width of 8
-
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 /**
  * A bunch of original code and others' tweaked code for mechanics related to my Cheese Sandwich boss.
@@ -40,7 +35,7 @@
  */
 
 // change this to minimize console output
-new PRINT_DEBUG_INFO = true;
+bool PRINT_DEBUG_INFO = true;
 
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
@@ -56,41 +51,39 @@ new PRINT_DEBUG_INFO = true;
 
 #define FAR_FUTURE 100000000.0
 
-new BossTeam = _:TFTeam_Blue;
-
 // don't let timed rages be activated after round ends, they WILL leak over otherwise!
-new bool:PluginActiveThisRound = false;
-new bool:RoundInProgress = false;
+bool PluginActiveThisRound = false;
+bool RoundInProgress = false;
 
 // for airblast immunity
 #define AI_STRING "rage_airblast_immunity"
-new bool:AI_ActiveThisRound;
-new bool:AI_CanUse[MAX_PLAYERS_ARRAY];
-new Float:AI_EndsAt[MAX_PLAYERS_ARRAY];
+bool AI_ActiveThisRound;
+bool AI_CanUse[MAX_PLAYERS_ARRAY];
+float AI_EndsAt[MAX_PLAYERS_ARRAY];
 
 // for delayable damage
 #define DD_STRING "rage_delayable_damage"
-new bool:DD_ActiveThisRound;
-new bool:DD_CanUse[MAX_PLAYERS_ARRAY];
-new Float:DD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool DD_ActiveThisRound;
+bool DD_CanUse[MAX_PLAYERS_ARRAY];
+float DD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
 // for delayable earthquake
 #define DE_STRING "rage_delayable_earthquake"
-new bool:DE_ActiveThisRound;
-new bool:DE_CanUse[MAX_PLAYERS_ARRAY];
-new Float:DE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool DE_ActiveThisRound;
+bool DE_CanUse[MAX_PLAYERS_ARRAY];
+float DE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
 // for delayable building destruction
 #define DBD_STRING "rage_delayable_building_destruction"
-new bool:DBD_ActiveThisRound;
-new bool:DBD_CanUse[MAX_PLAYERS_ARRAY];
-new Float:DBD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool DBD_ActiveThisRound;
+bool DBD_CanUse[MAX_PLAYERS_ARRAY];
+float DBD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
 // for delayable particle effect
 #define DPE_STRING "rage_delayable_particle_effect"
-new bool:DPE_ActiveThisRound;
-new bool:DPE_CanUse[MAX_PLAYERS_ARRAY];
-new Float:DPE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool DPE_ActiveThisRound;
+bool DPE_CanUse[MAX_PLAYERS_ARRAY];
+float DPE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
 // for mapwide sound
 #define MWS_STRING "rage_mapwide_sound_sarysamods"
@@ -98,25 +91,25 @@ new Float:DPE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 // for rage gain with few players
 #define SERG_STRING "ff2_scaled_endgame_rage_gain"
 #define SERG_INTERVAL 1.0
-new bool:SERG_ActiveThisRound = false;
-new Float:SERG_NextCheckAt;
-new bool:SERG_CanUse[MAX_PLAYERS_ARRAY];
-new SERG_PlayersAliveToStart[MAX_PLAYERS_ARRAY];
-new Float:SERG_OnePlayerRPS[MAX_PLAYERS_ARRAY];
+bool SERG_ActiveThisRound = false;
+float SERG_NextCheckAt;
+bool SERG_CanUse[MAX_PLAYERS_ARRAY];
+int SERG_PlayersAliveToStart[MAX_PLAYERS_ARRAY];
+float SERG_OnePlayerRPS[MAX_PLAYERS_ARRAY];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods",
 	author = "sarysa",
 	version = "1.1.0",
 };
 	
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 }
 
-public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast)
 {
 	// various non-array inits
 	PluginActiveThisRound = false;
@@ -127,7 +120,7 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 	DBD_ActiveThisRound = false;
 	DPE_ActiveThisRound = false;
 	
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// various array inits
 		AI_CanUse[clientIdx] = false;
@@ -137,9 +130,9 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 		DBD_CanUse[clientIdx] = false;
 		DPE_CanUse[clientIdx] = false;
 
-		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
+		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
 			continue;
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 
@@ -164,7 +157,7 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 			DE_ActiveThisRound = true;
 			DE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 
-			new String:soundFile[MAX_SOUND_FILE_LENGTH];
+			static char soundFile[MAX_SOUND_FILE_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DE_STRING, 6, soundFile, MAX_SOUND_FILE_LENGTH);
 			if (strlen(soundFile) > 3)
 				PrecacheSound(soundFile);
@@ -193,7 +186,7 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 
 		if (FF2_HasAbility(bossIdx, this_plugin_name, MWS_STRING))
 		{
-			static String:soundFile[MAX_SOUND_FILE_LENGTH];
+			static char soundFile[MAX_SOUND_FILE_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MWS_STRING, 1, soundFile, MAX_SOUND_FILE_LENGTH);
 			if (strlen(soundFile) > 3)
 				PrecacheSound(soundFile);
@@ -207,18 +200,18 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 		SERG_NextCheckAt = GetEngineTime() + SERG_INTERVAL;
 }
 
-public Action:Event_RoundEnd(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundEnd(Event event,const char[] name, bool dontBroadcast)
 {
 	// don't activate timed rages anymore
 	RoundInProgress = false;
 }
 
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	// I'm allowing this to happen after hale wins. playing rage sounds after winning is a time-honored tradition. :D
 	if (!strcmp(ability_name, MWS_STRING))
 	{
-		static String:soundFile[MAX_SOUND_FILE_LENGTH];
+		static char soundFile[MAX_SOUND_FILE_LENGTH];
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MWS_STRING, 1, soundFile, MAX_SOUND_FILE_LENGTH);
 		
 		if (PRINT_DEBUG_INFO)
@@ -253,12 +246,12 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Airblast Immunity (fun fact, in March 2014 I actually made this as a standalone ability. lol)
  */
-public Rage_AirblastImmunity(const String:ability_name[], bossIdx)
+public void Rage_AirblastImmunity(const char[] ability_name, int bossIdx)
 {
 	// get rage metadata first
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	new Float:duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new bool:includeUber = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	bool includeUber = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
 	
 	// don't add effects if not necessary
 	if (AI_EndsAt[clientIdx] == FAR_FUTURE)
@@ -274,7 +267,7 @@ public Rage_AirblastImmunity(const String:ability_name[], bossIdx)
 	AI_EndsAt[clientIdx] = GetEngineTime() + duration;
 }
 
-public AI_EndRage(clientIdx)
+public void AI_EndRage(int clientIdx)
 {
 	TF2_RemoveCondition(clientIdx, TFCond_MegaHeal);
 	TF2_RemoveCondition(clientIdx, TFCond_Ubercharged);
@@ -286,32 +279,32 @@ public AI_EndRage(clientIdx)
 /**
  * Delayable Particle Effect
  */
-DelayableParticleEffect(clientIdx)
+void DelayableParticleEffect(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 		
-	new Float:duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 2);
-	new Float:radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 3);
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 2);
+	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 3);
 	radiusSquared = radiusSquared * radiusSquared;
-	new String:effectName[MAX_EFFECT_NAME_LENGTH];
+	char effectName[MAX_EFFECT_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DPE_STRING, 4, effectName, MAX_EFFECT_NAME_LENGTH);
 
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, duration=%f, radius(square)=%f, effectName=%s", DPE_STRING, clientIdx, duration, radiusSquared, effectName);
 	
-	static Float:bossPos[3];
+	static float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
-	static Float:victimPos[3];
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	static float victimPos[3];
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
-		if (IsLivingPlayer(victim) && GetClientTeam(victim) != BossTeam)
+		if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
 		{
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
 			if (GetVectorDistance(bossPos, victimPos, true) <= radiusSquared)
 			{
-				new particle = AttachParticle(victim, effectName, 75.0);
+				int particle = AttachParticle(victim, effectName, 75.0);
 				if (particle != -1)
 					CreateTimer(duration, RemoveEntityDA, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // revamp note: I'm allowing this.
 			}
@@ -321,10 +314,10 @@ DelayableParticleEffect(clientIdx)
 	DPE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-Rage_DelayableParticleEffect(const String:ability_name[], bossIdx)
+void Rage_DelayableParticleEffect(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// everything looks good
 	if (delay > 0)
@@ -336,14 +329,14 @@ Rage_DelayableParticleEffect(const String:ability_name[], bossIdx)
 /**
  * Delayable Building Destruction
  */
-DestroyBuildingsOfType(const String:classname[], clientIdx, bool:saveByCarry, Float:radiusSquared)
+void DestroyBuildingsOfType(const char[] classname, int clientIdx, bool saveByCarry, float radiusSquared)
 {
-	new building = 0;
+	int building = 0;
 	while ((building = FindEntityByClassname(building, classname)) != -1)
 	{
 		// ensure the building is in range
-		static Float:bossPos[3];
-		static Float:objPos[3];
+		static float bossPos[3];
+		static float objPos[3];
 		GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
 		GetEntPropVector(building, Prop_Send, "m_vecOrigin", objPos);
 		if (GetVectorDistance(bossPos, objPos, true) > radiusSquared)
@@ -356,7 +349,7 @@ DestroyBuildingsOfType(const String:classname[], clientIdx, bool:saveByCarry, Fl
 		else if (!(GetEntProp(building, Prop_Send, "m_bCarried") == 0 && GetEntProp(building, Prop_Send, "m_bPlacing") != 0))
 		{
 			if (GetEntProp(building, Prop_Send, "m_bPlacing"))
-				RemoveEntity(building, 0.0);
+				Timer_RemoveEntity(building, 0.0);
 			else
 				SDKHooks_TakeDamage(building, clientIdx, clientIdx, 5000.0, DMG_GENERIC, -1);
 		}
@@ -366,17 +359,17 @@ DestroyBuildingsOfType(const String:classname[], clientIdx, bool:saveByCarry, Fl
 	}
 }
 
-DelayableBuildingDestruction(clientIdx)
+void DelayableBuildingDestruction(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 
-	new bool:sentries = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 2) == 1;
-	new bool:dispensers = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 3) == 1;
-	new bool:teleporters = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 4) == 1;
-	new bool:saveByCarry = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 5) == 1;
-	new Float:radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DBD_STRING, 6);
+	bool sentries = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 2) == 1;
+	bool dispensers = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 3) == 1;
+	bool teleporters = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 4) == 1;
+	bool saveByCarry = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 5) == 1;
+	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DBD_STRING, 6);
 	radiusSquared = radiusSquared * radiusSquared;
 	
 	if (PRINT_DEBUG_INFO)
@@ -392,10 +385,10 @@ DelayableBuildingDestruction(clientIdx)
 	DBD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-Rage_DelayableBuildingDestruction(const String:ability_name[], bossIdx)
+void Rage_DelayableBuildingDestruction(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// everything looks good
 	if (delay > 0)
@@ -407,35 +400,35 @@ Rage_DelayableBuildingDestruction(const String:ability_name[], bossIdx)
 /**
  * Delayable Earthquake
  */
-DelayableEarthquake(clientIdx)
+void DelayableEarthquake(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 		
-	new Float:duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 2);
-	new Float:radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 3);
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 2);
+	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 3);
 	radiusSquared = radiusSquared * radiusSquared;
-	new Float:amplitude = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 4);
-	new Float:frequency = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 5);
-	new String:soundFile[MAX_SOUND_FILE_LENGTH];
+	float amplitude = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 4);
+	float frequency = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 5);
+	char soundFile[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DE_STRING, 6, soundFile, MAX_SOUND_FILE_LENGTH);
 
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods1] %s executing. BossIdx=%i, duration=%f, radiusSquared=%f, amplitude=%f, frequency=%f, sound=%s", DE_STRING, clientIdx, duration, radiusSquared, amplitude, frequency, soundFile);
 	
 	// shake it, Gummy! Uh-huh! You know it!
-	static Float:bossPos[3];
+	static float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
 	env_shake(bossPos, amplitude, radiusSquared, duration, frequency);
 	
 	// play optional sound
 	if (strlen(soundFile) > 3)
 	{
-		static Float:victimPos[3];
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		static float victimPos[3];
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
-			if (IsLivingPlayer(victim) && GetClientTeam(victim) != BossTeam)
+			if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
 			{
 				GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
 				if (GetVectorDistance(bossPos, victimPos, true) <= radiusSquared)
@@ -447,10 +440,10 @@ DelayableEarthquake(clientIdx)
 	DE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-Rage_DelayableEarthquake(const String:ability_name[], bossIdx)
+void Rage_DelayableEarthquake(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// everything looks good
 	if (delay > 0)
@@ -462,32 +455,32 @@ Rage_DelayableEarthquake(const String:ability_name[], bossIdx)
 /**
  * Delayable Damage
  */
-DelayableDamage(clientIdx)
+void DelayableDamage(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 		
-	new Float:damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 2);
-	new Float:radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 3);
-	//new weapon = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 4); // useless, but I can't reclaim this prop since it's an old old boss :P
-	new Float:knockback = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 5);
-	new bool:scaleByDistance = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 6) == 1;
-	new bool:liftLowZ = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 7) == 1;
+	float damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 2);
+	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 3);
+	//int weapon = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 4); // useless, but I can't reclaim this prop since it's an old old boss :P
+	float knockback = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 5);
+	bool scaleByDistance = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 6) == 1;
+	bool liftLowZ = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 7) == 1;
 
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, damage=%f, radius=%i, knockback=%f, scaleByDistance=%i, liftLowZ=%i", DD_STRING, clientIdx, damage, radius, knockback, scaleByDistance, liftLowZ);
 	
-	static Float:bossPos[3];
+	static float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
-	static Float:victimPos[3];
-	static Float:kbTarget[3];
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	static float victimPos[3];
+	static float kbTarget[3];
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
-		if (IsLivingPlayer(victim) && GetClientTeam(victim) != BossTeam)
+		if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
 		{
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
-			new Float:distance = GetVectorDistance(bossPos, victimPos);
+			float distance = GetVectorDistance(bossPos, victimPos);
 			if (distance < radius && !TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
 			{
 				SDKHooks_TakeDamage(victim, clientIdx, clientIdx, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
@@ -514,10 +507,10 @@ DelayableDamage(clientIdx)
 	DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-Rage_DelayableDamage(const String:ability_name[], bossIdx)
+void Rage_DelayableDamage(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	// everything looks good
 	if (delay > 0)
@@ -529,32 +522,32 @@ Rage_DelayableDamage(const String:ability_name[], bossIdx)
 /**
  * Scaled Endgame Rage Gain (SERG)
  */
-public SERG_GiveRageIfNecessary()
+public void SERG_GiveRageIfNecessary()
 {
 	// get a living red team count first of all
-	new clientCount = 0;
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	int clientCount = 0;
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
-		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
+		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != FF2_GetBossTeam())
 			clientCount++;
 	}
 	
 	// now see if any of the hales get rage
 	if (clientCount > 0)
 	{
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsLivingPlayer(clientIdx))
 				continue;
 
 			if (SERG_CanUse[clientIdx] && SERG_PlayersAliveToStart[clientIdx] >= clientCount)
 			{
-				new bossIdx = FF2_GetBossIndex(clientIdx);
+				int bossIdx = FF2_GetBossIndex(clientIdx);
 				if (bossIdx < 0) // wtf?
 					continue;
 
-				new Float:rageToGive = (SERG_OnePlayerRPS[clientIdx] * ((SERG_PlayersAliveToStart[clientIdx] - clientCount) + 1)) / SERG_PlayersAliveToStart[clientIdx];
-				new Float:rage = FF2_GetBossCharge(bossIdx, 0);
+				float rageToGive = (SERG_OnePlayerRPS[clientIdx] * ((SERG_PlayersAliveToStart[clientIdx] - clientCount) + 1)) / SERG_PlayersAliveToStart[clientIdx];
+				float rage = FF2_GetBossCharge(bossIdx, 0);
 				rage += rageToGive;
 				if (rage > 100.0)
 					rage = 100.0;
@@ -569,12 +562,12 @@ public SERG_GiveRageIfNecessary()
 /**
  * OnGameFrame, ditching the old timers
  */
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 	
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 	
 	if (SERG_ActiveThisRound && curTime >= SERG_NextCheckAt)
 		SERG_GiveRageIfNecessary();
@@ -582,9 +575,9 @@ public OnGameFrame()
 	// combining things that need to loop through clients, for efficiency
 	if (DD_ActiveThisRound || DE_ActiveThisRound || DBD_ActiveThisRound || DPE_ActiveThisRound || AI_ActiveThisRound)
 	{
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
-			if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
+			if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
 				continue;
 				
 			if (DD_CanUse[clientIdx] && curTime >= DD_ExecuteRageAt[clientIdx])
@@ -604,7 +597,7 @@ public OnGameFrame()
 /**
  * Stocks
  */
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -615,9 +608,9 @@ stock bool:IsLivingPlayer(clientIdx)
 /**
  * CODE BELOW WAS TAKEN STRAIGHT FROM PHATRAGES, I TAKE NO CREDIT FOR IT
  */
-env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:Frequency)
+void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
-	decl Ent;
+	static int Ent;
 
 	//Initialize:
 	Ent = CreateEntityByName("env_shake");
@@ -644,17 +637,17 @@ env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:
 		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
 
 		//Delete:
-		RemoveEntity(Ent, Duration + 1.0);
+		Timer_RemoveEntity(Ent, Duration + 1.0);
 	}
 }
 
-RemoveEntity(entity, Float:time = 0.0)
+void Timer_RemoveEntity(int entity, float time = 0.0)
 {
 	if (time == 0.0)
 	{
 		if(IsValidEntity(entity))
 		{
-			AcceptEntityInput(entity, "kill");
+			RemoveEntity(entity);
 		}
 	}
 	else
@@ -663,11 +656,11 @@ RemoveEntity(entity, Float:time = 0.0)
 	}
 }
 
-public Action:RemoveEntityTimer(Handle:Timer, any:entRef)
+public Action RemoveEntityTimer(Handle Timer, any entRef)
 {
-	new entity = EntRefToEntIndex(entRef);
+	int entity = EntRefToEntIndex(entRef);
 	if(IsValidEntity(entity))
-		AcceptEntityInput(entity, "kill");
+		RemoveEntity(entity);
 	
 	return Plugin_Stop;
 }
@@ -675,23 +668,23 @@ public Action:RemoveEntityTimer(Handle:Timer, any:entRef)
 /**
  * CODE BELOW TAKEN FROM default_abilities, I CLAIM NO CREDIT
  */
-public Action:RemoveEntityDA(Handle:timer, any:entid)
+public Action RemoveEntityDA(Handle timer, any entid)
 {
-	new entity=EntRefToEntIndex(entid);
+	int entity=EntRefToEntIndex(entid);
 	if(IsValidEdict(entity) && entity>MAX_PLAYERS)
 	{
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 	}
 }
 
-AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (!IsValidEntity(particle))
 		return -1;
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2]+=offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);

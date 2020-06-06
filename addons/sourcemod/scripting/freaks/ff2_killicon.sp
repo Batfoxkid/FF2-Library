@@ -7,12 +7,13 @@
 	Naydef
 	
 */
-#pragma semicolon 1
 
-#include <sourcemod>
 #include <tf2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin> 
+
+#pragma semicolon 1
+#pragma newdecls required
 
 //Defines
 #define PLUGIN_VERSION "0.4"
@@ -20,7 +21,7 @@
 #define Ability "ff2_changekillicon"
 
 
-public Plugin:myinfo =
+public Plugin myinfo =
 {
 	name = "Freak Fortress 2: Kill Icon Changer", 
 	author = "Naydef",
@@ -29,7 +30,7 @@ public Plugin:myinfo =
 	url = "http://www.sourcemod.net/"
 };
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	if(!IsTF2())
 	{
@@ -39,30 +40,30 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 	return APLRes_Success;
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
 	HookEvent("object_destroyed", Event_ObjectDestroy, EventHookMode_Pre);
 	//LogMessage("Freak Fortress 2: Kill Icon Modifier subplugin started successfully!");
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	return Plugin_Continue; // Not used.
 }
 
-public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled())
 	{
 		return Plugin_Continue;
 	}
-	new killer=GetClientOfUserId(GetEventInt(event, "attacker"));
+	int killer=GetClientOfUserId(GetEventInt(event, "attacker"));
 	if(!IsValidClient(killer))
 	{
 		return Plugin_Continue;
 	}
-	new boss=FF2_GetBossIndex(killer);
+	int boss=FF2_GetBossIndex(killer);
 	if(GetClientOfUserId(FF2_GetBossUserId(boss))!=killer)
 	{
 		return Plugin_Continue;
@@ -71,42 +72,42 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 	{
 		return Plugin_Continue;
 	}
-	new String:mode[3];
+	char mode[3];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 1, mode, sizeof(mode));
 	switch(StringToInt(mode))
 	{
 	case 0: //0. Set kill icon by item index of the weapon, used for the kill.
 		{
-			new String:buffer[8];
+			char buffer[8];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, buffer, sizeof(buffer));
-			new itemindex1=StringToInt(buffer);
-			new itemidex2=GetEventInt(event, "weapon_def_index");
+			int itemindex1=StringToInt(buffer);
+			int itemidex2=event.GetInt("weapon_def_index");
 			if(itemindex1==itemidex2)
 			{
-				new String:killicon[32];
+				char killicon[32];
 				FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 3, killicon, sizeof(killicon));
-				SetEventString(event, "weapon", killicon);
+				event.SetString("weapon", killicon);
 			}
 		}
 	case 1: //1. Set kill icon by specified weapon slot
 		{
-			new String:buffer[10];
+			char buffer[10];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, buffer, sizeof(buffer));
-			new slot=StringToInt(buffer);
-			new killitemindex=GetEventInt(event, "weapon_def_index");
-			for(new i=0; i<=WSLOTS; i++)
+			int slot=StringToInt(buffer);
+			int killitemindex=GetEventInt(event, "weapon_def_index");
+			for(int i=0; i<=WSLOTS; i++)
 			{
-				new weapon=GetPlayerWeaponSlot(killer, i);
+				int weapon=GetPlayerWeaponSlot(killer, i);
 				if(IsValidEntity(weapon))
 				{
 					if(slot==i)
 					{
-						new itemindex=GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
+						int itemindex=GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
 						if(itemindex==killitemindex)
 						{
-							new String:killicon[32];
+							char killicon[32];
 							FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 3, killicon, sizeof(killicon));
-							SetEventString(event, "weapon", killicon);
+							event.SetString("weapon", killicon);
 							break; // Only the first weapon, matching all criteria
 						}
 					}
@@ -115,22 +116,22 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 		}
 	case 2:    //2. Set kill icon by another weapon icon (name)
 		{
-			new String:wepname1[32];
-			new String:wepname2[32];
+			char wepname1[32];
+			char wepname2[32];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, wepname1, sizeof(wepname1));
 			GetEventString(event, "weapon", wepname2, sizeof(wepname2));
 			if(StrEqual(wepname1, wepname2, false))
 			{
-				new String:killicon[32];
+				char killicon[32];
 				FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 3, killicon, sizeof(killicon));
-				SetEventString(event, "weapon", killicon);
+				event.SetString("weapon", killicon);
 			}
 		}
 	case 3:    //3. Always use this kill icon
 		{
-			new String:killicon[32];
+			char killicon[32];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, killicon, sizeof(killicon));
-			SetEventString(event, "weapon", killicon);
+			event.SetString("weapon", killicon);
 		}
 	case 4:   //4. No kill icon at all
 		{
@@ -138,25 +139,25 @@ public Action:Event_PlayerDeath(Handle:event, const String:name[], bool:dontBroa
 		}
 	default:
 		{
-			Debug("Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
+			FF2Dbg("Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
 			LogError("[FF2 Subplugin] Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
 		}
 	}
 	return Plugin_Continue;
 }
 
-public Action:Event_ObjectDestroy(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_ObjectDestroy(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled())
 	{
 		return Plugin_Continue;
 	}
-	new killer=GetClientOfUserId(GetEventInt(event, "attacker"));
+	int killer=GetClientOfUserId(event.GetInt("attacker"));
 	if(!IsValidClient(killer))
 	{
 		return Plugin_Continue;
 	}
-	new boss=FF2_GetBossIndex(killer);
+	int boss=FF2_GetBossIndex(killer);
 	if(GetClientOfUserId(FF2_GetBossUserId(boss))!=killer)
 	{
 		return Plugin_Continue;
@@ -165,28 +166,28 @@ public Action:Event_ObjectDestroy(Handle:event, const String:name[], bool:dontBr
 	{
 		return Plugin_Continue;
 	}
-	new String:mode[3];
+	char mode[3];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 1, mode, sizeof(mode));
 	switch(StringToInt(mode))
 	{
 	case 2:    //2. Set kill icon by another weapon icon (name)
 		{
-			new String:wepname1[32];
-			new String:wepname2[32];
+			char wepname1[32];
+			char wepname2[32];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, wepname1, sizeof(wepname1));
-			GetEventString(event, "weapon", wepname2, sizeof(wepname2));
+			event.GetString("weapon", wepname2, sizeof(wepname2));
 			if(StrEqual(wepname1, wepname2, false))
 			{
-				new String:killicon[32];
+				char killicon[32];
 				FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 3, killicon, sizeof(killicon));
-				SetEventString(event, "weapon", killicon);
+				event.SetString("weapon", killicon);
 			}
 		}
 	case 3:    //3. Always use this kill icon
 		{
-			new String:killicon[32];
+			char killicon[32];
 			FF2_GetAbilityArgumentString(boss, this_plugin_name, Ability, 2, killicon, sizeof(killicon));
-			SetEventString(event, "weapon", killicon);
+			event.SetString("weapon", killicon);
 		}
 	case 4:   //4. No kill icon at all
 		{
@@ -198,7 +199,7 @@ public Action:Event_ObjectDestroy(Handle:event, const String:name[], bool:dontBr
 		}
 	default:
 		{
-			Debug("Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
+			FF2Dbg("Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
 			LogError("[FF2 Subplugin] Error: The first ability argument is invalid. Mode: %i", StringToInt(mode[0]));
 		}
 	}
@@ -207,7 +208,7 @@ public Action:Event_ObjectDestroy(Handle:event, const String:name[], bool:dontBr
 
 
 /*                                  Stocks                                              */          
-bool:IsValidClient(client, bool:replaycheck=true)//From Freak Fortress 2
+bool IsValidClient(int client, bool replaycheck=true)//From Freak Fortress 2
 {
 	if(client<=0 || client>MaxClients)
 	{
@@ -234,7 +235,7 @@ bool:IsValidClient(client, bool:replaycheck=true)//From Freak Fortress 2
 	return true;
 }
 
-bool:IsTF2()
+bool IsTF2()
 {
 	return (GetEngineVersion()==Engine_TF2) ?  true : false;
 }

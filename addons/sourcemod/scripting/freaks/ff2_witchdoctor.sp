@@ -1,14 +1,16 @@
-#pragma semicolon 1
-
 #include <sourcemod>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <tf2items>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #undef REQUIRE_PLUGIN
 #tryinclude <ff2_dynamic_defaults>
 #define REQUIRE_PLUGIN
+
+#pragma semicolon 1
+#pragma newdecls required
 
 public Plugin myinfo = {
 	name	= "Freak Fortress 2: The Witch Doctor",
@@ -141,92 +143,65 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			
 			for(int i=1; i<=MaxClients; i++) if(IsValidClient(i))
 				SDKHook(i, SDKHook_OnTakeDamage, OnTakeDamage);
-		}
-		
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_bats"))
-		{
-			Bats_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_bats", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Bats_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_bats", "BATS"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_orb"))
-		{
-			Orb_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_orb", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Orb_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_orb", "ORB"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_meteor"))
-		{
-			Meteor_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_meteor", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Meteor_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_meteor", "MET"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_invis"))
-		{
-			Invis_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_invis", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Invis_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_invis", "INV"); // Important function to tell AMS that this subplugin supports it
-			}
-			SpawnWeapon(iBoss, "tf_weapon_spellbook", 1069, 0, 0, "");
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_minify"))
-		{
-			Minify_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_minify", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Minify_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_minify", "MINI"); // Important function to tell AMS that this subplugin supports it
-			}
-			SpawnWeapon(iBoss, "tf_weapon_spellbook", 1069, 0, 0, "");
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_mono"))
-		{
-			Monoculus_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_mono", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Monoculus_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_mono", "MONO"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_horde"))
-		{
-			Horde_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_horde", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Horde_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_horde", "HORD"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_meras"))
-		{
-			Meras_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_meras", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Meras_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_meras", "MERA"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_horse"))
-		{
-			Horse_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_horse", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Horse_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_horse", "HORS"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_fireball"))
-		{
-			Fireball_TriggerAMS[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_fireball", 1) == 1; // If true, this will trigger AMS_InitSubability.
-			if(Fireball_TriggerAMS[iBoss])
-			{
-				AMS_InitSubability(iIndex, iBoss, this_plugin_name, "rage_fireball", "FIRE"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		
+		}		
 		SDKHook(iBoss, SDKHook_OnTakeDamage, CheckEnvironmentalDamage);
+	}
+}
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_bats"))
+	{
+		Bats_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_bats", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_bats", "BATS");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_orb"))
+	{
+		Orb_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_orb", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_orb", "ORB");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_meteor"))
+	{
+		Meteor_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_meteor", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_meteor", "MET");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_invis"))
+	{
+		Invis_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_invis", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_invis", "INV");
+		SpawnWeapon(client, "tf_weapon_spellbook", 1069, 0, 0, "");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_minify"))
+	{
+		Minify_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_minify", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_minify", "MINI");
+		SpawnWeapon(client, "tf_weapon_spellbook", 1069, 0, 0, "");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_mono"))
+	{
+		Monoculus_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_mono", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_mono", "MONO");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_horde"))
+	{
+		Horde_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_horde", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_horde", "HORD");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_meras"))
+	{
+		Meras_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_meras", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_meras", "MERA");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_horse"))
+	{
+		Horse_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_horse", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_horse", "HORS");
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_fireball"))
+	{
+		Fireball_TriggerAMS[client] = FF2_GetAbilityArgument(boss, this_plugin_name, "rage_fireball", 1) == 1
+						&& FF2AMS_PushToAMS(client, this_plugin_name, "rage_fireball", "FIRE");
 	}
 }
 
@@ -322,89 +297,6 @@ public void HookAbilities()
 					SDKHook(i, SDKHook_OnTakeDamage, OnTakeDamage);
 			}
 		
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_orb"))
-			{
-				Orb_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_orb", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Orb_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_orb", "ORB"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_meteor"))
-			{
-				Meteor_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_meteor", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Meteor_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_meteor", "MET"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_mono"))
-			{
-				Monoculus_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_mono", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Monoculus_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_mono", "MONO"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_invis"))
-			{
-				Invis_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_invis", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Invis_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_invis", "INV"); // Important function to tell AMS that this subplugin supports it
-				}
-				SpawnWeapon(iClient, "tf_weapon_spellbook", 1069, 0, 0, "");
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_minify"))
-			{
-				Minify_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_minify", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Minify_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_minify", "MINI"); // Important function to tell AMS that this subplugin supports it
-				}
-				SpawnWeapon(iClient, "tf_weapon_spellbook", 1069, 0, 0, "");
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_bats"))
-			{
-				Bats_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_bats", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Bats_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_bats", "BATS"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_horde"))
-			{
-				Horde_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_horde", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Horde_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_horde", "HORDE"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_meras"))
-			{
-				Meras_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_meras", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Meras_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_meras", "MERAS"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_horse"))
-			{
-				Horse_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_horse", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Horse_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_horse", "HORSE"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-			if(FF2_HasAbility(iIndex, this_plugin_name, "rage_fireball"))
-			{
-				Fireball_TriggerAMS[iClient] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_fireball", 1) == 1; // If true, this will trigger AMS_InitSubability.
-				if(Fireball_TriggerAMS[iClient])
-				{
-					AMS_InitSubability(iIndex, iClient, this_plugin_name, "rage_fireball", "FIRE"); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-		
 			SDKHook(iClient, SDKHook_OnTakeDamage, CheckEnvironmentalDamage);
 		}
 	}
@@ -414,25 +306,25 @@ public void FF2_OnAbility2(int iBoss, const char[] pluginName, const char[] abil
 {
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iBoss));
 	if (!strcmp(abilityName, "rage_orb"))
-		Rage_Orb(iClient);
+		Rage_Orb(iClient, 0);
 	else if (!strcmp(abilityName, "rage_meteor"))
-		Rage_Meteor(iClient);
+		Rage_Meteor(iClient, 0);
 	else if (!strcmp(abilityName, "rage_invis"))
-		Rage_Invis(iClient);
+		Rage_Invis(iClient, 0);
 	else if (!strcmp(abilityName, "rage_minify"))
-		Rage_Minify(iClient);
+		Rage_Minify(iClient, 0);
 	else if (!strcmp(abilityName, "rage_bats"))
-		Rage_Bats(iClient);
+		Rage_Bats(iClient, 0);
 	else if (!strcmp(abilityName, "rage_horde"))
-		Rage_Horde(iClient);
+		Rage_Horde(iClient, 0);
 	else if (!strcmp(abilityName, "rage_mono"))
-		Rage_Monoculus(iClient);
+		Rage_Monoculus(iClient, 0);
 	else if (!strcmp(abilityName, "rage_meras"))
-		Rage_Merasmus(iClient);
+		Rage_Merasmus(iClient, 0);
 	else if (!strcmp(abilityName, "rage_horse"))
-		Rage_Horsemann(iClient);
+		Rage_Horsemann(iClient, 0);
 	else if (!strcmp(abilityName, "rage_fireball"))
-		Rage_Fireball(iClient);
+		Rage_Fireball(iClient, 0);
 }
 
 public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float flVel[3], float flAng[3], int &iWep)
@@ -532,7 +424,7 @@ public Action OnTakeDamage(int iClient, int &iAttacker, int &iInflictor, float &
 	return Plugin_Continue;
 }
 
-public Action:CheckEnvironmentalDamage(int iClient, int &iAttacker, int &iInflictor, float &flDmg, int &DmgType, int &iWep, float flDmgForce[3], float flDmgPos[3], int DmgCstm)
+public Action CheckEnvironmentalDamage(int iClient, int &iAttacker, int &iInflictor, float &flDmg, int &DmgType, int &iWep, float flDmgForce[3], float flDmgPos[3], int DmgCstm)
 {
 	if (!IsValidClient(iClient, true))
 		return Plugin_Continue;
@@ -567,20 +459,20 @@ public Action:CheckEnvironmentalDamage(int iClient, int &iAttacker, int &iInflic
 	return Plugin_Continue;
 }
 
-public bool BATS_CanInvoke(int iClient)
+public AMSResult BATS_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Bats(int iClient)
+void Rage_Bats(int iClient, int index)
 {
 	if(Bats_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	BATS_Invoke(iClient);
+	BATS_Invoke(iClient, index);
 }
 
-public void BATS_Invoke(int iClient)
+public void BATS_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -596,20 +488,20 @@ public void BATS_Invoke(int iClient)
 	ShootProjectile(iClient, "tf_projectile_spellbats");
 }
 
-public bool ORB_CanInvoke(int iClient)
+public AMSResult ORB_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Orb(int iClient)
+void Rage_Orb(int iClient, int Index)
 {
 	if(Orb_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	ORB_Invoke(iClient);
+	ORB_Invoke(iClient, Index);
 }
 
-public void ORB_Invoke(int iClient)
+public void ORB_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -625,20 +517,20 @@ public void ORB_Invoke(int iClient)
 	ShootProjectile(iClient, "tf_projectile_lightningorb");
 }
 
-public bool MET_CanInvoke(int iClient)
+public AMSResult MET_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Meteor(int iClient)
+void Rage_Meteor(int iClient, int Index)
 {
 	if(Meteor_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	MET_Invoke(iClient);
+	MET_Invoke(iClient, Index);
 }
 
-public void MET_Invoke(int iClient)
+public void MET_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -654,20 +546,20 @@ public void MET_Invoke(int iClient)
 	ShootProjectile(iClient, "tf_projectile_spellmeteorshower");
 }
 
-public bool MINI_CanInvoke(int iClient)
+public AMSResult MINI_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Minify(int iClient)
+void Rage_Minify(int iClient, int Index)
 {
 	if(Minify_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	MINI_Invoke(iClient);
+	MINI_Invoke(iClient, Index);
 }
 
-public void MINI_Invoke(int iClient)
+public void MINI_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -686,20 +578,20 @@ public void MINI_Invoke(int iClient)
 	FakeClientCommand(iClient, "use tf_weapon_spellbook");
 }
 
-public bool INV_CanInvoke(int iClient)
+public AMSResult INV_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Invis(int iClient)
+void Rage_Invis(int iClient, int Index)
 {
 	if(Invis_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	INV_Invoke(iClient);
+	INV_Invoke(iClient, Index);
 }
 
-public void INV_Invoke(int iClient)
+public void INV_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -718,20 +610,20 @@ public void INV_Invoke(int iClient)
 	FakeClientCommand(iClient, "use tf_weapon_spellbook");
 }
 
-public bool MONO_CanInvoke(int iClient)
+public AMSResult MONO_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Monoculus(int iClient)
+void Rage_Monoculus(int iClient, int Index)
 {
 	if(Monoculus_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	MONO_Invoke(iClient);
+	MONO_Invoke(iClient, Index);
 }
 
-public void MONO_Invoke(int iClient)
+public void MONO_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -747,20 +639,20 @@ public void MONO_Invoke(int iClient)
 	ShootProjectile(iClient, "tf_projectile_spellspawnboss");
 }
 
-public bool HORDE_CanInvoke(int iClient)
+public AMSResult HORDE_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Horde(int iClient)
+void Rage_Horde(int iClient, int Index)
 {
 	if(Horde_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	HORDE_Invoke(iClient);
+	HORDE_Invoke(iClient, Index);
 }
 
-public void HORDE_Invoke(int iClient)
+public void HORDE_Invoke(int iClient, int Index)
 {
 	int iBoss = FF2_GetBossIndex(iClient);
 	
@@ -777,7 +669,7 @@ public void HORDE_Invoke(int iClient)
 	SDKHook(ShootProjectile(iClient, "tf_projectile_spellspawnhorde"), SDKHook_StartTouch, Projectile_Touch);
 }
 
-public bool MERAS_CanInvoke(int iClient)
+public AMSResult MERAS_CanInvoke(int iClient, int Index)
 {
 	for(int iVictim = 1; iVictim <= MaxClients; iVictim++)
 	{
@@ -801,22 +693,22 @@ public bool MERAS_CanInvoke(int iClient)
 		if(CylinderCollision(flEnd, victimOrigin, 225.0, flEnd[2] - 350.0, flEnd[2] - 0.01))
 		{
 			PrintCenterText(iClient, "Location blocked by player(s)!");
-			return false;
+			return AMS_Deny;
 		}
 	}
 	
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Merasmus(int iClient)
+void Rage_Merasmus(int iClient, int Index)
 {
 	if(Meras_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	MERAS_Invoke(iClient);
+	MERAS_Invoke(iClient, Index);
 }
 
-public void MERAS_Invoke(int iClient)
+public void MERAS_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -832,7 +724,7 @@ public void MERAS_Invoke(int iClient)
 	EntCreate(iClient, "merasmus");
 }
 
-public bool HORSE_CanInvoke(int iClient)
+public AMSResult HORSE_CanInvoke(int iClient, int Index)
 {
 	for(int iVictim = 1; iVictim <= MaxClients; iVictim++)
 	{
@@ -856,22 +748,22 @@ public bool HORSE_CanInvoke(int iClient)
 		if(CylinderCollision(flEnd, victimOrigin, 225.0, flEnd[2] - 350.0, flEnd[2] - 0.01))
 		{
 			PrintCenterText(iClient, "Location blocked by player(s)!");
-			return false;
+			return AMS_Accept;
 		}
 	}
 	
-	return true;
+	return AMS_Deny;
 }
 
-void Rage_Horsemann(int iClient)
+void Rage_Horsemann(int iClient, int Index)
 {
 	if(Horse_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	HORSE_Invoke(iClient);
+	HORSE_Invoke(iClient, Index);
 }
 
-public void HORSE_Invoke(int iClient)
+public void HORSE_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -923,20 +815,20 @@ public Action Projectile_Touch(int iProj, int iOther)
 	return Plugin_Continue;
 }
 
-public bool FIRE_CanInvoke(int iClient)
+public AMSResult FIRE_CanInvoke(int iClient, int Index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-void Rage_Fireball(int iClient)
+void Rage_Fireball(int iClient, int Index)
 {
 	if(Fireball_TriggerAMS[iClient]) // Prevent normal 100% RAGE activation if using AMS
 		return;
 	
-	FIRE_Invoke(iClient);
+	FIRE_Invoke(iClient, Index);
 }
 
-public void FIRE_Invoke(int iClient)
+public void FIRE_Invoke(int iClient, int Index)
 {
 	int iBoss=FF2_GetBossIndex(iClient);
 	
@@ -1028,7 +920,7 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 					EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 
-					for (new enemy = 1; enemy < MaxClients; enemy++)
+					for (int enemy = 1; enemy < MaxClients; enemy++)
 					{
 						if (IsClientInGame(enemy) && enemy != iClient)
 						{
@@ -1254,7 +1146,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 	
-						for (new enemy = 1; enemy < MaxClients; enemy++)
+						for (int enemy = 1; enemy < MaxClients; enemy++)
 						{
 							if (IsClientInGame(enemy) && enemy != iClient)
 							{
@@ -1502,7 +1394,7 @@ int ShootProjectile(int iClient, char strEntname[48] = "")
 	return iSpell;
 }
 
-public void EntCreate(iClient, char[] strEntity)
+public void EntCreate(int iClient, char[] strEntity)
 {
 	int flags = GetCommandFlags("ent_create");
 	SetCommandFlags("ent_create", flags & ~FCVAR_CHEAT);
@@ -1527,7 +1419,7 @@ stock bool IsValidClient(int iClient, bool bAlive = false, bool bTeam = false)
 	return true;
 }
 
-public bool IsInInvalidCondition(iClient)
+public bool IsInInvalidCondition(int iClient)
 {
 	return TF2_IsPlayerInCondition(iClient, TFCond_Dazed) || TF2_IsPlayerInCondition(iClient, TFCond_Taunting) || GetEntityMoveType(iClient)==MOVETYPE_NONE;
 }
@@ -1590,7 +1482,7 @@ void SwitchtoSlot(int iClient, int iSlot)
 
 public bool TraceEntityFilterPlayer(int iEntity, int contentsMask)
 {
-	return (iEntity > GetMaxClients() || !iEntity);
+	return (iEntity > MaxClients || !iEntity);
 }
 
 stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], float maxDistance, float zMin, float zMax)
@@ -1608,53 +1500,4 @@ stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], f
 	tmpVec2[2] = 0.0;
 	
 	return GetVectorDistance(tmpVec1, tmpVec2, true) <= maxDistance * maxDistance;
-}
-
-// call AMS from epic scout's subplugin via reflection:
-stock Handle FindPlugin(char[] plugin_name)
-{
-	char buffer[256];
-	char path[PLATFORM_MAX_PATH];
-	Handle iter = GetPluginIterator();
-	Handle pl = INVALID_HANDLE;
-	
-	while (MorePlugins(iter))
-	{
-		pl = ReadPlugin(iter);
-		Format(path, sizeof(path), "%s.ff2", plugin_name);
-		GetPluginFilename(pl, buffer, sizeof(buffer));
-		if (StrContains(buffer, path, false) >= 0)
-			break;
-		else
-			pl = INVALID_HANDLE;
-	}
-	
-	delete iter;
-
-	return pl;
-}
-
-// this will tell AMS that the abilities listed on PrepareAbilities() supports AMS
-stock void AMS_InitSubability(int iBoss, int iClient, const char[] plugin_name, const char[] ability_name, const char[] prefix)
-{
-	Handle plugin = FindPlugin("ff2_sarysapub3");
-	if (plugin != INVALID_HANDLE)
-	{
-		Function func = GetFunctionByName(plugin, "AMS_InitSubability");
-		if (func != INVALID_FUNCTION)
-		{
-			Call_StartFunction(plugin, func);
-			Call_PushCell(iBoss);
-			Call_PushCell(iClient);
-			Call_PushString(plugin_name);
-			Call_PushString(ability_name);
-			Call_PushString(prefix);
-			Call_Finish();
-		}
-		else
-			LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability()");
-	}
-	else
-		LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
-
 }

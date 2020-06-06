@@ -1,18 +1,19 @@
-#pragma semicolon 1
 
-#include <sourcemod>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-new Float:g_headscale = 0.0;
-new g_footsteps[MAXPLAYERS + 1];
-new g_footstepsdb= 0;
-new String:g_leftfoot[PLATFORM_MAX_PATH];
-new String:g_rightfoot[PLATFORM_MAX_PATH];
-new Float:g_fClientCurrentScale[MAXPLAYERS+1] = {1.0, ... };
-new bool:g_bHitboxAvailable = false;
+#pragma semicolon 1
+#pragma newdecls required
+
+float g_headscale = 0.0;
+int g_footsteps[MAXPLAYERS + 1];
+int g_footstepsdb= 0;
+char g_leftfoot[PLATFORM_MAX_PATH];
+char g_rightfoot[PLATFORM_MAX_PATH];
+float g_fClientCurrentScale[MAXPLAYERS+1] = {1.0, ... };
+bool g_bHitboxAvailable = false;
 
 #define FOOTSTEP_GIANT1 "player/footsteps/giant1.wav"
 #define FOOTSTEP_GIANT2 "player/footsteps/giant2.wav"
@@ -22,18 +23,18 @@ new bool:g_bHitboxAvailable = false;
 #define FOOTSTEP_MUD3 "player/footsteps/mud3.wav"
 #define FOOTSTEP_MUD4 "player/footsteps/mud4.wav"
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Boss Tweaks",
 	author = "frog",
 	version = "1.0",
 };
 
-public OnMapStart()
+public void OnMapStart()
 {
-	new String:sound[38];
-	for (new x = 1 ; x < 18 ; x++) 
+	char sound[38];
+	for (int x = 1 ; x < 18 ; x++) 
 	{
-		Format(sound, sizeof(sound), "mvm/player/footsteps/robostep_%s%i.wav", (x < 10) ? "0" : "", x);
+		FormatEx(sound, sizeof(sound), "mvm/player/footsteps/robostep_%s%i.wav", (x < 10) ? "0" : "", x);
 		PrecacheSound(sound, true);
 	}
 	PrecacheSound(FOOTSTEP_GIANT1, true);
@@ -44,16 +45,16 @@ public OnMapStart()
 	PrecacheSound(FOOTSTEP_MUD4, true);
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	AddNormalSoundHook(SoundHook);
 	
-	g_bHitboxAvailable = ((FindSendPropOffs("CBasePlayer", "m_vecSpecifiedSurroundingMins") != -1) && FindSendPropOffs("CBasePlayer", "m_vecSpecifiedSurroundingMaxs") != -1);
+	g_bHitboxAvailable = ((FindSendPropInfo("CBasePlayer", "m_vecSpecifiedSurroundingMins") != -1) && FindSendPropInfo("CBasePlayer", "m_vecSpecifiedSurroundingMaxs") != -1);
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -61,28 +62,28 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	PrepareAbilities();
 }
 
-public PrepareAbilities()
+public void PrepareAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
 			g_headscale = 0.0;
 			g_footsteps[client] = 0;
 			
-			new boss=FF2_GetBossIndex(client);
+			int boss=FF2_GetBossIndex(client);
 			if(boss>=0)
 			{   			
 				if (FF2_HasAbility(boss, this_plugin_name, "scalemodel"))
 				{
-					new Float:scale = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "scalemodel", 1);	       	 	//scale 
+					float scale = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "scalemodel", 1);	       	 	//scale 
 					
 					if(scale==-1.0)
 					{
 						scale=(GetURandomFloat()*(1.3-0.7))+0.7;
 					}
 					
-					new Float:curPos[3];
+					float curPos[3];
 					GetEntPropVector(client, Prop_Data, "m_vecOrigin", curPos);
 					if(IsSpotSafe(client, curPos, scale)) // The purpose of this is to prevent bosses from getting stuck!
 					{
@@ -103,7 +104,7 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"scalehead"))
 				{
-					new Float:scale = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "scalehead", 1);	        	//scale
+					float scale = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "scalehead", 1);	        	//scale
 					if (scale > 0) 
 					{
 						g_headscale = scale;
@@ -117,7 +118,7 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"footsteps"))
 				{
-					new type = FF2_GetAbilityArgument(boss, this_plugin_name, "footsteps", 1);	        			//type
+					int type = FF2_GetAbilityArgument(boss, this_plugin_name, "footsteps", 1);	        			//type
 					if (type > 3 || type < -1) 
 					{
 						type = 0;
@@ -135,9 +136,9 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"colour"))
 				{
-					new r = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 1);	        			//red (0-255)
-					new g = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 2);	        			//green (0-255)
-					new b = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 3);					//blue (0-255)
+					int r = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 1);	        			//red (0-255)
+					int g = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 2);	        			//green (0-255)
+					int b = FF2_GetAbilityArgument(boss, this_plugin_name, "colour", 3);					//blue (0-255)
 					if (r == -1)
 					{
 						r = GetRandomInt(0, 255);
@@ -155,7 +156,7 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"alpha"))
 				{
-					new a = FF2_GetAbilityArgument(boss, this_plugin_name, "alpha", 1);					//alpha (0-255)
+					int a = FF2_GetAbilityArgument(boss, this_plugin_name, "alpha", 1);					//alpha (0-255)
 					if (a == -1)
 					{
 						a = GetRandomInt(0, 255);
@@ -165,7 +166,7 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"gravity"))
 				{
-					new Float:gravity = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "gravity", 1);	        	//gravity (0.1 very low, 8.0 very high, (1.0 normal)) 
+					float gravity = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "gravity", 1);	        	//gravity (0.1 very low, 8.0 very high, (1.0 normal)) 
 					if (gravity < 0.0)
 					{
 						gravity = 0.0;
@@ -175,28 +176,28 @@ public PrepareAbilities()
 			
 				if (FF2_HasAbility(boss,this_plugin_name,"message"))
 				{
-					new type = FF2_GetAbilityArgument(boss, this_plugin_name, "message", 1);	        			//type
-					new delay = FF2_GetAbilityArgument(boss, this_plugin_name, "message", 2);	        			//delay
-					new String:message[PLATFORM_MAX_PATH];
+					int type = FF2_GetAbilityArgument(boss, this_plugin_name, "message", 1);	        			//type
+					int delay = FF2_GetAbilityArgument(boss, this_plugin_name, "message", 2);	        			//delay
+					char message[PLATFORM_MAX_PATH];
 					FF2_GetAbilityArgumentString(boss, this_plugin_name,"message", 3, message, PLATFORM_MAX_PATH);	//message
 					
-					new Handle:pack = CreateDataPack();
+					DataPack pack = new DataPack();
 					CreateDataTimer(float(delay), ShowMessage, pack);
-					WritePackCell(pack, type);
-					WritePackString(pack, message);
-					ResetPack(pack);
+					pack.WriteCell(type);
+					pack.WriteString(message);
+					pack.Reset();
 				}			
 			}
 		}
 	}
 }
 
-public Action:ShowMessage(Handle:timer, Handle:pack)
+public Action ShowMessage(Handle timer, DataPack pack)
 {
-	ResetPack(pack);
-	new type = ReadPackCell(pack);
-	new String:message[PLATFORM_MAX_PATH];
-	ReadPackString(pack, message, sizeof(message));
+	pack.Reset();
+	int type = pack.ReadCell();
+	char message[PLATFORM_MAX_PATH];
+	pack.ReadString(message, sizeof(message));
 	switch (type)
 	{
 		case 0:
@@ -214,11 +215,13 @@ public Action:ShowMessage(Handle:timer, Handle:pack)
 	}
 }
 
-public Action:SoundHook(clients[64], &numClients, String:sound[PLATFORM_MAX_PATH], &Ent, &channel, &Float:volume, &level, &pitch, &flags)
+public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char sound[PLATFORM_MAX_PATH],
+				  int& Ent, int& channel, float& volume, int& level, int& pitch, int& flags,
+				  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
 	if (volume == 0.0 || volume == 0.9997) return Plugin_Continue;
 	if (!IsValidClient(Ent)) return Plugin_Continue;
-	new client = Ent;
+	int client = Ent;
 	
 	switch (g_footsteps[client])
 	{
@@ -279,7 +282,7 @@ public Action:SoundHook(clients[64], &numClients, String:sound[PLATFORM_MAX_PATH
 			StopSound(Ent, SNDCHAN_AUTO, sound);
 			if (strncmp(sound, "player/footsteps/", 17, false) == 0)
 			{
-				new rand = GetRandomInt(1,18);
+				int rand = GetRandomInt(1,18);
 				Format(sound, sizeof(sound), "mvm/player/footsteps/robostep_%s%i.wav", (rand < 10) ? "0" : "", rand);
 				if (g_footstepsdb > 0)
 				{
@@ -328,9 +331,9 @@ public Action:SoundHook(clients[64], &numClients, String:sound[PLATFORM_MAX_PATH
 	return Plugin_Continue;
 }
 	
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -345,15 +348,15 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	g_headscale = 0.0;
 }
 
-public void HeadScale_Think(client)
+public void HeadScale_Think(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flHeadScale", g_headscale);
 }
 
-stock UpdatePlayerHitbox(const client)
+stock void UpdatePlayerHitbox(int client)
 {
-	static const Float:vecTF2PlayerMin[3] = { -24.5, -24.5, 0.0 }, Float:vecTF2PlayerMax[3] = { 24.5,  24.5, 83.0 };
-	decl Float:vecScaledPlayerMin[3], Float:vecScaledPlayerMax[3];
+	static const float vecTF2PlayerMin[3] = { -24.5, -24.5, 0.0 }, vecTF2PlayerMax[3] = { 24.5,  24.5, 83.0 };
+	static float vecScaledPlayerMin[3], vecScaledPlayerMax[3];
 	vecScaledPlayerMin = vecTF2PlayerMin;
 	vecScaledPlayerMax = vecTF2PlayerMax;
 	ScaleVector(vecScaledPlayerMin, g_fClientCurrentScale[client]);
@@ -366,9 +369,9 @@ stock UpdatePlayerHitbox(const client)
 	sarysa's safe resizing code
 */
 
-new bool:ResizeTraceFailed;
-new ResizeMyTeam;
-public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
+bool ResizeTraceFailed;
+int ResizeMyTeam;
+public bool Resize_TracePlayersAndBuildings(int entity, int contentsMask)
 {
 	if (IsValidClient(entity))
 	{
@@ -379,7 +382,7 @@ public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
 	}
 	else if (IsValidEntity(entity))
 	{
-		static String:classname[64];
+		static char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if ((strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0)
 			|| (strcmp(classname, "prop_dynamic") == 0) || (strcmp(classname, "func_physbox") == 0) || (strcmp(classname, "func_breakable") == 0))
@@ -391,9 +394,9 @@ public bool:Resize_TracePlayersAndBuildings(entity, contentsMask)
 	return false;
 }
 
-bool:Resize_OneTrace(const Float:startPos[3], const Float:endPos[3])
+bool Resize_OneTrace(const float startPos[3], const float endPos[3])
 {
-	static Float:result[3];
+	static float result[3];
 	TR_TraceRayFilter(startPos, endPos, MASK_PLAYERSOLID, RayType_EndPoint, Resize_TracePlayersAndBuildings);
 	if (ResizeTraceFailed)
 	{
@@ -409,13 +412,13 @@ bool:Resize_OneTrace(const Float:startPos[3], const Float:endPos[3])
 }
 
 // the purpose of this method is to first trace outward, upward, and then back in.
-bool:Resize_TestResizeOffset(const Float:bossOrigin[3], Float:xOffset, Float:yOffset, Float:zOffset)
+bool Resize_TestResizeOffset(const float bossOrigin[3], float xOffset, float yOffset, float zOffset)
 {
-	static Float:tmpOrigin[3];
+	static float tmpOrigin[3];
 	tmpOrigin[0] = bossOrigin[0];
 	tmpOrigin[1] = bossOrigin[1];
 	tmpOrigin[2] = bossOrigin[2];
-	static Float:targetOrigin[3];
+	static float targetOrigin[3];
 	targetOrigin[0] = bossOrigin[0] + xOffset;
 	targetOrigin[1] = bossOrigin[1] + yOffset;
 	targetOrigin[2] = bossOrigin[2];
@@ -442,11 +445,11 @@ bool:Resize_TestResizeOffset(const Float:bossOrigin[3], Float:xOffset, Float:yOf
 	return true;
 }
 
-bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:ymin, Float:ymax, Float:zOffset)
+bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float ymin, float ymax, float zOffset)
 {
-	static Float:pointA[3];
-	static Float:pointB[3];
-	for (new phase = 0; phase <= 7; phase++)
+	static float pointA[3];
+	static float pointB[3];
+	for (int phase = 0; phase <= 7; phase++)
 	{
 		// going counterclockwise
 		if (phase == 0)
@@ -506,7 +509,7 @@ bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:
 			pointB[1] = bossOrigin[1] + ymax;
 		}
 
-		for (new shouldZ = 0; shouldZ <= 1; shouldZ++)
+		for (int shouldZ = 0; shouldZ <= 1; shouldZ++)
 		{
 			pointA[2] = pointB[2] = shouldZ == 0 ? bossOrigin[2] : (bossOrigin[2] + zOffset);
 			if (!Resize_OneTrace(pointA, pointB))
@@ -517,12 +520,12 @@ bool:Resize_TestSquare(const Float:bossOrigin[3], Float:xmin, Float:xmax, Float:
 	return true;
 }
 
-public bool:IsSpotSafe(clientIdx, Float:playerPos[3], Float:sizeMultiplier)
+public bool IsSpotSafe(int clientIdx, float playerPos[3], float sizeMultiplier)
 {
 	ResizeTraceFailed = false;
 	ResizeMyTeam = GetClientTeam(clientIdx);
-	static Float:mins[3];
-	static Float:maxs[3];
+	static float mins[3];
+	static float maxs[3];
 	mins[0] = -24.0 * sizeMultiplier;
 	mins[1] = -24.0 * sizeMultiplier;
 	mins[2] = 0.0;
@@ -560,7 +563,7 @@ public bool:IsSpotSafe(clientIdx, Float:playerPos[3], Float:sizeMultiplier)
 	return true;
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client)) return false;
@@ -568,4 +571,4 @@ stock bool:IsValidClient(client)
 	return true;
 }
 
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], action){}
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action){}

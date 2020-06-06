@@ -6,7 +6,9 @@
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-public Plugin:myinfo=
+#pragma newdecls required
+
+public Plugin myinfo=
 {
     name="Freak Fortress 2 : CSGO",
     author="Nopied",
@@ -97,9 +99,9 @@ void CheckAbility()
     */
 }
 
-stock bool IsWeaponSlotActive(iClient, iSlot)
+stock bool IsWeaponSlotActive(int iClient, int iSlot)
 {
-    new hActive = GetEntPropEnt(iClient, Prop_Send, "m_hActiveWeapon");
-    new hWeapon = GetPlayerWeaponSlot(iClient, iSlot);
+    int hActive = GetEntPropEnt(iClient, Prop_Send, "m_hActiveWeapon");
+    int hWeapon = GetPlayerWeaponSlot(iClient, iSlot);
     return (hWeapon == hActive);
 }

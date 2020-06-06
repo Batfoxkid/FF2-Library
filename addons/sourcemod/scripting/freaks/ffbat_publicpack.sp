@@ -1,17 +1,13 @@
-#pragma semicolon 1
-
 #define DDCOMPILE true
 
-#include <sourcemod>
 #include <tf2_stocks>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #if DDCOMPILE
 #include <ff2_dynamic_defaults>
 #endif
 #undef REQUIRE_PLUGIN
-#tryinclude <ff2_ams>
+#tryinclude <ff2_ams2>
 #tryinclude <sdkhooks>
 #if defined _sdkhooks_included
 #tryinclude <goomba>
@@ -19,6 +15,7 @@
 #tryinclude <tf2attributes>
 #define REQUIRE_PLUGIN
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define MAJOR_REVISION	"1"
@@ -26,7 +23,6 @@
 #define STABLE_REVISION	"2"
 #define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION..."."...STABLE_REVISION
 
-#define FAR_FUTURE	100000000.0
 #define MAXTF2PLAYERS	36
 #define MAXSOUNDPATH	80
 #define MAXMODELPATH	128
@@ -45,9 +41,8 @@
 #define SOUNDLIGHT	"sound_weighdown"
 #define SOUNDHEAVY	"sound_weighdown_slam"
 
-Handle OnHaleRage;
-Handle OnHaleWeighdown;
-float OFF_THE_MAP[3] = {16383.0, 16383.0, -16383.0};
+GlobalForward OnHaleRage;
+GlobalForward OnHaleWeighdown;
 
 #if defined _tf2attributes_included
 bool tf2attributes = false;
@@ -92,8 +87,8 @@ public Plugin myinfo =
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	OnHaleRage = CreateGlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
-	OnHaleWeighdown = CreateGlobalForward("VSH_OnDoWeighdown", ET_Hook);
+	OnHaleRage = new GlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
+	OnHaleWeighdown = new GlobalForward("VSH_OnDoWeighdown", ET_Hook);
 	return APLRes_Success;
 }
 
@@ -175,17 +170,21 @@ public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 			NoKnockback = true;
 		}
 		#endif
-
-		#if defined _ff2_ams_included
-		if(FF2_HasAbility(boss, this_plugin_name, TEAMWEAPONAMS))
-		{
-			if(AMS_IsSubabilityReady(boss, this_plugin_name, TEAMWEAPONAMS))
-				AMS_InitSubability(boss, client, this_plugin_name, TEAMWEAPONAMS, "TNW");
-		}
-		#endif
 	}
 	return Plugin_Continue;
 }
+
+#if defined _FF2AMS_Redux
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, TEAMWEAPONAMS))
+	{
+		if(LibraryExists("FF2AMS"))
+			FF2AMS_PushToAMS(client, this_plugin_name, TEAMWEAPONAMS, "TNW");
+	}
+}
+#endif
 
 public Action OnRoundSetup(Handle event, const char[] name, bool dontBroadcast)
 {
@@ -240,11 +239,11 @@ public Action OnRoundEnd(Handle event, const char[] name, bool dontBroadcast)
 	return Plugin_Continue;
 }
 
-public Action OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
+public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	IsBackup[GetClientOfUserId(GetEventInt(event, "userid"))] = false;
+	IsBackup[GetClientOfUserId(event.GetInt("userid"))] = false;
 
-	int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
+	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	if(!attacker)
 		return Plugin_Continue;
 
@@ -257,26 +256,26 @@ public Action OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
 
 	if(TempGoomba)
 	{
-		SetEventString(event, "weapon", "mantreads");
-		SetEventString(event, "weapon_logclassname", "slam");
+		event.SetString("weapon", "mantreads");
+		event.SetString("weapon_logclassname", "slam");
 		return Plugin_Continue;
 	}
 
 	if(TempSlam)
 	{
-		SetEventString(event, "weapon", "firedeath");
-		SetEventString(event, "weapon_logclassname", "slam");
+		event.SetString("weapon", "firedeath");
+		event.SetString("weapon_logclassname", "slam");
 		return Plugin_Continue;
 	}
 	return Plugin_Continue;
 }
 
-public Action OnObjectDeflected(Handle event, const char[] name, bool dontBroadcast)
+public Action OnObjectDeflected(Event event, const char[] name, bool dontBroadcast)
 {
-	if(GetEventInt(event, "weaponid"))  //0 means that the client was airblasted, which is what we want
+	if(event.GetInt("weaponid"))  //0 means that the client was airblasted, which is what we want
 		return Plugin_Continue;
 
-	int client = GetClientOfUserId(GetEventInt(event, "ownerid"));
+	int client = GetClientOfUserId(event.GetInt("ownerid"));
 	int boss = FF2_GetBossIndex(client);
 	if(boss < 0)
 		return Plugin_Continue;
@@ -504,15 +503,15 @@ public Action OnStomp(int attacker, int victim, float &damageMult, float &damage
 
 // AMS Events
 
-#if defined _ff2_ams_included
-public bool TNW_CanInvoke(int client)
+#if defined _FF2AMS_Redux
+public AMSResult TNW_CanInvoke(int client, int index)
 {
 	/*int clones = GetClientTeam(client)==FF2_GetBossTeam() ? Bosses : Players;
 	return clones>1;*/
-	return true;
+	return AMS_Accept;
 }
 
-public void TNW_Invoke(int client)
+public void TNW_Invoke(int client, int index)
 {
 	int bossTeam = GetClientTeam(client);
 	for(int target=1; target<=MaxClients; target++)
@@ -1319,22 +1318,14 @@ stock int AttachParticleToAttachment(int entity, const char[] particleType, cons
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
-	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
-	}
+	if(IsValidEntity(entity) && entity>MaxClients)
+		RemoveEntity(entity);
 }
 
 stock float GetVectorAnglesTwoPoints(const float startPos[3], const float endPos[3], float angles[3])
 {
 	static float tmpVec[3];
-	//tmpVec[0] = startPos[0] - endPos[0];
-	//tmpVec[1] = startPos[1] - endPos[1];
-	//tmpVec[2] = startPos[2] - endPos[2];
-	tmpVec[0] = endPos[0] - startPos[0];
-	tmpVec[1] = endPos[1] - startPos[1];
-	tmpVec[2] = endPos[2] - startPos[2];
+	MakeVectorFromPoints(endPos, startPos, tmpVec);
 	GetVectorAngles(tmpVec, angles);
 }
 

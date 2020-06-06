@@ -1,15 +1,14 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <morecolors>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #define PLUGIN_VERSION "1.0.1"
 
-public Plugin:myinfo=
+#pragma semicolon 1
+#pragma newdecls required
+
+public Plugin myinfo=
 {
 	name="Freak Fortress 2: skeleton king",
 	author="DaNetNavern0",
@@ -17,38 +16,38 @@ public Plugin:myinfo=
 	version=PLUGIN_VERSION
 };
 
-new Handle:chargeHUD;
-new Handle:cooldownHUD;
-new BossTeam=_:TFTeam_Blue;
-new bool:isDead[MAXPLAYERS+1];
-new bool:bRaged[MAXPLAYERS+1];
-new bool:canNotReincarnate[MAXPLAYERS+1];
-new Handle:Timer_toReincarnate[MAXPLAYERS+1];
-new timeleft_stacks[MAXPLAYERS+1];
-new timeleft[MAXPLAYERS+1];
+Handle chargeHUD;
+Handle cooldownHUD;
+int BossTeam=view_as<int>(TFTeam_Blue);
+bool isDead[MAXPLAYERS+1];
+bool bRaged[MAXPLAYERS+1];
+bool canNotReincarnate[MAXPLAYERS+1];
+Handle Timer_toReincarnate[MAXPLAYERS+1];
+int timeleft_stacks[MAXPLAYERS+1];
+int timeleft[MAXPLAYERS+1];
 	
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start);
 	LoadTranslations("ff2_skeleton_king.phrases");
 	HookEvent("player_hurt", event_hurt, EventHookMode_Pre);
 	
-	for (new client = 1; client <= MaxClients; client++)
-		if (IsValidEdict(client))
+	for (int client = 1; client <= MaxClients; client++)
+		if (IsValidEntity(client))
 			OnClientPutInServer(client);
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	chargeHUD = CreateHudSynchronizer();
 	cooldownHUD = CreateHudSynchronizer();
 }
 
 	
-public Action:event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.3, Timer_GetBossTeam);
-	for(new i=0;i<MAXPLAYERS+1;i++)
+	for(int i=0;i<MAXPLAYERS+1;i++)
 	{
 		isDead[i]=false;		
 		/*if(Timer_toReincarnate[i]!=INVALID_HANDLE)
@@ -62,17 +61,17 @@ public Action:event_round_start(Handle:event, const String:name[], bool:dontBroa
 	}
 	return Plugin_Continue;
 }
-public Action:Timer_GetBossTeam(Handle:hTimer)
+public Action Timer_GetBossTeam(Handle hTimer)
 {
 	BossTeam=FF2_GetBossTeam();
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnLoseLife(index)
+public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 {
-	new userid = FF2_GetBossUserId(index);
-	new client=GetClientOfUserId(userid);
-	if(index==-1 || !IsValidEdict(client) || !FF2_HasAbility(index, this_plugin_name, "rage_reincarnation"))
+	int userid = FF2_GetBossUserId(index);
+	int client=GetClientOfUserId(userid);
+	if(index==-1 || !IsValidEntity(client) || !FF2_HasAbility(index, this_plugin_name, "rage_reincarnation"))
 		return Plugin_Continue;
 		
 	if (canNotReincarnate[index])
@@ -90,9 +89,9 @@ public Action:FF2_OnLoseLife(index)
 		Timer_toReincarnate[index]=CreateTimer(1.0, Timer_nowUcanReincarnate, index, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 		FF2_SetBossLives(index,2);
 		FF2_SetBossHealth(index,FF2_GetBossMaxHealth(index)*10);
-		decl String:model[PLATFORM_MAX_PATH];
+		static char model[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_reincarnation", 1, model, PLATFORM_MAX_PATH);
-		new Float:delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_reincarnation", 3, 3.0)+2;
+		float delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_reincarnation", 3, 3.0)+2;
 		if(FileExists(model, true))
 		{
 			if(!IsModelPrecached(model))
@@ -102,16 +101,16 @@ public Action:FF2_OnLoseLife(index)
 			SetVariantString(model);
 			AcceptEntityInput(client, "SetCustomModel");
 			SetEntityMoveType(client, MOVETYPE_NONE);
-			new Handle:data;
 			SDKHook(client, SDKHook_OnTakeDamage, StopTakeDamage);
 			SetEntityFlags(client, GetEntityFlags(client) | FL_FROZEN);
 			TF2_AddCondition(client,TFCond_UberchargedHidden,delay);
-			CreateDataTimer(2.0, Timer_ReincarnateI, data);		
+			DataPack data;
+			CreateDataTimer(2.0, Timer_ReincarnateI, data, TIMER_FLAG_NO_MAPCHANGE);		
 			SetVariantInt(1);
 			AcceptEntityInput(client, "SetForcedTauntCam");
-			WritePackCell(data, userid);
-			WritePackCell(data, index);
-			ResetPack(data);
+			data.WriteCell(userid);
+			data.WriteCell(index);
+			data.Reset();
 		}
 		FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_reincarnation", 6, model, PLATFORM_MAX_PATH);
 		if (model[0]!='\0' && FileExists(model, true)) // Check if string isn't empty and that the file exists before we try to use this ability.
@@ -121,46 +120,46 @@ public Action:FF2_OnLoseLife(index)
 				PrecacheModel(model);
 			}
 			
-			decl Float:pos[3];
-			decl Float:rot[3];
+			static float pos[3];
+			static float rot[3];
 			GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);					
 			GetEntPropVector(client, Prop_Data, "m_angRotation", rot);
-			new deadbody = CreateEntityByName("prop_dynamic");	
+			int deadbody = CreateEntityByName("prop_dynamic");	
 			TeleportEntity(deadbody, pos, rot, NULL_VECTOR);
 			SetEntityModel(deadbody, model);
 			DispatchSpawn(deadbody);
-			new String:anim[32];
+			char anim[32];
 			if (GetEntityFlags(client) & FL_ONGROUND)
 				FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_reincarnation", 7, anim, 32);
 			else
 				FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_reincarnation", 8, anim, 32);
 			SetVariantString(anim);
 			AcceptEntityInput(deadbody, "SetAnimation");
-			CreateTimer(delay,RemoveEntity,EntIndexToEntRef(deadbody));
+			CreateTimer(delay, Timer_RemoveEntity, EntIndexToEntRef(deadbody));
 		}
 		
 		SetHudTextParams(-1.0, 0.35, 10.0, 255, 255, 255, 255);
-		new String:charnaem[64];
+		char charnaem[64];
 		FF2_GetBossSpecial(index,charnaem,64,0);
-		new String:text[256];
+		char text[256];
 		Format(text,256,"%t","reincarnation_info",timeleft[index],charnaem);
-		for(new player=1; player<=MaxClients; player++)
+		for(int player=1; player<=MaxClients; player++)
 			if(IsValidClient(player) && GetClientTeam(player)!=GetClientTeam(client))
 				ShowSyncHudText(player, cooldownHUD, text);
 	}
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnTriggerHurt(index, triggerhurt, &Float:damage)
+public Action FF2_OnTriggerHurt(int index, int triggerhurt, float& damage)
 {
 	if (damage<=450 || !isDead[index])
 		return Plugin_Continue;
-	new tries;
-	new bool:otherTeamIsAlive=false;
-	new boss=GetClientOfUserId(FF2_GetBossUserId(index));
-	for(new target=1; target<=MaxClients; target++)
+	int tries;
+	bool otherTeamIsAlive=false;
+	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	for(int target=1; target<=MaxClients; target++)
 	{
-		if(IsValidEdict(target) && IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
+		if(IsValidEntity(target) && IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
 		{
 			otherTeamIsAlive=true;
 			break;
@@ -168,7 +167,7 @@ public Action:FF2_OnTriggerHurt(index, triggerhurt, &Float:damage)
 	}
 	if (otherTeamIsAlive)
 	{
-		new target;
+		int target;
 		do
 		{
 			tries++;
@@ -178,15 +177,15 @@ public Action:FF2_OnTriggerHurt(index, triggerhurt, &Float:damage)
 				return Plugin_Continue;
 			}
 		}
-		while((!IsValidEdict(target) || target==boss || !IsPlayerAlive(target)));
+		while((!IsValidEntity(target) || target==boss || !IsPlayerAlive(target)));
 			
-		decl Float:position[3];
-		if(IsValidEdict(target))
+		static float position[3];
+		if(IsValidEntity(target))
 		{
 			GetEntPropVector(target, Prop_Send, "m_vecOrigin", position);
 			if(GetEntProp(target, Prop_Send, "m_bDucked"))
 			{
-				new Float:vectorsMax[3]={24.0, 24.0, 62.0};
+				float vectorsMax[3]={24.0, 24.0, 62.0};
 				SetEntPropVector(boss, Prop_Send, "m_vecMaxs", vectorsMax);
 				SetEntProp(boss, Prop_Send, "m_bDucked", 1);
 				SetEntityFlags(boss, GetEntityFlags(boss)|FL_DUCKING);
@@ -197,10 +196,12 @@ public Action:FF2_OnTriggerHurt(index, triggerhurt, &Float:damage)
 	return Plugin_Stop;
 }
 
-public Action:StopTakeDamage(client, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action StopTakeDamage(int client, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
-	new String:charnaem[64];
-	new index = FF2_GetBossIndex(client);
+	char charnaem[64];
+	int index = FF2_GetBossIndex(client);
 	if (index==-1)
 	{
 		LogError("LolWAT?");
@@ -214,18 +215,18 @@ public Action:StopTakeDamage(client, &attacker, &inflictor, &Float:damage, &dama
 	return Plugin_Stop;
 }
 
-public Action:event_hurt(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_hurt(Event event, const char[] name, bool dontBroadcast)
 {
-	new client=GetClientOfUserId(GetEventInt(event, "userid"));
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
-	new index = FF2_GetBossIndex(client);
+	int client=GetClientOfUserId(event.GetInt("userid"));
+	int attacker=GetClientOfUserId(event.GetInt("attacker"));
+	int index = FF2_GetBossIndex(client);
 	if(index!=-1)
 	{
 		if (isDead[index])
 		{
 			if (attacker>0 && attacker!=client)
 			{
-				new String:charnaem[64];
+				char charnaem[64];
 				FF2_GetBossSpecial(index,charnaem,64,0);
 				SetHudTextParams(-1.0, 0.45, 4.0, 255, 255, 255, 255);
 				ShowSyncHudText(attacker, cooldownHUD, "%t","reincarnation_invulnerable",charnaem);
@@ -233,25 +234,25 @@ public Action:event_hurt(Handle:event, const String:name[], bool:dontBroadcast)
 			return Plugin_Stop;
 		}
 	}
-	else if (GetConVarInt(FindConVar("ff2_crits"))==0)
+	else if (FindConVar("ff2_crits").IntValue==0)
 	{
 		index = FF2_GetBossIndex(attacker);
 		if (index!=-1 && FF2_HasAbility(index, this_plugin_name, "critical_hits"))
 		{
-			new Float:chance = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "critical_hits", 1, 0.2);
+			float chance = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "critical_hits", 1, 0.2);
 			if (GetRandomFloat(0.0, 1.0)<=chance)
 			{
 				SetEventInt(event, "damageamount", GetEventInt(event, "damageamount")*2);
-				new slot=FF2_GetAbilityArgument(index, this_plugin_name, "critical_hits", 0);
-				decl String:s[PLATFORM_MAX_PATH];
+				int slot=FF2_GetAbilityArgument(index, this_plugin_name, "critical_hits", 0);
+				static char s[PLATFORM_MAX_PATH];
 				if(FF2_RandomSound("sound_ability",s,PLATFORM_MAX_PATH,index,slot))
 				{
-					decl Float:position[3];
+					static float position[3];
 					GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", position);  
 					EmitSoundToAll(s, attacker, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, attacker, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(s, attacker, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, attacker, position, NULL_VECTOR, true, 0.0);
 				
-					for(new i=1; i<=MaxClients; i++)
+					for(int i=1; i<=MaxClients; i++)
 						if(IsClientInGame(i) && i!=attacker)
 						{
 							EmitSoundToClient(i,s, attacker, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, attacker, position, NULL_VECTOR, true, 0.0);
@@ -265,21 +266,23 @@ public Action:event_hurt(Handle:event, const String:name[], bool:dontBroadcast)
 	return Plugin_Continue;
 }
 
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
-public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTakeDamage(int client, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {	
 	if (attacker<1 || attacker>MaxClients || !IsValidClient(attacker))
 		return Plugin_Continue;	
-	new index = FF2_GetBossIndex(attacker);
+	int index = FF2_GetBossIndex(attacker);
 	if (index!=-1 && client!=attacker && FF2_HasAbility(index, this_plugin_name, "charge_protectile"))
 	{
 		if (inflictor>MaxClients)
 		{
-			new Float:duration=FF2_GetAbilityArgumentFloat(index,this_plugin_name,"charge_protectile",7,3.0);
+			float duration=FF2_GetAbilityArgumentFloat(index,this_plugin_name,"charge_protectile",7,3.0);
 			if (duration>0.25)
 				TF2_StunPlayer(client, duration, 0.0, TF_STUNFLAGS_NORMALBONK, attacker);	
 		}
@@ -288,10 +291,10 @@ public Action:OnTakeDamage(client, &attacker, &inflictor, &Float:damage, &damage
 }
 
 
-public Action:Timer_nowUcanReincarnate(Handle:hTimer,any:index)
+public Action Timer_nowUcanReincarnate(Handle hTimer, any index)
 {
 	timeleft[index]--;
-	new boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
 	if (FF2_GetRoundState()!=1)
 	{
 		KillTimer(Timer_toReincarnate[index]);
@@ -314,36 +317,36 @@ public Action:Timer_nowUcanReincarnate(Handle:hTimer,any:index)
 	}
 }
 
-public Action:Timer_ReincarnateI(Handle:hTimer,Handle:data)
+public Action Timer_ReincarnateI(Handle hTimer, DataPack data)
 {
-	new userid = ReadPackCell(data);
-	new client=GetClientOfUserId(userid);
-	new index = EntRefToEntIndex(ReadPackCell(data));
-	decl String:particle[128];
-	decl Float:position[3];
+	int userid = data.ReadCell();
+	int client=GetClientOfUserId(userid);
+	int index = EntRefToEntIndex(data.ReadCell());
+	static char particle[128];
+	static float position[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
 	FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_reincarnation", 2, particle, 128);
-	new Float:delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_reincarnation", 3, 3.0);
+	float delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_reincarnation", 3, 3.0);
 	if(strlen(particle)>2)
 	{
-		new Float:asd[3] = {0.0,0.0,-30.0};
-		CreateTimer(delay, RemoveEntity, EntIndexToEntRef(AttachParticle(client, particle, asd, false)));
+		float asd[3] = {0.0,0.0,-30.0};
+		CreateTimer(delay, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(client, particle, asd, false)));
 	}
-	new Handle:data2;
-	CreateDataTimer(delay, Timer_ReincarnateII, data2);
-	WritePackCell(data2, userid);
-	WritePackCell(data2, index);
-	ResetPack(data2);
+	DataPack data2;
+	CreateDataTimer(delay, Timer_ReincarnateII, data2, TIMER_FLAG_NO_MAPCHANGE);
+	data2.WriteCell(userid);
+	data2.WriteCell(index);
+	data2.Reset();
 }
 
-public Action:Timer_ReincarnateII(Handle:hTimer,Handle:data)
+public Action Timer_ReincarnateII(Handle hTimer, DataPack data)
 {
-	new client=GetClientOfUserId(ReadPackCell(data));
-	new index = EntRefToEntIndex(ReadPackCell(data));
+	int client=GetClientOfUserId(data.ReadCell());
+	int index = EntRefToEntIndex(data.ReadCell());
 	if (client>0)
 	{
-		decl String:model[PLATFORM_MAX_PATH];
-		new Handle:see = FF2_GetSpecialKV(index);
+		static char model[PLATFORM_MAX_PATH];
+		Handle see = FF2_GetSpecialKV(index);
 		KvGetString(see, "model", model, PLATFORM_MAX_PATH);
 		SetVariantString(model);
 		AcceptEntityInput(client, "SetCustomModel");
@@ -360,9 +363,9 @@ public Action:Timer_ReincarnateII(Handle:hTimer,Handle:data)
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int status)
 {
-	new slot=FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 0);
+	int slot=FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 0);
 	if(!strcmp(ability_name, "charge_protectile"))
 	{
 		Charge_RocketSpawn(ability_name, index, slot, status);
@@ -374,14 +377,14 @@ public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:abi
 	return Plugin_Continue;
 }
 
-Charge_RocketSpawn(const String:ability_name[],index,slot,action)
+void Charge_RocketSpawn(const char[] ability_name, int index, int slot, int action)
 {
-	new Float:zero_charge = FF2_GetBossCharge(index,0);
+	float zero_charge = FF2_GetBossCharge(index,0);
 	if(zero_charge<10)
 		return;
-	new boss=GetClientOfUserId(FF2_GetBossUserId(index));
-	new Float:see=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,1,5.0);
-	new Float:charge=FF2_GetBossCharge(index,slot);
+	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	float see=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,1,5.0);
+	float charge=FF2_GetBossCharge(index,slot);
 	switch(action)
 	{
 		case 1:
@@ -408,41 +411,41 @@ Charge_RocketSpawn(const String:ability_name[],index,slot,action)
 			if (charge>=see)
 			{
 				FF2_SetBossCharge(index,0,zero_charge-10);
-				decl Float:position[3];
-				decl Float:rot[3];
-				decl Float:velocity[3];
+				static float position[3];
+				static float rot[3];
+				static float velocity[3];
 				GetEntPropVector(boss, Prop_Send, "m_vecOrigin", position);
 				GetClientEyeAngles(boss,rot);
 				position[2]+=63;
 				
-				new proj=CreateEntityByName("tf_projectile_rocket");
+				int proj=CreateEntityByName("tf_projectile_rocket");
 				SetVariantInt(BossTeam);
 				AcceptEntityInput(proj, "TeamNum", -1, -1, 0);
 				SetVariantInt(BossTeam);
 				AcceptEntityInput(proj, "SetTeam", -1, -1, 0); 
 				SetEntPropEnt(proj, Prop_Send, "m_hOwnerEntity",boss);		
-				new Float:speed=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,3,1000.0);
+				float speed=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,3,1000.0);
 				velocity[0]=Cosine(DegToRad(rot[0]))*Cosine(DegToRad(rot[1]))*speed;
 				velocity[1]=Cosine(DegToRad(rot[0]))*Sine(DegToRad(rot[1]))*speed;
 				velocity[2]=Sine(DegToRad(rot[0]))*speed;
 				velocity[2]*=-1;
 				TeleportEntity(proj, position, rot,velocity);
 				SetEntProp(proj, Prop_Send, "m_bCritical", 1);
-				SetEntDataFloat(proj, FindSendPropOffs("CTFProjectile_Rocket", "m_iDeflected") + 4, FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,6,40.0), true);
+				SetEntDataFloat(proj, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,6,40.0), true);
 				DispatchSpawn(proj);
-				new String:s[PLATFORM_MAX_PATH];
+				char s[PLATFORM_MAX_PATH];
 				FF2_GetAbilityArgumentString(index,this_plugin_name,ability_name,4,s,PLATFORM_MAX_PATH);
 				if(strlen(s)>5)
 					SetEntityModel(proj,s);
 				FF2_GetAbilityArgumentString(index,this_plugin_name,ability_name,5,s,PLATFORM_MAX_PATH);
 				if(strlen(s)>2)
-					CreateTimer(15.0, RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s,_,true)));
+					CreateTimer(15.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(proj, s,_,true)));
 				if(FF2_RandomSound("sound_ability",s,PLATFORM_MAX_PATH,index,slot))
 				{
 					EmitSoundToAll(s, boss, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, boss, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(s, boss, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, boss, position, NULL_VECTOR, true, 0.0);
 				
-					for(new i=1; i<=MaxClients; i++)
+					for(int i=1; i<=MaxClients; i++)
 						if(IsClientInGame(i) && i!=boss)
 						{
 							EmitSoundToClient(i,s, boss, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, boss, position, NULL_VECTOR, true, 0.0);
@@ -450,28 +453,28 @@ Charge_RocketSpawn(const String:ability_name[],index,slot,action)
 						}
 				}
 				
-				new Handle:data;
-				CreateDataTimer(0.2, Timer_StartCD, data);
-				WritePackCell(data, index);
-				WritePackCell(data, slot);
-				WritePackFloat(data,-FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,2,5.0));
-				ResetPack(data);
+				DataPack data;
+				CreateDataTimer(0.2, Timer_StartCD, data, TIMER_FLAG_NO_MAPCHANGE);
+				data.WriteCell(GetClientSerial(slot));
+				data.WriteCell(index);
+				data.WriteFloat(-FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,2,5.0));
+				data.Reset();
 			}
 		}
 	}
 }
 
-public Action:Timer_StartCD(Handle:hTimer,Handle:data)
+public Action Timer_StartCD(Handle hTimer, DataPack data)
 {
-	new index = ReadPackCell(data);
-	new slot = ReadPackCell(data);
-	new Float:see = ReadPackFloat(data);
-	FF2_SetBossCharge(index,slot,see);
+	int index = GetClientFromSerial(data.ReadCell());
+	int slot = data.ReadCell();
+	float see = data.ReadFloat();
+	FF2_SetBossCharge(index, slot, see);
 }
 
-Rage_Eruption(const String:ability_name[], index, slot)
+void Rage_Eruption(const char[] ability_name, int index, int slot)
 {
-	new client=GetClientOfUserId(FF2_GetBossUserId(index));
+	int client=GetClientOfUserId(FF2_GetBossUserId(index));
 	if (!(GetEntityFlags(client) & FL_ONGROUND) && FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 9, 1))
 	{
 		PrintHintText(client,"%t","rage_available_in_ground");
@@ -485,21 +488,21 @@ Rage_Eruption(const String:ability_name[], index, slot)
 	SetEntityMoveType(client, MOVETYPE_NONE);
 	SDKHook(client, SDKHook_OnTakeDamage, StopTakeDamage);
 	
-	decl Float:position[3];
+	static float position[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);	
 	
-	decl String:s[PLATFORM_MAX_PATH];
-	new String:keys[][] = {"sound_ability_effect","sound_ability_voice"};
-	for(new i=0;i<2;i++)
+	static char s[PLATFORM_MAX_PATH];
+	char keys[][] = {"sound_ability_effect","sound_ability_voice"};
+	for(int i=0;i<2;i++)
 		if(FF2_RandomSound(keys[i],s,PLATFORM_MAX_PATH,index,slot))
 			EmitSoundToAll(s, client, _, SNDLEVEL_RAIDSIREN, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, position, NULL_VECTOR, true, 0.0);
-	new Float:delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 3, 3.0);
+	float delay = FF2_GetAbilityArgumentFloat(index, this_plugin_name, ability_name, 3, 3.0);
 	CreateTimer(delay, Timer_Eruption, index);
 	if (FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 5, 0))
 		TF2_AddCondition(client, TFCond_Ubercharged, delay);
 	if (FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 6, 0))
 		Rage_Slow(delay, FF2_GetRageDist(index, this_plugin_name, ability_name), client);
-	decl String:model[PLATFORM_MAX_PATH];
+	static char model[PLATFORM_MAX_PATH];
 	FF2_GetAbilityArgumentString(index, this_plugin_name, ability_name, 1, model, PLATFORM_MAX_PATH);	
 	if(model[0]!='\0' && FileExists(model, true)) // Check if string isn't empty and that the file exists before we try to use this RAGE.
 	{
@@ -508,7 +511,7 @@ Rage_Eruption(const String:ability_name[], index, slot)
 			PrecacheModel(model);
 		}
 		
-		new prop=CreateEntityByName("prop_dynamic_override");
+		int prop=CreateEntityByName("prop_dynamic_override");
 		SetEntityModel(prop, model);
 		SetEntityRenderMode(prop, RENDER_TRANSCOLOR);
 		SetEntityRenderColor(prop, 255, 255, 255, 125);
@@ -518,29 +521,29 @@ Rage_Eruption(const String:ability_name[], index, slot)
 		SetEntityRenderColor(prop, 255, 255, 255, 125);
 		CreateTimer(delay/4, Timer_ChangeOpaque, EntIndexToEntRef(prop));
 		CreateTimer(delay/2, Timer_ChangeOpaque, EntIndexToEntRef(prop));
-		CreateTimer(delay, RemoveEntity, EntIndexToEntRef(prop));
+		CreateTimer(delay, Timer_RemoveEntity, EntIndexToEntRef(prop));
 	}
 }
 
-public Action:Timer_ChangeOpaque(Handle:hTimer,any:prop)
+public Action Timer_ChangeOpaque(Handle hTimer,any prop)
 {
-	new entity=EntRefToEntIndex(prop);
+	int entity=EntRefToEntIndex(prop);
 	SetEntityRenderColor(entity, 255, 255, 255, 175);
 }
 
-public Action:Timer_ChangeOpaqueII(Handle:hTimer,any:prop)
+public Action Timer_ChangeOpaqueII(Handle hTimer,any prop)
 {
-	new entity=EntRefToEntIndex(prop);
+	int entity=EntRefToEntIndex(prop);
 	SetEntityRenderColor(entity, 255, 255, 255, 255);
 }
 
 
-Rage_Slow(Float:duration, Float:distance, client)
+void Rage_Slow(float duration, float distance, int client)
 {
-	decl Float:bossPosition[3];
-	decl Float:clientPosition[3];
+	static float bossPosition[3];
+	static float clientPosition[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
 		{
@@ -548,22 +551,22 @@ Rage_Slow(Float:duration, Float:distance, client)
 			if(!TF2_IsPlayerInCondition(target, TFCond_Ubercharged) && (GetVectorDistance(bossPosition, clientPosition)<=distance))
 			{
 				TF2_StunPlayer(target, duration, 0.0, TF_STUNFLAGS_GHOSTSCARE|TF_STUNFLAG_NOSOUNDOREFFECT, client);
-				new Float:asd[3] = {0.0, 0.0, 75.0};
-				CreateTimer(duration, RemoveEntity, EntIndexToEntRef(AttachParticle(target, "yikes_fx", asd, true)));
+				float asd[3] = {0.0, 0.0, 75.0};
+				CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(target, "yikes_fx", asd, true)));
 			}
 		}
 	}
 }
 
-public Action:Timer_RestoreCharge(Handle:hTimer,any:index)
+public Action Timer_RestoreCharge(Handle hTimer, any index)
 {
 	FF2_SetBossCharge(index,0,100.0);
 }
 
-public Action:Timer_Eruption(Handle:hTimer,any:index)
+public Action Timer_Eruption(Handle hTimer,any index)
 {
 	bRaged[index]=false;
-	new boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
 	if (isDead[index] || (!(GetEntityFlags(boss) & FL_ONGROUND) && FF2_GetAbilityArgument(index, this_plugin_name, "rage_wraithfire_eruption", 8, 1)))
 	{
 		PrintHintText(boss,"%t","rage_available_in_ground");
@@ -574,29 +577,29 @@ public Action:Timer_Eruption(Handle:hTimer,any:index)
 	SetEntityMoveType(boss, MOVETYPE_WALK);
 	SDKUnhook(boss, SDKHook_OnTakeDamage, StopTakeDamage);
 	
-	decl String:effect[128];
+	static char effect[128];
 	FF2_GetAbilityArgumentString(index, this_plugin_name, "rage_wraithfire_eruption", 2, effect, 128);
-	new Float:distance=FF2_GetRageDist(index, this_plugin_name, "rage_wraithfire_eruption");
-	new Float:multiplier=FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_wraithfire_eruption", 4, 2.5);
-	decl Float:position2[3];
-	decl Float:pos[3];
+	float distance=FF2_GetRageDist(index, this_plugin_name, "rage_wraithfire_eruption");
+	float multiplier=FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_wraithfire_eruption", 4, 2.5);
+	static float position2[3];
+	static float pos[3];
 	GetEntPropVector(boss, Prop_Send, "m_vecOrigin", pos);	
-	new Float:z_radius = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_wraithfire_eruption", 7, 0.0);
+	float z_radius = FF2_GetAbilityArgumentFloat(index, this_plugin_name, "rage_wraithfire_eruption", 7, 0.0);
 	if (z_radius<1.0)
 		z_radius=distance;
-	for(new i=0;i<20;i++)
+	for(int i=0;i<20;i++)
 	{
 		position2[0]=GetRandomFloat(-distance/1.3,distance/1.3);
 		position2[1]=GetRandomFloat(-distance/1.3,distance/1.2);
 		position2[2]=GetRandomFloat(-z_radius/8,z_radius/1.2);
-		CreateTimer(4.0, RemoveEntity, EntIndexToEntRef(AttachParticle(boss, effect, position2,false)));		
+		CreateTimer(4.0, Timer_RemoveEntity, EntIndexToEntRef(AttachParticle(boss, effect, position2,false)));		
 	}		
-	for(new victim=1;victim<=MaxClients;victim++)
+	for(int victim=1;victim<=MaxClients;victim++)
 	{
 		if (!IsValidClient(victim) || GetClientTeam(victim)==BossTeam)
 			continue;
 		GetEntPropVector(victim, Prop_Send, "m_vecOrigin", position2);
-		new Float:adistance = GetVectorDistance(pos, position2);
+		float adistance = GetVectorDistance(pos, position2);
 		if (adistance<distance)
 			SDKHooks_TakeDamage(victim,
                         boss,
@@ -606,12 +609,12 @@ public Action:Timer_Eruption(Handle:hTimer,any:index)
 	return Plugin_Continue;
 }
 
-stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset[]={0.0,0.0,0.0}, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[0]+=offset[0];
 	position[1]+=offset[1];
@@ -636,15 +639,15 @@ stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}
 	return particle;
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, int entid)
 {
-	new entity=EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MaxClients)
+	int entity = EntRefToEntIndex(entid);
+	if(IsValidEntity(entity))
 	{
 			// Is this TF2_IsWearable even needed anymore?
 			/*if(TF2_IsWearable(entity))
 			{
-				for(new client=1; client<MaxClients; client++)
+				for(int client=1; client<MaxClients; client++)
 				{
 					if(IsValidEdict(client) && IsClientInGame(client))
 					{
@@ -654,12 +657,12 @@ public Action:RemoveEntity(Handle:timer, any:entid)
 			}
 			else*/
 			{
-				AcceptEntityInput(entity, "Kill");
+				RemoveEntity(entity);
 			}
 	}
 }
 
-stock IsValidClient(client, bool:replaycheck=true)
+stock bool IsValidClient(int client, bool replaycheck=true)
 {
 	if(client<=0 || client>MaxClients)
 	{

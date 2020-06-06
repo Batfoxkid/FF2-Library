@@ -1,150 +1,138 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <morecolors>
-#include <ff2_ams>
-#include <freak_fortress_2>
+#include <ff2_ams2>
+#include <ff2_helper>
 #include <freak_fortress_2_subplugin>
 
-#define MAJOR_REVISION "1"
-#define MINOR_REVISION "0"
-#define PATCH_REVISION "4"
-
+#pragma semicolon 1
 #pragma newdecls required
 
-#if !defined PATCH_REVISION
-	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION
-#else
-	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION..."."...PATCH_REVISION
-#endif
-
-bool Ability_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+bool Ability_IsAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
 public Plugin myinfo = {
-    name = "Freak Fortress 2: AMS-supported subplugin template",
-    author = "SHADoW NiNE TR3S",
-    version = PLUGIN_VERSION,
+    name = "[FF2] AMS2 : plugin sample",
+    author = "01Pollux",
+    version = "1.0",
 };
 
-#define ABILITYNAME "rage_text" // ability name
-#define ABILITYNAMEALIAS "TXT"  // abbreviation of ability name
+#define ABILITY_SAMPLE "rage_sample" // ability name
+#define ABILITY_PREFIX "SMPL"  // abbreviation of ability name
+
 /*
- use this same 3-letter abbreviation for the following stocks
-	public bool <ABILITYNAMEALIAS>_CanInvoke(clientIdx)
-	public void <ABILITYNAMEALIAS>_Invoke(clientIdx)
+	//check include for more infos
+	public AMSResult <ABILITY_PREFIX>_CanInvoke(int client, int index)
+	public void <ABILITY_PREFIX>_Invoke(int client, int index)
+	public void <ABILITY_PREFIX>_Overwrite(int client, int index)
+	public void <ABILITY_PREFIX>_EndAbility(int client, int index)
 	
- since we have ABILITYNAMEALIAS as TXT, it would then be written as:
-	public bool TXT_CanInvoke(clientIdx)
-	public void TXT_Invoke(clientIdx)
+	//since we have ABILITY_PREFIX as SMPL, it would then be written as:
+	public AMSResult SMPL_CanInvoke(int client, int index)
+	public void SMPL_Invoke(int client, int index)
+	public void SMPL_Overwrite(int client, int index)
+	public void SMPL_EndAbility(int client, int index)
 	
- since the final argument for AMS_InitSubability makes a reflective call using that abbreviation for the two public analogues to the subplugin
+	//ABILITY_PREFIX will be initialized during Post_"arena_round_start"
+	//Im unsure about if its safe to late reload plugin, but i will be adding a way to remove an index from AMS-StringHashMap
+	//NOTE: AMS won't guarantee to work properly if initialized outside FF2AMS_PreRoundStart(), (first round of ff2 problem)
 */
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", Event_ArenaRoundStart);
-	HookEvent("arena_win_panel", Event_ArenaWinPanel);
-	if(FF2_GetRoundState()==1)
-	{
-		PrepareAbilities(); // Late-load / reload
-	}
+	HookEvent("arena_round_start", Post_RoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_win_panel", Post_RoundEnd, EventHookMode_PostNoCopy);
 }
 
-public void FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(int boss, const char[] plugin, const char[] ability, int status)
 {
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
-		return; // Because some FF2 forks still allow RAGE to be activated when the round is over....
+	if(!IsRoundActive())
+		return Plugin_Continue;
 		
-	int clientIdx=GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	if(!strcmp(ability_name, ABILITYNAME))
-	{
-		if(Ability_TriggerAMS[clientIdx]) // Prevent normal 100% RAGE activation if using AMS
-		{
-			if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
-			{
-				Ability_TriggerAMS[clientIdx]=false;
-			}
-			else
-			{
-				return;
-			}
+	int client = BossToClient(boss);
+	if(!strcmp(ability, ABILITY_SAMPLE)) {
+		if(!Ability_IsAMS[client] ) {
+			SMPL_Invoke(client, -1);	// Activate RAGE normally, if ability is configured to be used as a normal RAGE. index here doesn't matter
 		}
-	
-		TXT_Invoke(clientIdx); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 	}
+	return Plugin_Continue;
 }
 
-public void Event_ArenaRoundStart(Event event, const char[] name, bool dontBroadcast)
+public void Post_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
+	if(!IsRoundActive())		//ff2_helper.inc
 		return;
 		
-	PrepareAbilities(); // We initialize all abilities here
+	Prep_StartAbilities();
 }
 
-public void PrepareAbilities()
+public void FF2AMS_PreRoundStart(int client)
 {
-	for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++) // lets find clients
-	{
-		if(!IsValidClient(clientIdx)) // ignore invalid clients
+	FF2Prep player = FF2Prep(client);		//ff2_helper.inc
+	if(player.HasAbility(this_plugin_name, ABILITY_SAMPLE)) {	//always true if player is boss + hasability
+		if(LibraryExists("FF2AMS")) {		//check if ams plugin exists
+			Ability_IsAMS[client] = FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, ABILITY_SAMPLE, ABILITY_PREFIX);	//return true if pushing was successful
+			//FF2AMS_PushToAMSEx is the same as non-Ex but instead return ability index
+		}
+	}
+}
+
+void Prep_StartAbilities()
+{
+	for(int client = 1; client <= MaxClients; client++) {
+		if(!ValidatePlayer(client, Any))		//ff2_helper.inc
 			continue;
-			
-		Ability_TriggerAMS[clientIdx]=false; // set to false for everyone
 		
-		int bossIdx=FF2_GetBossIndex(clientIdx); // let's find bosses
-		if(bossIdx>=0) // only continue if they have a boss index other than -1
-		{
-			if(FF2_HasAbility(bossIdx, this_plugin_name, ABILITYNAME)) // We check whether this RAGE is activated normally, or via AMS
-			{
-				Ability_TriggerAMS[clientIdx] = AMS_IsSubabilityReady(bossIdx, this_plugin_name, ABILITYNAME); // If true, this will trigger AMS_InitSubability.
-				if(Ability_TriggerAMS[clientIdx])
-				{
-					AMS_InitSubability(bossIdx, clientIdx, this_plugin_name, ABILITYNAME, ABILITYNAMEALIAS); // Important function to tell AMS that this subplugin supports it
-				}
-			}
-		}
+		//here initialize any non-ams ability if needed
+		
 	}
 }
 
-public void Event_ArenaWinPanel(Event event, const char[] name, bool dontBroadcast)
+public void Post_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
-	{
-		if(IsValidClient(clientIdx))
-		{
-			Ability_TriggerAMS[clientIdx]=false; // Cleanup
+	for(int client=1; client<=MaxClients; client++) {
+		if(ValidatePlayer(client, Any)) {
+			Ability_IsAMS[client]=false; // cleanup
 		}
 	}
 }
 
-public bool TXT_CanInvoke(int clientIdx)
+public AMSResult SMPL_CanInvoke(int client, int index)
 {
 	/*
-		specify any conditions that would prevent this ability, and return false if either condition is met
-		otherwise, return true
+		specify any conditions that would prevent this ability.
+		returning AMS_Overwrite will call SMPL_Overwrite.
+		returning any value other than AMS_Accept will block the ability.
+		
+		Use FF2AMS_GetAMSHashMap(client, index) if you need to look into ability context, DO NOT delete the StringMap
 	*/
-	return true;
+	return AMS_Accept;
 }
 
-public void TXT_Invoke(int clientIdx)
+public void SMPL_Invoke(int client, int index)
 {
-	int bossIdx=FF2_GetBossIndex(clientIdx);
+	FF2Prep player = FF2Prep(client);
 	/*
 		Insert your boss RAGE ability code here
+		
+		Use FF2AMS_GetAMSHashMap(client, index) if you need to look into/change ability context, DO NOT delete the StringMap
 	*/
 	
-	char message[512];	
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ABILITYNAME, 2, message, sizeof(message));
-	if(message[0]!='\0')
-	{
-		CPrintToChatAll(message);
+	char message[124];	
+	
+	if(player.GetArgS(this_plugin_name, ABILITY_SAMPLE, "message", 1, message, sizeof(message))) {
+		PrintToChatAll(message);
+		
+		if(Ability_IsAMS[client]) {
+			StringMap hMap = FF2AMS_GetAMSHashMap(client, index);
+			
+			hMap.GetString("display_desc", message, sizeof(message));
+			PrintToChatAll("this rage description : \"%s\"", message);
+			
+			RequestFrame(NextFrame_ChangeCost, hMap);
+			//cost will be changed a frame after we set it, to avoid negative boss rage, we will be requesting a new frame
+			hMap.SetString("display_desc", "this new description with new 30.0% cost");
+		}
 	}
 }
 
-// use this to check for valid clients (or alive valid clients)
-stock bool IsValidClient(int clientIdx, bool isPlayerAlive=false)
+public void NextFrame_ChangeCost(StringMap hMap)
 {
-	if (clientIdx <= 0 || clientIdx > MaxClients) return false;
-	if(isPlayerAlive) return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
-	return IsClientInGame(clientIdx);
+	hMap.SetValue("this_cost", 30.0);
 }

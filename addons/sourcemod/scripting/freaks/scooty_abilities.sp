@@ -1,51 +1,48 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
-#include <tf2attributes>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define TAUNT "special_tauntonrage"
 #define RAGEKILLINSTANTLY "rage_instakill_on_hit"
 #define SAITAMA "one_punch_man"
-new bool:Saitama = false;
-new bool:RageActive = false;
+bool Saitama = false;
+bool RageActive = false;
 
 #define DRAINHEALTH "rage_draining_health"
 #define DRAINING_TICK			1.0
-new Float:draintimer;
-new Float:drainrange;
-new drainamount;
-new drainmode;
-new bool:drainrageactivate;
-new Float:drainragetimer;
+float draintimer;
+float drainrange;
+int drainamount;
+int drainmode;
+bool drainrageactivate;
+float drainragetimer;
 
 #define STUNONHIT_RAGE		"rage_stunonhit"
-new Float:stuntime_rage;
-new Float:stun_rage_timer;
-new bool:stunrage_active;
+float stuntime_rage;
+float stun_rage_timer;
+bool stunrage_active;
 
 #define STUNONHIT_ALLROUND	"special_stunonhit"
-new Float:stuntime_allround;
-new bool:stunallaround_active;
+float stuntime_allround;
+bool stunallaround_active;
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "Freak Fortress 2: Scooty's Abilities",
 	author	= "M7",
 	version = "2.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_Post);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_Post);
 	HookEvent("player_hurt", event_player_hurt);
 	
-	for(new i=1; i<=MaxClients; i++)
+	for(int i=1; i<=MaxClients; i++)
     {
         if(IsClientInGame(i))
         {
@@ -59,7 +56,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
 	
-	for(new iBoss = 0; iBoss <= MaxClients; iBoss++)
+	for(int iBoss = 0; iBoss <= MaxClients; iBoss++)
 	{
 		if(!IsValidClient(iBoss))
 			continue;
@@ -70,7 +67,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 		stunallaround_active = false;
 		stunrage_active = false;
 		
-		new client=FF2_GetBossIndex(iBoss);
+		int client=FF2_GetBossIndex(iBoss);
 		if(client>=0)
 		{
 			if(FF2_HasAbility(client, this_plugin_name, SAITAMA))
@@ -102,12 +99,12 @@ public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadca
 	stunrage_active = false;
 }
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
 		
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if (!strcmp(ability_name,TAUNT))
 	{
 		if(!TF2_IsPlayerInCondition(client, TFCond_Taunting))
@@ -122,7 +119,7 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	{
 		if (!drainrageactivate)
 		{
-			CreateTimer(0.1, Timer_DrainHealth, client, TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(0.1, Timer_DrainHealth, GetClientSerial(client), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
 		}
 		drainrageactivate = true;
 		drainragetimer = GetEngineTime() + draintimer;
@@ -136,19 +133,20 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 	}
 	return Plugin_Continue;
 }
-public Action:Stunisover(Handle:timer)
+public Action Stunisover(Handle timer)
 {
 	stunrage_active = false;
 }
 
-public Action:Timer_DrainHealth(Handle:timer, any:client)
+public Action Timer_DrainHealth(Handle timer, int serial)
 {
-	new boss=FF2_GetBossIndex(client);
+	int client = GetClientFromSerial(client);
+	int boss=FF2_GetBossIndex(client);
 	if (FF2_HasAbility(boss, this_plugin_name, DRAINHEALTH))
 	{
-		new Float:bossPosition[3], Float:targetPosition[3];
-		new Float:time = GetEngineTime();
-		static Float:lastdamage;
+		float bossPosition[3], targetPosition[3];
+		float time = GetEngineTime();
+		static float lastdamage;
 		GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
 		
 		if (drainragetimer > time)
@@ -156,7 +154,7 @@ public Action:Timer_DrainHealth(Handle:timer, any:client)
 			if(lastdamage < time)																	// heal the boss
 			{
 				lastdamage = time + DRAINING_TICK;
-				for(new i = 1; i <= MaxClients; i++)
+				for(int i = 1; i <= MaxClients; i++)
 				{
 					if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!= FF2_GetBossTeam())
 					{
@@ -169,13 +167,13 @@ public Action:Timer_DrainHealth(Handle:timer, any:client)
 							}
 							if(drainmode == 1)
 							{
-								new maxHealth = GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, i);
+								int maxHealth = GetEntProp(GetPlayerResourceEntity(), Prop_Send, "m_iMaxHealth", _, i);
 								maxHealth -= drainamount;
 								SetEntityHealth(i, maxHealth);
 							}
 							if(drainmode == 2)
 							{
-								new health=GetClientHealth(i);
+								int health=GetClientHealth(i);
 								SetEntityHealth(i, health-drainamount);
 							}
 						}
@@ -188,12 +186,14 @@ public Action:Timer_DrainHealth(Handle:timer, any:client)
 	return Plugin_Stop;
 }
 
-public Action:RageIsOver(Handle:timer)
+public Action RageIsOver(Handle timer)
 {
 	RageActive = false;
 }
 
-public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
+public void OnTakeDamagePost(int victim, int attacker, int inflictor, 
+					float damage, int damagetype, int weapon,
+				const float damageForce[3], const float damagePosition[3], int damagecustom)
 {
 	if((Saitama || RageActive) && victim != attacker && IsValidClient(attacker) && GetClientTeam(attacker) == FF2_GetBossTeam())
 	{
@@ -201,28 +201,28 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 	}
 }
 
-public event_player_hurt(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+public void event_player_hurt(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	new victim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
-	new attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
+	int victim = GetClientOfUserId(hEvent.GetInt("userid"));
+	int attacker = GetClientOfUserId(hEvent.GetInt("attacker"));
 	
 	if(victim != attacker && IsValidClient(attacker) && stunallaround_active)
 	{
-		if(IsValidClient(victim) && GetEventInt(hEvent, "health") > 0 && !TF2_IsPlayerInCondition(victim, TFCond_Dazed))
+		if(IsValidClient(victim) && hEvent.GetInt("health") > 0 && !TF2_IsPlayerInCondition(victim, TFCond_Dazed))
 		{
 			TF2_StunPlayer(victim, stuntime_allround, 0.0, TF_STUNFLAGS_GHOSTSCARE|TF_STUNFLAG_NOSOUNDOREFFECT);
 		}
 	}
 	else if(victim != attacker && IsValidClient(attacker) && stunrage_active)
 	{
-		if(IsValidClient(victim) && GetEventInt(hEvent, "health") > 0 && !TF2_IsPlayerInCondition(victim, TFCond_Dazed))
+		if(IsValidClient(victim) && hEvent.GetInt("health") > 0 && !TF2_IsPlayerInCondition(victim, TFCond_Dazed))
 		{
 			TF2_StunPlayer(victim, stuntime_rage, 0.0, TF_STUNFLAGS_GHOSTSCARE|TF_STUNFLAG_NOSOUNDOREFFECT);
 		}
 	}
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;

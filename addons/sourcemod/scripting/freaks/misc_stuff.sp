@@ -1,132 +1,128 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
+#include <ff2_ams2>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <ff2_ams>
-//#tryinclude <freak_fortress_2_extras>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define FAR_FUTURE 100000000.0
 #define HORROR "Horror_Countdown"
-new Float:Countdown_tick;
-new Handle:HorrorHUD;
-new String:Horror_Counter[PLATFORM_MAX_PATH];
-new startTime=0;
-new Float:VictimSpeed[MAXPLAYERS+1] = 0.0;
-new Float:PreparationSpeed[MAXPLAYERS+1] = 0.0;
-new mysteriousmode;
+float Countdown_tick;
+Handle HorrorHUD;
+char Horror_Counter[PLATFORM_MAX_PATH];
+int startTime=0;
+float VictimSpeed[MAXPLAYERS+1] = 0.0;
+float PreparationSpeed[MAXPLAYERS+1] = 0.0;
+int mysteriousmode;
 
 int HorrorFog=-1;
-new Handle:WinningTimer;
-new Handle:StartingTimer;
-new Handle:GameOverTimer;
-new Handle:OutlineBossTimer;
+Handle WinningTimer;
+Handle StartingTimer;
+Handle GameOverTimer;
+Handle OutlineBossTimer;
 
 // For King Bobomb (Sadly does not work correcty, was suppose to make the minions act like Sentry busters, meh, too lazy to fix it)
 // You can see this as yet another way to summon people
-new bool:Ishooked=false;
+bool Ishooked=false;
 #define MinionExplode		"mvm/sentrybuster/mvm_sentrybuster_explode.wav"
-new bool:Bombombs_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
-new SummonerIndex[MAXPLAYERS+1];
-new String:bombombmodel[PLATFORM_MAX_PATH], String:weaponclassname[64], String:weaponattributes[768], String:conditions[768];
-new minionnumber, class, wearables, weaponindex, health, pickups;
+bool Bombombs_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+int SummonerIndex[MAXPLAYERS+1];
+char bombombmodel[PLATFORM_MAX_PATH], weaponclassname[64], weaponattributes[768], conditions[768];
+int minionnumber, class, wearables, weaponindex, health, pickups;
 
 // For Painis Cupcake
-new Float:RageDuration;
-new Float:AmountGained;
-new Handle:PainisRageTimer;
-new bool:rageison = false;
+float RageDuration;
+float AmountGained;
+Handle PainisRageTimer;
+bool rageison = false;
 
 // For Billy the Doll (I want to play a game, Gentlemen)
-new outlinetimer=0;
+int outlinetimer=0;
 
 #define RAGESENTRYHACK "rage_sentry_hijack"
-new bool:SentryHack_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+bool SentryHack_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
 
 #define RPTA_STRING "rage_pickuptrap_ams"
 #define INVALID_ENTREF INVALID_ENT_REFERENCE
 #define MAX_ENTITY_CLASSNAME_LENGTH 48
-new bool:RPTA_ActiveThisRound;
-new bool:RPTA_DispensersAreHarmful; // internal
-new Float:RPTA_DispensersHarmUntil; // internal
-new Float:RPTA_DispenserCheckAt; // internal
-new Float:RPTA_Duration[MAXPLAYERS+1]; // arg2
-new RPTA_TrapCount[MAXPLAYERS+1]; // arg3
-new Float:RPTA_TrapHealthNerfAmount[MAXPLAYERS+1]; // arg4
-new Float:RPTA_TrapAmmoNerfAmount[MAXPLAYERS+1]; // arg5
-new RPTA_TrappedObjectRecolor[MAXPLAYERS+1]; // arg6
-new Float:RPTA_DispenserHarmDuration[MAXPLAYERS+1]; // arg7
-new Float:RPTA_DispenserHarmDamage; // arg8
-new Float:RPTA_DispenserHarmInterval; // arg9
+bool RPTA_ActiveThisRound;
+bool RPTA_DispensersAreHarmful; // internal
+float RPTA_DispensersHarmUntil; // internal
+float RPTA_DispenserCheckAt; // internal
+float RPTA_Duration[MAXPLAYERS+1]; // arg2
+int RPTA_TrapCount[MAXPLAYERS+1]; // arg3
+float RPTA_TrapHealthNerfAmount[MAXPLAYERS+1]; // arg4
+float RPTA_TrapAmmoNerfAmount[MAXPLAYERS+1]; // arg5
+int RPTA_TrappedObjectRecolor[MAXPLAYERS+1]; // arg6
+float RPTA_DispenserHarmDuration[MAXPLAYERS+1]; // arg7
+float RPTA_DispenserHarmDamage; // arg8
+float RPTA_DispenserHarmInterval; // arg9
 
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
-new bool:NULL_BLACKLIST[MAX_PLAYERS_ARRAY];
+bool NULL_BLACKLIST[MAX_PLAYERS_ARRAY];
 
 #define MAX_TRAPS 50
-new bool:RPTAT_TrapsNeverExpire;
-new RPTAT_EntRef[MAX_TRAPS];
-new RPTAT_Trapper[MAX_TRAPS];
-new Float:RPTAT_TrappedUntil[MAX_TRAPS];
-new bool:PickupTraps_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+bool RPTAT_TrapsNeverExpire;
+int RPTAT_EntRef[MAX_TRAPS];
+int RPTAT_Trapper[MAX_TRAPS];
+float RPTAT_TrappedUntil[MAX_TRAPS];
+bool PickupTraps_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
 
 // For Gerald The Hunter (Halloween Version of Appelflap64)
 #define TIMESTOP "rage_timestop_moonshot"
-new bool:TimeStop_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+bool TimeStop_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
 
 #define CESTUS_RAMPAGE "rage_cestus_rampage"
 #define MAX_WEAPON_NAME_LENGTH 64
 #define MAX_WEAPON_ARG_LENGTH 256
 #define MAX_SOUND_FILE_LENGTH 80
 #define MAX_MODEL_FILE_LENGTH 128
-new bool:Rampage_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
-new Float:Rampage_UsingUntil[MAX_PLAYERS_ARRAY];
-new TFClassType:Rampage_OriginalClass[MAX_PLAYERS_ARRAY]; // internal
-new Float:Rampage_Duration[MAX_PLAYERS_ARRAY]; // arg1
+bool Rampage_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+float Rampage_UsingUntil[MAX_PLAYERS_ARRAY];
+TFClassType Rampage_OriginalClass[MAX_PLAYERS_ARRAY]; // internal
+float Rampage_Duration[MAX_PLAYERS_ARRAY]; // arg1
 // arg2-arg10 not stored
-new Float:Rampage_Speed[MAX_PLAYERS_ARRAY]; // arg11
+float Rampage_Speed[MAX_PLAYERS_ARRAY]; // arg11
 // arg12 not stored
-new TFClassType:Rampage_TempClass[MAX_PLAYERS_ARRAY]; // arg13
+TFClassType Rampage_TempClass[MAX_PLAYERS_ARRAY]; // arg13
 
 // Grand Cross
 #define GRAND_CROSS "rage_grand_cross"
-new bool:GrandCross_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
-new Beam_Laser;
-new Beam_Glow;
-new Beam_Halo;
-new bool:GrandCross_ActiveThisRound;
-new bool:GrandCross_CanUse[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_RemoveGodModeAt[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_RemoveIgniteAt[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_BeginShockwaveAt[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_AnimateShockwaveAt[MAX_PLAYERS_ARRAY];
-new bool:GrandCross_BlockingAllInput = false;
-new Float:GrandCross_BlockingAllInputUntil;
-new Float:GrandCross_PlayerCount = 1.0;
-new Float:GrandCross_ExecuteRageAt[MAX_PLAYERS_ARRAY];
-new GrandCross_AnimTickCount[MAX_PLAYERS_ARRAY];
-new GrandCross_EffectColor[MAX_PLAYERS_ARRAY];
-new GrandCross_FrameTotal[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_Medigun[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_Rage[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_Cloak[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_Hype[MAX_PLAYERS_ARRAY];
-new Float:GrandCross_Charge[MAX_PLAYERS_ARRAY];
+bool GrandCross_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
+int Beam_Laser;
+int Beam_Glow;
+int Beam_Halo;
+bool GrandCross_ActiveThisRound;
+bool GrandCross_CanUse[MAX_PLAYERS_ARRAY];
+float GrandCross_RemoveGodModeAt[MAX_PLAYERS_ARRAY];
+float GrandCross_RemoveIgniteAt[MAX_PLAYERS_ARRAY];
+float GrandCross_BeginShockwaveAt[MAX_PLAYERS_ARRAY];
+float GrandCross_AnimateShockwaveAt[MAX_PLAYERS_ARRAY];
+bool GrandCross_BlockingAllInput = false;
+float GrandCross_BlockingAllInputUntil;
+float GrandCross_PlayerCount = 1.0;
+float GrandCross_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+int GrandCross_AnimTickCount[MAX_PLAYERS_ARRAY];
+int GrandCross_EffectColor[MAX_PLAYERS_ARRAY];
+int GrandCross_FrameTotal[MAX_PLAYERS_ARRAY];
+float GrandCross_Medigun[MAX_PLAYERS_ARRAY];
+float GrandCross_Rage[MAX_PLAYERS_ARRAY];
+float GrandCross_Cloak[MAX_PLAYERS_ARRAY];
+float GrandCross_Hype[MAX_PLAYERS_ARRAY];
+float GrandCross_Charge[MAX_PLAYERS_ARRAY];
 
 // Actual version would probably be around 1.5.0
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "Freak Fortress 2: Misc Stuff",
 	author	= "M7",
 	version = "5.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
@@ -140,20 +136,20 @@ public OnPluginStart2()
 	Beam_Halo = PrecacheModel("materials/sprites/halo01.vmt");
 }
 
-public Action:event_player_death(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_player_death(Event event, const char[] name, bool dontBroadcast)
 {
-	if(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER)
+	if(event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER)
 	{
 		return Plugin_Continue;
 	}
 	
-	new client=GetClientOfUserId(GetEventInt(event, "userid"));
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
+	int client=GetClientOfUserId(event.GetInt("userid"));
+	int attacker=GetClientOfUserId(event.GetInt( "attacker"));
 	
-	new boss=FF2_GetBossIndex(client);	// Boss is the victim
+	int boss=FF2_GetBossIndex(client);	// Boss is the victim
 	if(boss!=-1 && FF2_HasAbility(boss, this_plugin_name, "death_curse") && !(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
-		for(new companion=0; companion<=MaxClients; companion++)
+		for(int companion=0; companion<=MaxClients; companion++)
 		{
 			if(IsValidClient(companion) && GetClientTeam(companion)==FF2_GetBossTeam())
 			{
@@ -164,12 +160,12 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	
 	if(boss!=-1 && FF2_HasAbility(boss, this_plugin_name, "king_bombomb") && !(GetEventInt(event, "death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
-		for(new clone=1; clone<=MaxClients; clone++)
+		for(int clone=1; clone<=MaxClients; clone++)
 		{
 			if(SummonerIndex[clone]==boss && IsValidClient(clone) && IsValidMinion(clone) && IsPlayerAlive(clone))
 			{
 				SummonerIndex[clone]=-1;
-				ChangeClientTeam(clone, (FF2_GetBossTeam()==_:TFTeam_Blue) ? (_:TFTeam_Red) : (_:TFTeam_Blue));
+				ChangeClientTeam(clone, (FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? (view_as<int>(TFTeam_Red)) : (view_as<int>(TFTeam_Blue)));
 			}
 		}
 	}
@@ -177,10 +173,10 @@ public Action:event_player_death(Handle:event, const String:name[], bool:dontBro
 	boss=FF2_GetBossIndex(attacker); // Boss is an attacker
 	if(boss!=-1 && FF2_HasAbility(boss, this_plugin_name, "painis_rage") && rageison)
 	{
-		Float:AmountGained = FF2_GetAbilityArgumentFloat(boss, this_plugin_name,"painis_rage", 2);
+		AmountGained = FF2_GetAbilityArgumentFloat(boss, this_plugin_name,"painis_rage", 2);
 		
-		new bosshealth = FF2_GetBossHealth(boss);
-		new maxhealth = FF2_GetBossMaxHealth(boss);
+		int bosshealth = FF2_GetBossHealth(boss);
+		int maxhealth = FF2_GetBossMaxHealth(boss);
 		
 		bosshealth = RoundToCeil(bosshealth + (maxhealth * AmountGained));
 		if(bosshealth > maxhealth)
@@ -202,8 +198,8 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 	GrandCross_ActiveThisRound = false;
 	GrandCross_BlockingAllInput = false;
 
-	new playerCount = 0;
-	for(new client=1;client<=MaxClients;client++)
+	int playerCount = 0;
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client) && GetClientTeam(client)!=FF2_GetBossTeam())
 			playerCount++;
@@ -211,16 +207,9 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 		if(!IsValidClient(client))
 			continue;
 		
-		SentryHack_TriggerAMS[client] = false;
-		Bombombs_TriggerAMS[client] = false;
-		PickupTraps_TriggerAMS[client] = false;
-		Rampage_TriggerAMS[client] = false;
-		TimeStop_TriggerAMS[client] = false;
-		GrandCross_CanUse[client] = false;
-		GrandCross_TriggerAMS[client] = false;
 		SummonerIndex[client]=-1;
 		
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss >= 0 && FF2_HasAbility(boss, this_plugin_name, HORROR))
 		{
 			ReadCenterText(boss, HORROR, 1, Horror_Counter);
@@ -264,7 +253,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 				StartingTimer=CreateTimer(1.5, NoWhere_ToRun);
 				WinningTimer=CreateTimer(float(startTime), Victorious_RedTeam);
 				
-				decl String:overlay[PLATFORM_MAX_PATH];
+				char overlay[PLATFORM_MAX_PATH];
 				FF2_GetAbilityArgumentString(boss, this_plugin_name, HORROR, 14, overlay, PLATFORM_MAX_PATH);
 				Format(overlay, PLATFORM_MAX_PATH, "r_screenoverlay \"%s\"", overlay);
 				SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
@@ -282,12 +271,12 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			
 			if(mysteriousmode == 2)
 			{
-				for(new bossclient=0; bossclient<=MaxClients; bossclient++)
+				for(int bossclient=0; bossclient<=MaxClients; bossclient++)
 				{
 					if (IsValidClient(bossclient) && GetClientTeam(bossclient)==FF2_GetBossTeam())
 					{
-						new Float:stunduration = FF2_GetAbilityArgumentFloat(boss,this_plugin_name,HORROR, 15);        // Duration (if valid)
-						new Float:uberchargeduration = FF2_GetAbilityArgumentFloat(boss,this_plugin_name,HORROR, 16);        // Duration (if valid)
+						float stunduration = FF2_GetAbilityArgumentFloat(boss,this_plugin_name,HORROR, 15);        // Duration (if valid)
+						float uberchargeduration = FF2_GetAbilityArgumentFloat(boss,this_plugin_name,HORROR, 16);        // Duration (if valid)
 						TF2_StunPlayer(bossclient, stunduration, 0.0, TF_STUNFLAG_BONKSTUCK, boss);
 						TF2_AddCondition(bossclient, TFCond_UberchargedHidden, uberchargeduration);
 						CreateTimer(0.5, preparation);
@@ -302,7 +291,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 				CreateTimer(0.5, MakeEngiesWeak);
 				OutlineBossTimer=CreateTimer(float(outlinetimer), OutlineTheBoss);
 				
-				for(new i = 1; i <= MaxClients; i++ )
+				for(int i = 1; i <= MaxClients; i++ )
 				{
 					if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i)!= FF2_GetBossTeam())
 					{
@@ -313,96 +302,27 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			
 			Countdown_tick=GetEngineTime()+1.0;
 		}
-		
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, "king_bombomb"))
-		{
-			PrecacheSound(MinionExplode);
-			Bombs_AddHooks();
-			
-			Bombombs_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, "king_bombomb");
-			if(Bombombs_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, "king_bombomb", "BOMB"); // Important function to tell AMS that this subplugin supports it
-			}
-		}
-		
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, RAGESENTRYHACK))
-		{
-			SentryHack_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, RAGESENTRYHACK);
-			if(SentryHack_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, RAGESENTRYHACK, "RSHK");
-			}
-			
-			int entity = SpawnWeapon(client, "tf_weapon_builder", 28, 101, 5, "391 ; 2 ; 287 ; 0.5"); // Builder
-			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 0);
-			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 1);
-			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 2);
-			SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 0, _, 3);
-		}
-		
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, RPTA_STRING))
-		{
-			RPTA_ActiveThisRound = true;
-			RPTA_DispensersAreHarmful = false;
-			
-			PickupTraps_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, RPTA_STRING);
-			if(PickupTraps_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, RPTA_STRING, "RPTA");
-			}
-		}
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, CESTUS_RAMPAGE))
-		{
-			Rampage_UsingUntil[client] = FAR_FUTURE;
-			
-			Rampage_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, CESTUS_RAMPAGE);
-			if(Rampage_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, CESTUS_RAMPAGE, "CERA");
-			}
-		}
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, TIMESTOP))
-		{
-			TimeStop_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, TIMESTOP);
-			if(TimeStop_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, TIMESTOP, "TIME");
-			}
-		}
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, GRAND_CROSS))
-		{	
-			GrandCross_ActiveThisRound = true;
-			GrandCross_CanUse[client] = true;
-			GrandCross_ExecuteRageAt[client] = FAR_FUTURE;
-			GrandCross_RemoveGodModeAt[client] = FAR_FUTURE;
-			GrandCross_RemoveIgniteAt[client] = FAR_FUTURE;
-			GrandCross_BeginShockwaveAt[client] = FAR_FUTURE;
-			GrandCross_AnimateShockwaveAt[client] = FAR_FUTURE;
-			
-			GrandCross_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, GRAND_CROSS);
-			if(GrandCross_TriggerAMS[client])
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, GRAND_CROSS, "GRCR"); // Important function to tell AMS that this subplugin supports it
-			}
-				
-			new String:str[MAX_SOUND_FILE_LENGTH];
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, GRAND_CROSS, 3, str, MAX_SOUND_FILE_LENGTH);
-			if (strlen(str) == 6)
-				GrandCross_EffectColor[client] = ParseColor(str);
-			else
-			{
-				GrandCross_EffectColor[client] = 0xe0e0e0;
-			}
-			GrandCross_FrameTotal[client] = FF2_GetAbilityArgument(boss, this_plugin_name, GRAND_CROSS, 4);
-			
-			ReadModelToInt(boss, GRAND_CROSS, 15); // precache
-		}
 	}
 	
 	if (RPTA_ActiveThisRound)
 	{
-		for (new i = 0; i < MAX_TRAPS; i++)
+		
+	}
+	
+	GrandCross_PlayerCount = float(playerCount);
+}
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, RPTA_STRING))
+	{
+		RPTA_ActiveThisRound = true;
+		RPTA_DispensersAreHarmful = false;
+		
+		PickupTraps_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, RPTA_STRING, "RPTA");
+		
+		for (int i = 0; i < MAX_TRAPS; i++)
 			RPTAT_EntRef[i] = INVALID_ENTREF;
 			
 		HookEntityOutput("item_healthkit_small", "OnPlayerTouch", RPTA_ItemPickup);
@@ -410,8 +330,60 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 		HookEntityOutput("item_healthkit_large", "OnPlayerTouch", RPTA_ItemPickup);
 		HookEntityOutput("item_ammopack_small", "OnPlayerTouch", RPTA_ItemPickup);
 	}
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, CESTUS_RAMPAGE))
+	{
+		Rampage_UsingUntil[client] = FAR_FUTURE;
+		
+		Rampage_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, CESTUS_RAMPAGE, "CERA");
+	}
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, TIMESTOP))
+	{
+		TimeStop_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, TIMESTOP, "TIME");
+	}
 	
-	GrandCross_PlayerCount = float(playerCount);
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, "king_bombomb"))
+	{
+		PrecacheSound(MinionExplode);
+		Bombs_AddHooks();
+		
+		Bombombs_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, "king_bombomb", "BOMB");
+	}
+		
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, RAGESENTRYHACK))
+	{
+		SentryHack_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, RAGESENTRYHACK, "RSHK");
+		
+		int entity = SpawnWeapon(client, "tf_weapon_builder", 28, 101, 5, "391 ; 2 ; 287 ; 0.5"); // Builder
+		SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 0);
+		SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 1);
+		SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 1, _, 2);
+		SetEntProp(entity, Prop_Send, "m_aBuildableObjectTypes", 0, _, 3);
+	}
+		
+	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, GRAND_CROSS))
+	{	
+		GrandCross_ActiveThisRound = true;
+		GrandCross_CanUse[client] = true;
+		GrandCross_ExecuteRageAt[client] = FAR_FUTURE;
+		GrandCross_RemoveGodModeAt[client] = FAR_FUTURE;
+		GrandCross_RemoveIgniteAt[client] = FAR_FUTURE;
+		GrandCross_BeginShockwaveAt[client] = FAR_FUTURE;
+		GrandCross_AnimateShockwaveAt[client] = FAR_FUTURE;
+		
+		GrandCross_TriggerAMS[client]=FF2AMS_PushToAMS(client, this_plugin_name, GRAND_CROSS, "GRCR");
+			
+		char str[MAX_SOUND_FILE_LENGTH];
+		FF2_GetAbilityArgumentString(boss, this_plugin_name, GRAND_CROSS, 3, str, MAX_SOUND_FILE_LENGTH);
+		if (strlen(str) == 6)
+			GrandCross_EffectColor[client] = ParseColor(str);
+		else
+		{
+			GrandCross_EffectColor[client] = 0xe0e0e0;
+		}
+		GrandCross_FrameTotal[client] = FF2_GetAbilityArgument(boss, this_plugin_name, GRAND_CROSS, 4);
+			
+		ReadModelToInt(boss, GRAND_CROSS, 15); // precache
+	}
 }
 
 public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadcast)
@@ -432,7 +404,7 @@ public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadca
 		UnhookEntityOutput("item_ammopack_small", "OnPlayerTouch", RPTA_ItemPickup);
 	}
 	
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -452,7 +424,7 @@ public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadca
 			if (GrandCross_ActiveThisRound && GrandCross_CanUse[client])
 			{
 				// cancel any pre-rage momentum or stored knockback from being frozen
-				TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, Float:{0.0, 0.0, 0.0});
+				TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 				SetEntityMoveType(client, MOVETYPE_WALK);
 				if (TF2_IsPlayerInCondition(client, TFCond_Dazed))
 					TF2_RemoveCondition(client, TFCond_Dazed);
@@ -511,7 +483,7 @@ public void OnGameFrame() // Moving some stuff here and there
 	
 	if (GrandCross_ActiveThisRound)
 	{
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsValidClient(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
 				continue;
@@ -522,7 +494,7 @@ public void OnGameFrame() // Moving some stuff here and there
 	}
 }
 
-public Horror_Tick(Float:gameTime)
+public void Horror_Tick(float gameTime)
 {
 	if(gameTime>=Countdown_tick)
 	{
@@ -532,12 +504,12 @@ public Horror_Tick(Float:gameTime)
 			return;
 		}
 	
-		for(new clientIdx=1;clientIdx<=MaxClients;clientIdx++)
+		for(int clientIdx=1;clientIdx<=MaxClients;clientIdx++)
 		{
 			if(!IsValidClient(clientIdx))
 				continue;
 			
-			new String:waveTime[6];
+			char waveTime[6];
 			if(startTime/60>9)
 			{
 				IntToString(startTime/60, waveTime, sizeof(waveTime));
@@ -556,7 +528,7 @@ public Horror_Tick(Float:gameTime)
 				Format(waveTime, sizeof(waveTime), "%s:0%i", waveTime, startTime%60);
 			}
 			
-			new String:countdown[PLATFORM_MAX_PATH];
+			char countdown[PLATFORM_MAX_PATH];
 			SetHudTextParams(-1.0, 0.25, 1.1, startTime<=30 ? 255 : 0, startTime>10 ? 255 : 0, 0, 255);
 			Format(countdown,sizeof(countdown), Horror_Counter, waveTime);
 			ShowSyncHudText(clientIdx, HorrorHUD, countdown);
@@ -575,9 +547,9 @@ public Horror_Tick(Float:gameTime)
 	}
 }
 
-public Action:NoWhere_ToRun(Handle:timer)
+public Action NoWhere_ToRun(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -593,18 +565,18 @@ public Action:NoWhere_ToRun(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Victim_Prethink(client)
+public void Victim_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", VictimSpeed[client]);
 }
 
-public Action:Victorious_RedTeam(Handle:timer)
+public Action Victorious_RedTeam(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i)!=FF2_GetBossTeam() && mysteriousmode == 1)
 		{
-			CreateTimer(0.5, Winners, i);
+			CreateTimer(0.5, Winners, GetClientSerial(i));
 		}
 		WinningTimer=INVALID_HANDLE;
 		KillFog(HorrorFog);
@@ -614,8 +586,9 @@ public Action:Victorious_RedTeam(Handle:timer)
 	}
 }
 
-public Action:Winners(Handle:timer, any:client)
+public Action Winners(Handle timer, int serial)
 {
+	int client = GetClientFromSerial(serial);
 	TF2_RemoveAllWeapons(client);
 			
 	switch (TF2_GetPlayerClass(client))
@@ -643,9 +616,9 @@ public Action:Winners(Handle:timer, any:client)
 }
 
 
-public Action:preparation(Handle:timer)
+public Action preparation(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -657,14 +630,14 @@ public Action:preparation(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Preparation_Prethink(client)
+public void Preparation_Prethink(int client)
 {
 	SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", PreparationSpeed[client]);
 }
 
-public Action:preparation_over(Handle:timer)
+public Action preparation_over(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		KillFog(HorrorFog);
 		HorrorFog=-1;
@@ -673,15 +646,13 @@ public Action:preparation_over(Handle:timer)
 	}
 }
 
-
-
-public Action:MakeEngiesWeak(Handle:timer)
+public Action MakeEngiesWeak(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i)!=FF2_GetBossTeam() && TF2_GetPlayerClass(i)==TFClass_Engineer)
 		{
-			for(new slot=2;slot<7;slot++)
+			for(int slot=2;slot<7;slot++)
 			{
 				TF2_RemoveWeaponSlot(i, slot);
 			}
@@ -698,9 +669,9 @@ public Action:MakeEngiesWeak(Handle:timer)
 	}
 	return Plugin_Continue;
 }
-public Action:GameOver_Mercenaries(Handle:timer)
+public Action GameOver_Mercenaries(Handle timer)
 {
-	for(new target = 1; target <= MaxClients; target++)
+	for(int target = 1; target <= MaxClients; target++)
 	{
 		if (IsValidClient(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -712,9 +683,9 @@ public Action:GameOver_Mercenaries(Handle:timer)
 	}
 	return Plugin_Continue;
 }
-public Action:OutlineTheBoss(Handle:timer)
+public Action OutlineTheBoss(Handle timer)
 {
-	for (new i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++) 
 	{
 		if (IsValidClient(i) && GetClientTeam(i) == FF2_GetBossTeam() && FF2_GetBossIndex(i)!=-1)
 		{
@@ -752,14 +723,9 @@ int StartHorrorFog(int fogblend, int fogcolor[3], int fogcolor2[3], float fogsta
 	return iFog;
 }
 
-stock bool IsEntityValid(int ent)
-{
-	return 	IsValidEdict(ent) && ent > MaxClients;
-}
-
 stock void KillFog(int entity)
 {
-	if (IsEntityValid(entity))
+	if (IsValidEntity(entity))
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
@@ -774,10 +740,10 @@ stock void KillFog(int entity)
 	}
 }
 
-public Action:Remove_Overlay(Handle:timer)
+public Action Remove_Overlay(Handle timer)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -789,82 +755,82 @@ public Action:Remove_Overlay(Handle:timer)
 }
 
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 	
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,"king_bombomb"))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Bombombs_TriggerAMS[client]=false;
 		}
 		
 		if(!Bombombs_TriggerAMS[client])
-			BOMB_Invoke(client);
+			BOMB_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,RAGESENTRYHACK))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			SentryHack_TriggerAMS[client]=false;
 		}
 		
 		if(!SentryHack_TriggerAMS[client])
-			RSHK_Invoke(client);
+			RSHK_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,RPTA_STRING))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			PickupTraps_TriggerAMS[client]=false;
 		}
 		
 		if(!PickupTraps_TriggerAMS[client])
-			RPTA_Invoke(client);
+			RPTA_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,CESTUS_RAMPAGE))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			Rampage_TriggerAMS[client]=false;
 		}
 		
 		if(!Rampage_TriggerAMS[client])
-			CERA_Invoke(client);
+			CERA_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,TIMESTOP))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			TimeStop_TriggerAMS[client]=false;
 		}
 		
 		if(!TimeStop_TriggerAMS[client])
-			TIME_Invoke(client);
+			TIME_Invoke(client, -1);
 	}
 	else if(!strcmp(ability_name,GRAND_CROSS))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			GrandCross_TriggerAMS[client]=false;
 		}
 		
 		if(!GrandCross_TriggerAMS[client])
-			GRCR_Invoke(client);
+			GRCR_Invoke(client, -1);
 	}
 	
 	else if(!strcmp(ability_name,"painis_rage"))
 	{
-		Float:RageDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name,"painis_rage", 1);
+		RageDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name,"painis_rage", 1);
 		rageison = true;
 		PainisRageTimer = CreateTimer(RageDuration, RageIsOver);
 	}
 	return Plugin_Continue;
 }
-public Action:RageIsOver(Handle:timer)
+public Action RageIsOver(Handle timer)
 {
 	rageison = false;
 	PainisRageTimer = INVALID_HANDLE;
@@ -872,14 +838,14 @@ public Action:RageIsOver(Handle:timer)
 }
 
 
-public bool:BOMB_CanInvoke(client)
+public AMSResult BOMB_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public BOMB_Invoke(client)
+public void BOMB_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	minionnumber=FF2_GetAbilityArgument(boss,this_plugin_name,"king_bombomb", 1);	// How many Minions?
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "king_bombomb", 2, bombombmodel, sizeof(bombombmodel)); // Human or custom model?
@@ -894,7 +860,7 @@ public BOMB_Invoke(client)
 	
 	if(Bombombs_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_bombomb_minions", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -902,8 +868,8 @@ public BOMB_Invoke(client)
 		}
 	}
 	
-	new ii;				
-	for (new i=0; i<minionnumber; i++)
+	int ii;				
+	for (int i=0; i<minionnumber; i++)
 	{
 		ii = GetRandomDeadPlayer();
 		if(ii != -1)
@@ -929,7 +895,7 @@ public BOMB_Invoke(client)
 			
 			if(wearables)
 			{
-				new owner, entity;
+				int owner, entity;
 				while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
 					if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==FF2_GetBossTeam())
 						TF2_RemoveWearable(owner, entity);
@@ -943,7 +909,7 @@ public BOMB_Invoke(client)
 			
 			if(class)
 			{
-				TF2_SetPlayerClass(ii, TFClassType:class, _, false);
+				TF2_SetPlayerClass(ii, view_as<TFClassType>(class), _, false);
 			}
 					
 			SetPlayerModel(ii, bombombmodel);	
@@ -959,7 +925,7 @@ public BOMB_Invoke(client)
 }
 
 
-stock void SetPlayerModel(client, char[] model)
+stock void SetPlayerModel(int client, char[] model)
 {	
 	if(!IsModelPrecached(model))
 	{
@@ -972,14 +938,14 @@ stock void SetPlayerModel(client, char[] model)
 }
 
 
-public bool:RSHK_CanInvoke(client)
+public AMSResult RSHK_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public RSHK_Invoke(client)
+public void RSHK_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	float bossPosition[3], buildingPosition[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
@@ -1010,7 +976,7 @@ public RSHK_Invoke(client)
 	
 	if(SentryHack_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_sentry_hijack", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -1020,14 +986,14 @@ public RSHK_Invoke(client)
 }
 
 
-public bool:RPTA_CanInvoke(client)
+public AMSResult RPTA_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public RPTA_Invoke(client)
+public void RPTA_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	RPTA_Duration[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, RPTA_STRING, 1);
 	RPTA_TrapCount[client] = FF2_GetAbilityArgument(boss, this_plugin_name, RPTA_STRING, 2);
@@ -1042,7 +1008,7 @@ public RPTA_Invoke(client)
 	
 	if(PickupTraps_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_pickup_trap", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -1050,8 +1016,8 @@ public RPTA_Invoke(client)
 		}		
 	}
 	
-	new firstAvailable = 0;
-	for (new derp = 0; derp < RPTA_TrapCount[client]; derp++)
+	int firstAvailable = 0;
+	for (int derp = 0; derp < RPTA_TrapCount[client]; derp++)
 	{
 		// find first available
 		for (; firstAvailable <= MAX_TRAPS; firstAvailable++)
@@ -1068,11 +1034,11 @@ public RPTA_Invoke(client)
 			
 		// iterate through potential entities for trapping...
 		static potentials[200];
-		new validCount = 0;
-		static String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
-		for (new pass = 0; pass < 4; pass++)
+		int validCount = 0;
+		static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		for (int pass = 0; pass < 4; pass++)
 		{
-			new entity = -1;
+			int entity = -1;
 			if (pass == 0)
 				classname = "item_ammopack_small";
 			else if (pass == 1)
@@ -1084,8 +1050,8 @@ public RPTA_Invoke(client)
 
 			while ((entity = FindEntityByClassname(entity, classname)) != -1)
 			{
-				new bool:tryNextObject = false;
-				for (new i = 0; i < MAX_TRAPS; i++)
+				bool tryNextObject = false;
+				for (int i = 0; i < MAX_TRAPS; i++)
 				{
 					if (RPTAT_EntRef[i] != INVALID_ENTREF && EntRefToEntIndex(RPTAT_EntRef[i]) == entity)
 					{
@@ -1111,7 +1077,7 @@ public RPTA_Invoke(client)
 		}
 		
 		// trap our object
-		new trappedObject = potentials[GetRandomInt(0, validCount - 1)];
+		int trappedObject = potentials[GetRandomInt(0, validCount - 1)];
 		SetEntityRenderMode(trappedObject, RENDER_TRANSCOLOR);
 		SetEntityRenderColor(trappedObject, GetR(RPTA_TrappedObjectRecolor[client]), GetG(RPTA_TrappedObjectRecolor[client]), GetB(RPTA_TrappedObjectRecolor[client]), 255);
 		RPTAT_EntRef[firstAvailable] = EntIndexToEntRef(trappedObject);
@@ -1128,13 +1094,13 @@ public RPTA_Invoke(client)
 	}
 }
 
-public RPTA_ItemPickup(const String:output[], caller, victim, Float:delay)
+public void RPTA_ItemPickup(const char[] output, int caller, int victim, float delay)
 {
 	if (!IsValidClient(victim) || GetClientTeam(victim) == FF2_GetBossTeam())
 		return;
 		
 	// is this item trapped?
-	for (new i = 0; i < MAX_TRAPS; i++)
+	for (int i = 0; i < MAX_TRAPS; i++)
 	{
 		if (RPTAT_EntRef[i] == INVALID_ENTREF)
 			continue;
@@ -1146,17 +1112,17 @@ public RPTA_ItemPickup(const String:output[], caller, victim, Float:delay)
 			// before any of this, change the color back...
 			SetEntityRenderColor(caller, 255, 255, 255, 255);
 		
-			static String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+			static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 			GetEntityClassname(caller, classname, sizeof(classname));
 			if (!strcmp(classname, "item_ammopack_small"))
 			{
-				new Float:ammoFactor = 1.0 - RPTA_TrapAmmoNerfAmount[RPTAT_Trapper[i]];
-				for (new slot = 0; slot < 2; slot++)
+				float ammoFactor = 1.0 - RPTA_TrapAmmoNerfAmount[RPTAT_Trapper[i]];
+				for (int slot = 0; slot < 2; slot++)
 				{
-					new weapon = GetPlayerWeaponSlot(victim, slot);
+					int weapon = GetPlayerWeaponSlot(victim, slot);
 					if (IsValidEntity(weapon))
 					{
-						new offset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
+						int offset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1);
 						if (offset < 0)
 							continue;
 							
@@ -1171,20 +1137,20 @@ public RPTA_ItemPickup(const String:output[], caller, victim, Float:delay)
 				// if it's an engineer, drain metal
 				if (TF2_GetPlayerClass(victim) == TFClass_Engineer)
 				{
-					new metalOffset = FindDataMapInfo(victim, "m_iAmmo") + (3 * 4);
+					int metalOffset = FindDataMapInfo(victim, "m_iAmmo") + (3 * 4);
 					SetEntData(victim, metalOffset, RoundFloat(GetEntData(victim, metalOffset, 4) * ammoFactor), 4);
 				}
 			}
 			else
 			{
-				new Float:hpDrain = 0.2;
+				float hpDrain = 0.2;
 				if (!strcmp(classname, "item_healthkit_medium"))
 					hpDrain = 0.5;
 				else if (!strcmp(classname, "item_healthkit_large"))
 					hpDrain = 1.0;
 				hpDrain *= RPTA_TrapHealthNerfAmount[RPTAT_Trapper[i]];
 					
-				new Float:damage = ((float(GetEntProp(victim, Prop_Data, "m_iMaxHealth")) * hpDrain) / 3.0) + 1.0;
+				float damage = ((float(GetEntProp(victim, Prop_Data, "m_iMaxHealth")) * hpDrain) / 3.0) + 1.0;
 				damage = fixDamageForFF2(damage);
 				FullyHookedDamage(victim, RPTAT_Trapper[i], RPTAT_Trapper[i], damage, DMG_GENERIC | DMG_CRIT | DMG_PREVENT_PHYSICS_FORCE, -1);
 			}
@@ -1198,9 +1164,9 @@ public RPTA_ItemPickup(const String:output[], caller, victim, Float:delay)
 	}
 }
 
-public RPTA_RemoveObject(index)
+public void RPTA_RemoveObject(int index)
 {
-	for (new i = index; i < MAX_TRAPS - 1; i++)
+	for (int i = index; i < MAX_TRAPS - 1; i++)
 	{
 		RPTAT_EntRef[i] = RPTAT_EntRef[i + 1];
 		RPTAT_Trapper[i] = RPTAT_Trapper[i + 1];
@@ -1210,7 +1176,7 @@ public RPTA_RemoveObject(index)
 	RPTAT_EntRef[MAX_TRAPS - 1] = INVALID_ENTREF;
 }
 
-public RPTA_Tick(Float:curTime)
+public void RPTA_Tick(float curTime)
 {
 	// check all players being healed and damage them if a dispenser's healing them
 	if (RPTA_DispensersAreHarmful)
@@ -1220,7 +1186,7 @@ public RPTA_Tick(Float:curTime)
 			RPTA_DispensersAreHarmful = false;
 		
 			// remove recoloring on dispensers
-			new dispenser = -1;
+			int dispenser = -1;
 			while ((dispenser = FindEntityByClassname(dispenser, "obj_dispenser")) != -1)
 			{
 				SetEntityRenderMode(dispenser, RENDER_TRANSCOLOR);
@@ -1232,7 +1198,7 @@ public RPTA_Tick(Float:curTime)
 			RPTA_DispenserCheckAt += RPTA_DispenserHarmInterval;
 		
 			// enforce recoloring of dispensers
-			new dispenser = -1;
+			int dispenser = -1;
 			while ((dispenser = FindEntityByClassname(dispenser, "obj_dispenser")) != -1)
 			{
 				SetEntityRenderMode(dispenser, RENDER_TRANSCOLOR);
@@ -1240,31 +1206,31 @@ public RPTA_Tick(Float:curTime)
 			}
 
 			static medicHealCount[33];
-			for (new victim = 1; victim < MaxClients; victim++)
+			for (int victim = 1; victim < MaxClients; victim++)
 				medicHealCount[victim] = 0;
-			for (new medic = 1; medic < MaxClients; medic++)
+			for (int medic = 1; medic < MaxClients; medic++)
 			{
 				if (!IsValidClient(medic) || GetClientTeam(medic) == FF2_GetBossTeam())
 					continue;
 				else if (TF2_GetPlayerClass(medic) != TFClass_Medic)
 					continue;
 
-				new medigun = GetPlayerWeaponSlot(medic, TFWeaponSlot_Secondary);
+				int medigun = GetPlayerWeaponSlot(medic, TFWeaponSlot_Secondary);
 				if (IsValidEntity(medigun) && IsInstanceOf(medigun, "tf_weapon_medigun"))
 				{
-					new partner = GetEntProp(medigun, Prop_Send, "m_hHealingTarget") & 0x3ff;
+					int partner = GetEntProp(medigun, Prop_Send, "m_hHealingTarget") & 0x3ff;
 					if (IsValidClient(partner))
 						medicHealCount[partner]++;
 				}
 			}
 
-			new attacker = FindRandomPlayer(true);
-			if (IsValidClient(attacker)) for (new victim = 1; victim < MaxClients; victim++)
+			int attacker = FindRandomPlayer(true);
+			if (IsValidClient(attacker)) for (int victim = 1; victim < MaxClients; victim++)
 			{
 				if (!IsValidClient(victim) || GetClientTeam(victim) == FF2_GetBossTeam())
 					continue;
 
-				new stacks = GetEntProp(victim, Prop_Send, "m_nNumHealers") - medicHealCount[victim];
+				int stacks = GetEntProp(victim, Prop_Send, "m_nNumHealers") - medicHealCount[victim];
 				if (stacks > 0)
 				{
 					QuietDamage(victim, attacker, attacker, RPTA_DispenserHarmDamage * stacks, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
@@ -1276,7 +1242,7 @@ public RPTA_Tick(Float:curTime)
 	if (RPTAT_TrapsNeverExpire)
 		return;
 		
-	for (new i = MAX_TRAPS - 1; i >= 0; i--)
+	for (int i = MAX_TRAPS - 1; i >= 0; i--)
 	{
 		if (RPTAT_EntRef[i] != INVALID_ENTREF && curTime >= RPTAT_TrappedUntil[i])
 			RPTA_RemoveObject(i);
@@ -1284,22 +1250,22 @@ public RPTA_Tick(Float:curTime)
 }
 
 
-public bool:CERA_CanInvoke(client)
+public AMSResult CERA_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public CERA_Invoke(client)
+public void CERA_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	Rampage_Duration[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CESTUS_RAMPAGE, 1);
 	Rampage_Speed[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CESTUS_RAMPAGE, 11);
-	Rampage_TempClass[client] = TFClassType:FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, 12);
+	Rampage_TempClass[client] = view_as<TFClassType>(FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, 12));
 			
 	if(Rampage_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_cestus_rampage", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -1310,7 +1276,7 @@ public CERA_Invoke(client)
 	if (Rampage_UsingUntil[client] == FAR_FUTURE) // in case of ragespam
 	{
 		Rampage_OriginalClass[client] = TF2_GetPlayerClass(client);
-		if (Rampage_TempClass[client] > TFClassType:0 && Rampage_TempClass[client] != Rampage_OriginalClass[client])
+		if (Rampage_TempClass[client] > TFClass_Unknown && Rampage_TempClass[client] != Rampage_OriginalClass[client])
 			TF2_SetPlayerClass(client, Rampage_TempClass[client]);
 		Rampage_SwapWeapon(client, true);
 	}
@@ -1319,31 +1285,31 @@ public CERA_Invoke(client)
 	SDKHook(client, SDKHook_PreThink, Rampage_PreThink);
 }
 
-public Rampage_SwapWeapon(client, bool:isRage)
+public void Rampage_SwapWeapon(int client, bool isRage)
 {
-	new boss = FF2_GetBossIndex(client);
+	int boss = FF2_GetBossIndex(client);
 	if (boss < 0)
 		return;
 		
-	static String:weaponName[MAX_WEAPON_NAME_LENGTH];
+	static char weaponName[MAX_WEAPON_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 6 : 2), weaponName, MAX_WEAPON_NAME_LENGTH);
-	new weaponIdx = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 7 : 3));
-	static String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+	int weaponIdx = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 7 : 3));
+	static char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 8 : 4), weaponArgs, MAX_WEAPON_ARG_LENGTH);
-	new weaponVisibility = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 9 : 5));
-	new slot = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, 10);
+	int weaponVisibility = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, (isRage ? 9 : 5));
+	int slot = FF2_GetAbilityArgument(boss, this_plugin_name, CESTUS_RAMPAGE, 10);
 	
 	TF2_RemoveWeaponSlot(client, slot);
-	new weapon = SpawnWeapon(client, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
+	int weapon = SpawnWeapon(client, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 	if (IsValidEntity(weapon))
 		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
 }
 
-public Rampage_PreThink(client)
+public void Rampage_PreThink(int client)
 {
 	RampageTick(client, GetEngineTime());
 }
-public RampageTick(client, Float:gameTime)
+public void RampageTick(int client, float gameTime)
 {
 	if (Rampage_UsingUntil[client] != FAR_FUTURE)
 	{
@@ -1361,22 +1327,22 @@ public RampageTick(client, Float:gameTime)
 }
 
 
-public bool:TIME_CanInvoke(client)
+public AMSResult TIME_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public TIME_Invoke(client)
+public void TIME_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3];
+	int boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3];
 	
-	new Float:Timestop_Range=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, TIMESTOP, 1);
-	new Float:Timestop_Duration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, TIMESTOP, 2);
+	float Timestop_Range=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, TIMESTOP, 1);
+	float Timestop_Duration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, TIMESTOP, 2);
 	
 	if(TimeStop_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_time_stop", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -1385,7 +1351,7 @@ public TIME_Invoke(client)
 	}
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -1398,18 +1364,18 @@ public TIME_Invoke(client)
 	}
 }
 
-public bool:GRCR_CanInvoke(client)
+public AMSResult GRCR_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public GRCR_Invoke(client)
+public void GRCR_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
 	if(GrandCross_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_grand_cross_begin", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);	
@@ -1423,29 +1389,29 @@ public GRCR_Invoke(client)
 /**
  * Regeneration Shockwave
  */
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-new IgniteNextNGibs = 0;
-new Float:IgniteGibsDuration = 0.0;
+int IgniteNextNGibs = 0;
+float IgniteGibsDuration = 0.0;
 
 #define BEAM_TOP 0
 #define BEAM_LEFT 1
 #define BEAM_RIGHT 2
 #define BEAM_COUNT 3
-new Float:ARS_BossOrigins[MAX_PLAYERS_ARRAY][3];
-new Float:ARS_BeamTargetPoints[MAX_PLAYERS_ARRAY][BEAM_COUNT][3];
-new Float:ARS_StoredEyeAngles[MAX_PLAYERS_ARRAY][3];
+float ARS_BossOrigins[MAX_PLAYERS_ARRAY][3];
+float ARS_BeamTargetPoints[MAX_PLAYERS_ARRAY][BEAM_COUNT][3];
+float ARS_StoredEyeAngles[MAX_PLAYERS_ARRAY][3];
 #define ARM_BEAM_LENGTH 700.0
 #define TOP_BEAM_LENGTH 1250.0
 #define BEAM_WIDTH_MODIFIER 1.28
 #define BEAM_FREQUENCY 0.18
-public AnimateGrandCross(clientIdx)
+public void AnimateGrandCross(int clientIdx)
 {
 	// get animation percentage, luckily it's a pretty simple job, except for the halo
-	new Float:animationPercentage = ((GrandCross_AnimTickCount[clientIdx] + 0.5) * 100.0) / GrandCross_FrameTotal[clientIdx];
+	float animationPercentage = ((GrandCross_AnimTickCount[clientIdx] + 0.5) * 100.0) / GrandCross_FrameTotal[clientIdx];
 	
 	// store the boss origin vector and beam points (for consistency) if this is frame 0
 	if (GrandCross_AnimTickCount[clientIdx] == 0)
@@ -1461,7 +1427,7 @@ public AnimateGrandCross(clientIdx)
 		
 		// will need to trace for left and right. just a simple ray trace since the beam does no damage.
 		ARS_StoredEyeAngles[clientIdx][1] = fixAngle(ARS_StoredEyeAngles[clientIdx][1] + 90);
-		new Handle:trace = TR_TraceRayFilterEx(ARS_BossOrigins[clientIdx], ARS_StoredEyeAngles[clientIdx], (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+		Handle trace = TR_TraceRayFilterEx(ARS_BossOrigins[clientIdx], ARS_StoredEyeAngles[clientIdx], (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(ARS_BeamTargetPoints[clientIdx][BEAM_LEFT], trace);
 		CloseHandle(trace);
 		constrainDistance(ARS_BossOrigins[clientIdx], ARS_BeamTargetPoints[clientIdx][BEAM_LEFT], GetVectorDistance(ARS_BossOrigins[clientIdx], ARS_BeamTargetPoints[clientIdx][BEAM_LEFT]), ARM_BEAM_LENGTH);
@@ -1474,46 +1440,46 @@ public AnimateGrandCross(clientIdx)
 	}
 		
 	// get the colors for the beams, which I took straight from dot_beam :P
-	new r = GetR(GrandCross_EffectColor[clientIdx]);
-	new g = GetG(GrandCross_EffectColor[clientIdx]);
-	new b = GetB(GrandCross_EffectColor[clientIdx]);
-	decl colorLayer4[4]; SetColorRGBA(colorLayer4, r, g, b, 255);
-	decl colorLayer3[4]; SetColorRGBA(colorLayer3,  (((colorLayer4[0] * 7) + (255 * 1)) / 8),
+	int r = GetR(GrandCross_EffectColor[clientIdx]);
+	int g = GetG(GrandCross_EffectColor[clientIdx]);
+	int b = GetB(GrandCross_EffectColor[clientIdx]);
+	int  colorLayer4[4]; SetColorRGBA(colorLayer4, r, g, b, 255);
+	int  colorLayer3[4]; SetColorRGBA(colorLayer3,  (((colorLayer4[0] * 7) + (255 * 1)) / 8),
 							(((colorLayer4[1] * 7) + (255 * 1)) / 8),
 							(((colorLayer4[2] * 7) + (255 * 1)) / 8),
 							255);
-	decl colorLayer2[4]; SetColorRGBA(colorLayer2,  (((colorLayer4[0] * 6) + (255 * 2)) / 8),
+	int  colorLayer2[4]; SetColorRGBA(colorLayer2,  (((colorLayer4[0] * 6) + (255 * 2)) / 8),
 							(((colorLayer4[1] * 6) + (255 * 2)) / 8),
 							(((colorLayer4[2] * 6) + (255 * 2)) / 8),
 							255);
-	decl colorLayer1[4]; SetColorRGBA(colorLayer1,  (((colorLayer4[0] * 5) + (255 * 3)) / 8),
+	int  colorLayer1[4]; SetColorRGBA(colorLayer1,  (((colorLayer4[0] * 5) + (255 * 3)) / 8),
 							(((colorLayer4[1] * 5) + (255 * 3)) / 8),
 							(((colorLayer4[2] * 5) + (255 * 3)) / 8),
 							255);
-	decl glowColor[4]; SetColorRGBA(glowColor, r, g, b, 255);
+	int  glowColor[4]; SetColorRGBA(glowColor, r, g, b, 255);
 							
 	// get the frame-specific target points for the beams
-	new Float:beamStarts[BEAM_COUNT][3];
-	new Float:beamEnds[BEAM_COUNT][3];
-	for (new i = 0; i < BEAM_COUNT; i++)
+	float beamStarts[BEAM_COUNT][3];
+	float beamEnds[BEAM_COUNT][3];
+	for (int i = 0; i < BEAM_COUNT; i++)
 	{
-		CopyVector(beamStarts[i], ARS_BossOrigins[clientIdx]);
-		CopyVector(beamEnds[i], ARS_BeamTargetPoints[clientIdx][i]);
+		beamStarts[i] = ARS_BossOrigins[clientIdx];
+		beamEnds[i] = ARS_BeamTargetPoints[clientIdx][i];
 	}
 	if (animationPercentage < 10.0)
 	{
-		for (new i = 0; i < BEAM_COUNT; i++)
+		for (int i = 0; i < BEAM_COUNT; i++)
 			constrainDistance(beamStarts[i], beamEnds[i], 10.0, animationPercentage);
 	}
 	else if (animationPercentage > 90.0)
 	{
-		for (new i = 0; i < BEAM_COUNT; i++)
+		for (int i = 0; i < BEAM_COUNT; i++)
 			constrainDistance(beamEnds[i], beamStarts[i], 10.0, 100.0 - animationPercentage);
 	}
 	
 	// draw all the beams
-	new diameter = 100;
-	for (new i = 0; i < BEAM_COUNT; i++)
+	int diameter = 100;
+	for (int i = 0; i < BEAM_COUNT; i++)
 	{
 		TE_SetupBeamPoints(beamStarts[i], beamEnds[i], Beam_Laser, 0, 0, 0, BEAM_FREQUENCY, ClampBeamWidth(0.3 * diameter * BEAM_WIDTH_MODIFIER), ClampBeamWidth(0.3 * diameter * BEAM_WIDTH_MODIFIER), 0, 1.0, colorLayer1, 3);
 		TE_SendToAll();
@@ -1531,10 +1497,10 @@ public AnimateGrandCross(clientIdx)
 	}
 	
 	// draw the halo, only needs to be done first tick
-	new Float:duration = GrandCross_FrameTotal[clientIdx] / 10.0;
+	float duration = GrandCross_FrameTotal[clientIdx] / 10.0;
 	if (GrandCross_AnimTickCount[clientIdx] == 0)
 	{
-		decl haloColor1[4]; SetColorRGBA(haloColor1, r, g, b, 255);
+		int haloColor1[4]; SetColorRGBA(haloColor1, r, g, b, 255);
 		TE_SetupBeamRingPoint(ARS_BossOrigins[clientIdx], 0.0, 2000.0, Beam_Glow, Beam_Halo, 0, 0, duration / 5, 128.0, 10.0, haloColor1, 0, 0);
 		TE_SendToAll();
 		TE_SetupBeamRingPoint(ARS_BossOrigins[clientIdx], 0.0, 2333.0, Beam_Glow, Beam_Halo, 0, 0, duration / 4, 92.0, 5.0, haloColor1, 0, 0);
@@ -1549,15 +1515,15 @@ public AnimateGrandCross(clientIdx)
 	GrandCross_AnimTickCount[clientIdx]++;
 	if (GrandCross_AnimTickCount[clientIdx] == GrandCross_FrameTotal[clientIdx])
 	{
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		
 		// cancel any pre-rage momentum or stored knockback from being frozen
-		new Float:ZeroVec[3];
+		float ZeroVec[3];
 		TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, ZeroVec);
 
 		// allow movement and remove invincibility
 		SetEntityMoveType(clientIdx, MOVETYPE_WALK);
-		new Float:godModeDuration = (bossIdx < 0) ? 0.0 : FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 13);
+		float godModeDuration = (bossIdx < 0) ? 0.0 : FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 13);
 		if (godModeDuration <= 0.0)
 		{
 			SetEntProp(clientIdx, Prop_Data, "m_takedamage", 2);
@@ -1571,12 +1537,12 @@ public AnimateGrandCross(clientIdx)
 			TF2_RemoveCondition(clientIdx, TFCond_Dazed);
 		
 		// restore all sentries
-		new sentryEntity = -1;
+		int sentryEntity = -1;
 		while ((sentryEntity = FindEntityByClassname(sentryEntity, "obj_sentrygun")) != -1)
 			SetEntProp(sentryEntity, Prop_Send, "m_bDisabled", 0);
 			
 		// play the mapwide sound
-		new String:sound[PLATFORM_MAX_PATH];
+		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_grand_cross_end", sound, sizeof(sound), bossIdx))
 		{
 			EmitSoundToAll(sound, clientIdx);	
@@ -1586,40 +1552,40 @@ public AnimateGrandCross(clientIdx)
 	}
 }
  
-public DoGrandCross(clientIdx)
+public void DoGrandCross(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	GrandCross_AnimTickCount[clientIdx] = 0;
 	
 	// get all the info we need for knockback and damage
-	new Float:earthquakeDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 2);
-	new Float:damageRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 5);
-	new Float:knockbackRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 6);
-	new String:damagePointBlankStr[29];
-	new String:damagePointBlankStrSplit[2][15];
+	float earthquakeDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 2);
+	float damageRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 5);
+	float knockbackRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 6);
+	char damagePointBlankStr[29];
+	char damagePointBlankStrSplit[2][15];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, GRAND_CROSS, 7, damagePointBlankStr, 29);
 	ExplodeString(damagePointBlankStr, ",", damagePointBlankStrSplit, 2, 15);
-	new Float:damageMin = StringToFloat(damagePointBlankStrSplit[0]);
-	new Float:damageMax = StringToFloat(damagePointBlankStrSplit[1]);
-	new Float:damagePointBlank = damageMin + ((damageMax - damageMin) * GrandCross_PlayerCount / 31.0);
-	new Float:igniteDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 8);
-	new Float:knockbackIntensityPointBlank = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 9);
-	new Float:knockbackIntensityMidpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 10);
-	new Float:knockbackIntensityFarpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 11);
-	new Float:minimumZLift = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 12);
+	float damageMin = StringToFloat(damagePointBlankStrSplit[0]);
+	float damageMax = StringToFloat(damagePointBlankStrSplit[1]);
+	float damagePointBlank = damageMin + ((damageMax - damageMin) * GrandCross_PlayerCount / 31.0);
+	float igniteDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 8);
+	float knockbackIntensityPointBlank = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 9);
+	float knockbackIntensityMidpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 10);
+	float knockbackIntensityFarpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 11);
+	float minimumZLift = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 12);
 	
 	// knock back players first, and then damage them
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
-	new Float:mercOrigin[3];
-	new Float:currentVelocity[3];
-	new Float:knockbackVelocity[3];
-	new Float:distance;
-	new Float:intensity;
-	new Float:diffIntensity;
-	new Float:distanceRatio;
-	new Float:damage;
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	float mercOrigin[3];
+	float currentVelocity[3];
+	float knockbackVelocity[3];
+	float distance;
+	float intensity;
+	float diffIntensity;
+	float distanceRatio;
+	float damage;
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (IsValidClient(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
 		{
@@ -1679,7 +1645,7 @@ public DoGrandCross(clientIdx)
 	}
 	
 	// play the mapwide sound
-	new String:sound[PLATFORM_MAX_PATH];
+	char sound[PLATFORM_MAX_PATH];
 	if(FF2_RandomSound("sound_grand_cross_soundeffect", sound, sizeof(sound), clientIdx))
 	{
 		EmitSoundToAll(sound, bossIdx);	
@@ -1692,11 +1658,11 @@ public DoGrandCross(clientIdx)
 	GrandCross_AnimateShockwaveAt[clientIdx] = GetEngineTime();
 }
 
-public GrandCross(clientIdx)
+public void GrandCross(int clientIdx)
 {
 	// allow everyone but the hale to move again
 	GrandCross_BlockingAllInput = false;
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (victim != clientIdx && IsValidClient(victim))
 			SetEntityMoveType(victim, MOVETYPE_WALK);
@@ -1705,7 +1671,7 @@ public GrandCross(clientIdx)
 	DoGrandCross(clientIdx);
 }
 
-public GrandCross_Tick(clientIdx, Float:curTime)
+public void GrandCross_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= GrandCross_RemoveGodModeAt[clientIdx])
 	{
@@ -1721,7 +1687,7 @@ public GrandCross_Tick(clientIdx, Float:curTime)
 	if (curTime >= GrandCross_RemoveIgniteAt[clientIdx])
 	{
 		GrandCross_RemoveIgniteAt[clientIdx] = FAR_FUTURE;
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (!IsValidClient(victim) || GetClientTeam(victim) == FF2_GetBossTeam())
 				continue;
@@ -1750,10 +1716,10 @@ public GrandCross_Tick(clientIdx, Float:curTime)
 	}
 }
  
-public Rage_GrandCross(clientIdx)
+public void Rage_GrandCross(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 1);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 1);
 	
 	if (GrandCross_FrameTotal[clientIdx] <= 1)
 	{
@@ -1761,7 +1727,7 @@ public Rage_GrandCross(clientIdx)
 	}
 
 	// stun all sentries
-	new sentryEntity = -1;
+	int sentryEntity = -1;
 	while ((sentryEntity = FindEntityByClassname(sentryEntity, "obj_sentrygun")) != -1)
 		SetEntProp(sentryEntity, Prop_Send, "m_bDisabled", 1);
 
@@ -1778,7 +1744,7 @@ public Rage_GrandCross(clientIdx)
 	if (delay > 0.0)
 	{
 		// freeze all players and store their charges
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (victim != clientIdx && IsValidClient(victim))
 			{
@@ -1787,10 +1753,10 @@ public Rage_GrandCross(clientIdx)
 				// medic is the only one that needs to be explicitly checked
 				if (TF2_GetPlayerClass(victim) == TFClass_Medic)
 				{
-					new weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
+					int weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
 					if (IsValidEntity(weapon))
 					{
-						new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+						char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 						GetEntityClassname(weapon, classname, sizeof(classname));
 						if (!strcmp(classname, "tf_weapon_medigun"))
 							GrandCross_Medigun[victim] = GetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel");
@@ -1814,7 +1780,9 @@ public Rage_GrandCross(clientIdx)
 		DoGrandCross(clientIdx);
 }
 
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weaponIdx)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!IsValidClient(clientIdx))
 		return Plugin_Continue;
@@ -1833,10 +1801,10 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 				// medic is the only one that needs to be explicitly checked
 				if (TF2_GetPlayerClass(clientIdx) == TFClass_Medic)
 				{
-					new medigun = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
+					int medigun = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
 					if (IsValidEntity(medigun))
 					{
-						new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+						char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 						GetEntityClassname(medigun, classname, sizeof(classname));
 						if (!strcmp(classname, "tf_weapon_medigun"))
 							SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", GrandCross_Medigun[clientIdx]);
@@ -1860,11 +1828,11 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 /**
  * Flaming Debris
  */
-public ShootFlamingGibs(flameCount, const String:modelName[], Float:flameDuration, const Float:origin[3], Float:flameDelay, Float:flameVelocity)
+public void ShootFlamingGibs(int flameCount, const char[] modelName, float flameDuration, const float origin[3], float flameDelay, float flameVelocity)
 {
-	new flamingGibShooter = CreateEntityByName("env_shooter");
-	new Float:angles[3] = {0.0, 0.0, 0.0};
-	new String:gibCountStr[3];
+	int flamingGibShooter = CreateEntityByName("env_shooter");
+	float angles[3] = {0.0, 0.0, 0.0};
+	char gibCountStr[3];
 	Format(gibCountStr, 3, "%d", flameCount);
 	DispatchKeyValue(flamingGibShooter, "m_iGibs", gibCountStr);
 	IgniteNextNGibs += flameCount;
@@ -1888,9 +1856,9 @@ public ShootFlamingGibs(flameCount, const String:modelName[], Float:flameDuratio
 	CreateTimer(10.0, TimerRemoveEntity, EntIndexToEntRef(flamingGibShooter), TIMER_FLAG_NO_MAPCHANGE); // remove a one-off entity with no significance? timer's fine.
 }
  
-public DoGrandCrossEffects(clientIdx)
+public void DoGrandCrossEffects(int clientIdx)
 {
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (!IsValidClient(clientIdx))
 	{
 		return;
@@ -1901,24 +1869,24 @@ public DoGrandCrossEffects(clientIdx)
 		return;
 	}
 
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, GRAND_CROSS, 15, modelName, MAX_MODEL_FILE_LENGTH);
-	new flameCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, GRAND_CROSS, 16);
+	int flameCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, GRAND_CROSS, 16);
 	if (flameCount > 50) // mitigate the risk of running out of entities...not a big issue for between-lives, but could be a problem for standard rage
 	{
 		flameCount = 50;
 	}
-	new Float:flameDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 17);
+	float flameDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 17);
 	
 	if (strlen(modelName) < 3 || flameCount <= 0 || flameDuration <= 0.0)
 	{
 		return;
 	}
 	
-	new Float:flameDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 18);
-	new Float:flameVelocity = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 19);
+	float flameDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 18);
+	float flameVelocity = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 19);
 	
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 	bossOrigin[2] += 50.0;
 	
@@ -1926,10 +1894,10 @@ public DoGrandCrossEffects(clientIdx)
 	ShootFlamingGibs(flameCount, modelName, flameDuration, bossOrigin, flameDelay, flameVelocity);
 }
 
-public Rage_GrandCrossEffects(bossIdx)
+public void Rage_GrandCrossEffects(int bossIdx)
 {
-	new clientIdx = FF2_GetBossIndex(bossIdx);
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 14);
+	int clientIdx = FF2_GetBossIndex(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GRAND_CROSS, 14);
 	
 	if (delay == 0.0)
 		DoGrandCrossEffects(bossIdx);
@@ -1938,7 +1906,7 @@ public Rage_GrandCrossEffects(bossIdx)
 }
 
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	// regeneration shockwave, gibs
 	if (IgniteNextNGibs > 0 && !strcmp(classname, "gib"))
@@ -2041,13 +2009,13 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 	return entity;
 }
 
-Handle S93SF_equipWearable = INVALID_HANDLE;
-stock void Wearable_EquipWearable(client, wearable)
+stock void Wearable_EquipWearable(int client, int wearable)
 {
-	if(S93SF_equipWearable==INVALID_HANDLE)
+	static Handle S93SF_equipWearable = INVALID_HANDLE;
+	if(!S93SF_equipWearable)
 	{
-		Handle config=LoadGameConfigFile("equipwearable");
-		if(config==INVALID_HANDLE)
+		GameData config= new GameData("equipwearable");
+		if(!config)
 		{
 			LogError("[FF2] EquipWearable gamedata could not be found; make sure /gamedata/equipwearable.txt exists.");
 			return;
@@ -2055,7 +2023,7 @@ stock void Wearable_EquipWearable(client, wearable)
 
 		StartPrepSDKCall(SDKCall_Player);
 		PrepSDKCall_SetFromConf(config, SDKConf_Virtual, "EquipWearable");
-		CloseHandle(config);
+		delete config;
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 		if((S93SF_equipWearable=EndPrepSDKCall())==INVALID_HANDLE)
 		{
@@ -2067,22 +2035,22 @@ stock void Wearable_EquipWearable(client, wearable)
 }
 #endif
 
-stock SetCondition(client, String:cond[]) // Sets multi TFConds to a client
+stock void SetCondition(int client, const char[] cond) // Sets multi TFConds to a client
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i+=2)
+		for (int i = 0; i < count; i+=2)
 		{
-			TF2_AddCondition(client, TFCond:StringToInt(conds[i]), StringToFloat(conds[i+1]));
+			TF2_AddCondition(client, view_as<TFCond>(StringToInt(conds[i])), StringToFloat(conds[i+1]));
 		}
 	}
 }
 
 
 // For King Bombomb
-public Bombs_AddHooks()
+public void Bombs_AddHooks()
 {	
 	if(!Ishooked)
 	{
@@ -2093,7 +2061,7 @@ public Bombs_AddHooks()
 	AddCommandListener(Bombombs_Detonate, "+taunt");
 }
 
-public Bombs_RemoveHooks()
+public void Bombs_RemoveHooks()
 {	
 	if(Ishooked)
 	{
@@ -2103,21 +2071,22 @@ public Bombs_RemoveHooks()
 	}
 }
 
-public Action:Bombombs_Detonate(client, const String:command[], argc)
+public Action Bombombs_Detonate(int client, const char[] command, int argc)
 {
 	if(IsValidMinion(client))
 	{
-		CreateTimer(2.1, BombombBusting, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(2.1, BombombBusting, GetClientSerial(client), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return Plugin_Continue;
 }
 
-public Action:BombombBusting(Handle:timer, any:client)
+public Action BombombBusting(Handle timer, int serial)
 {
+	int client = GetClientFromSerial(serial);
 	if (!IsValidClient(client)) return Plugin_Handled;
 	if (!IsPlayerAlive(client)) return Plugin_Handled;
-	new explosion = CreateEntityByName("env_explosion");
-	new Float:clientPos[3];
+	int explosion = CreateEntityByName("env_explosion");
+	float clientPos[3];
 	GetClientAbsOrigin(client, clientPos);
 	if (explosion)
 	{
@@ -2126,26 +2095,26 @@ public Action:BombombBusting(Handle:timer, any:client)
 		AcceptEntityInput(explosion, "Explode", -1, -1, 0);
 		RemoveEdict(explosion);
 	}
-	for (new i = 1; i <= MaxClients; i++)
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if(!IsValidClient(i) || !IsPlayerAlive(i)) continue;
-		new Float:zPos[3];
+		float zPos[3];
 		GetClientAbsOrigin(i, zPos);
-		new Float:Dist = GetVectorDistance(clientPos, zPos);
+		float Dist = GetVectorDistance(clientPos, zPos);
 		if (Dist > 300.0) continue;
 		DoDamage(client, i, 2500);
 	}
-	for (new i = MaxClients + 1; i <= 2048; i++)
+	for (int i = MaxClients + 1; i <= 2048; i++)
 	{
 		if (!IsValidEntity(i)) continue;
-		decl String:cls[20];
+		char cls[64];
 		GetEntityClassname(i, cls, sizeof(cls));
 		if (!StrEqual(cls, "obj_sentrygun", false) &&
 		!StrEqual(cls, "obj_dispenser", false) &&
 		!StrEqual(cls, "obj_teleporter", false)) continue;
-		new Float:zPos[3];
+		float zPos[3];
 		GetEntPropVector(i, Prop_Send, "m_vecOrigin", zPos);
-		new Float:Dist = GetVectorDistance(clientPos, zPos);
+		float Dist = GetVectorDistance(clientPos, zPos);
 		if (Dist > 300.0) continue;
 		SetVariantInt(2500);
 		AcceptEntityInput(i, "RemoveHealth");
@@ -2157,23 +2126,23 @@ public Action:BombombBusting(Handle:timer, any:client)
 	return Plugin_Handled;
 }
 
-public Action:Timer_RemoveRagdoll(Handle:timer, any:uid)
+public Action Timer_RemoveRagdoll(Handle timer, any uid)
 {
-	new client = GetClientOfUserId(uid);
+	int client = GetClientOfUserId(uid);
 	if (!IsValidClient(client)) return;
-	new ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
+	int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
 	if (!IsValidEntity(ragdoll) || ragdoll <= MaxClients) return;
 	AcceptEntityInput(ragdoll, "Kill");
 }
 
-stock DoDamage(client, target, amount) // from Goomba Stomp.
+stock void DoDamage(int client, int target, int amount) // from Goomba Stomp.
 {
-	new pointHurt = CreateEntityByName("point_hurt");
+	int pointHurt = CreateEntityByName("point_hurt");
 	if (pointHurt)
 	{
 		DispatchKeyValue(target, "targetname", "explodeme");
 		DispatchKeyValue(pointHurt, "DamageTarget", "explodeme");
-		new String:dmg[15];
+		char dmg[15];
 		Format(dmg, 15, "%i", amount);
 		DispatchKeyValue(pointHurt, "Damage", dmg);
 		DispatchKeyValue(pointHurt, "DamageType", "0");
@@ -2182,16 +2151,16 @@ stock DoDamage(client, target, amount) // from Goomba Stomp.
 		AcceptEntityInput(pointHurt, "Hurt", client);
 		DispatchKeyValue(pointHurt, "classname", "point_hurt");
 		DispatchKeyValue(target, "targetname", "");
-		RemoveEdict(pointHurt);
+		RemoveEntity(pointHurt);
 	}
 }
 
-stock bool:AttachParticle(Ent, String:particleType[], bool:cache=false) // from L4D Achievement Trophy
+stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // from L4D Achievement Trophy
 {
-	new particle = CreateEntityByName("info_particle_system");
-	if (!IsValidEdict(particle)) return false;
-	new String:tName[128];
-	new Float:f_pos[3];
+	int particle = CreateEntityByName("info_particle_system");
+	if (!IsValidEntity(particle)) return false;
+	char tName[128];
+	float f_pos[3];
 	if (cache) f_pos[2] -= 3000;
 	else
 	{
@@ -2207,32 +2176,32 @@ stock bool:AttachParticle(Ent, String:particleType[], bool:cache=false) // from 
 	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
-	CreateTimer(10.0, DeleteParticle, particle);
+	CreateTimer(10.0, DeleteParticle, EntIndexToEntRef(particle));
 	return true;
 }
 
-public Action:DeleteParticle(Handle:timer, any:Ent)
+public Action DeleteParticle(Handle timer, int ref)
 {
+	int Ent = EntRefToEntIndex(ref);
 	if (!IsValidEntity(Ent)) return;
-	new String:cls[25];
-	GetEdictClassname(Ent, cls, sizeof(cls));
-	if (StrEqual(cls, "info_particle_system", false)) AcceptEntityInput(Ent, "Kill");
+	RemoveEntity(Ent);
 	return;
 }
 
-stock GetR(c) { return abs((c>>16)&0xff); }
-stock GetG(c) { return abs((c>>8 )&0xff); }
-stock GetB(c) { return abs((c    )&0xff); }
+stock int GetR(int c) { return abs((c>>16)&0xff); }
+stock int GetG(int c) { return abs((c>>8 )&0xff); }
+stock int GetB(int c) { return abs((c    )&0xff); }
 
-stock abs(x)
+stock int abs(int x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock GetRandomDeadPlayer()
+stock int GetRandomDeadPlayer()
 {
-	new clients[MaxClients+1], clientCount;
-	for(new i=1;i<=MaxClients;i++)
+	int clientCount;
+	int[] clients = new int[MaxClients + 1];
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if (IsValidEdict(i) && IsClientConnected(i) && IsClientInGame(i) && !IsPlayerAlive(i) && (GetClientTeam(i) > 1))
 		{
@@ -2242,35 +2211,35 @@ stock GetRandomDeadPlayer()
 	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
 }
 
-stock ReadCenterText(bossIdx, const String:ability_name[], argInt, String:centerText[PLATFORM_MAX_PATH])
+stock void ReadCenterText(int bossIdx, const char[] ability_name, int argInt, char[] centerText)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, centerText, PLATFORM_MAX_PATH);
 	ReplaceString(centerText, PLATFORM_MAX_PATH, "\\n", "\n");
 }
 
-stock Float:fixDamageForFF2(Float:damage)
+stock float fixDamageForFF2(float damage)
 {
 	if (damage <= 160.0)
 		return damage / 3.0;
 	return damage;
 }
 
-stock QuietDamage(victim, inflictor, attacker, Float:damage, damageType=DMG_GENERIC, weapon=-1)
+stock void QuietDamage(int victim, int inflictor, int attacker, float damage, int damageType=DMG_GENERIC, int weapon=-1)
 {
-	new takedamage = GetEntProp(victim, Prop_Data, "m_takedamage");
+	int takedamage = GetEntProp(victim, Prop_Data, "m_takedamage");
 	SetEntProp(victim, Prop_Data, "m_takedamage", 0);
 	SDKHooks_TakeDamage(victim, inflictor, attacker, damage, damageType, weapon);
 	SetEntProp(victim, Prop_Data, "m_takedamage", takedamage);
 	SDKHooks_TakeDamage(victim, victim, victim, damage, damageType, weapon);
 }
 
-stock FullyHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DMG_GENERIC, weapon=-1, Float:attackPos[3] = NULL_VECTOR)
+stock void FullyHookedDamage(int victim, int inflictor, int attacker, float damage, int damageType=DMG_GENERIC, int weapon=-1, float attackPos[3] = NULL_VECTOR)
 {
-	static String:dmgStr[16];
+	static char dmgStr[16];
 	IntToString(RoundFloat(damage), dmgStr, sizeof(dmgStr));
 
 	// took this from war3...I hope it doesn't double damage like I've heard old versions do
-	new pointHurt = CreateEntityByName("point_hurt");
+	int pointHurt = CreateEntityByName("point_hurt");
 	if (IsValidEntity(pointHurt))
 	{
 		DispatchKeyValue(victim, "targetname", "halevictim");
@@ -2285,7 +2254,7 @@ stock FullyHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DM
 		}
 		else if (IsValidClient(attacker))
 		{
-			static Float:attackerOrigin[3];
+			static float attackerOrigin[3];
 			GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", attackerOrigin);
 			TeleportEntity(pointHurt, attackerOrigin, NULL_VECTOR, NULL_VECTOR);
 		}
@@ -2296,18 +2265,18 @@ stock FullyHookedDamage(victim, inflictor, attacker, Float:damage, damageType=DM
 	}
 }
 
-stock FindRandomPlayer(bool:isBossTeam, Float:position[3] = NULL_VECTOR, Float:maxDistance = 0.0, bool:anyTeam = false, bool:deadOnly = false)
+stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, float maxDistance = 0.0, bool anyTeam = false, bool deadOnly = false)
 {
 	return FindRandomPlayerBlacklist(isBossTeam, NULL_BLACKLIST, position, maxDistance, anyTeam, deadOnly);
 }
 
-stock FindRandomPlayerBlacklist(bool:isBossTeam, const bool:blacklist[MAX_PLAYERS_ARRAY], Float:position[3] = NULL_VECTOR, Float:maxDistance = 0.0, bool:anyTeam = false, bool:deadOnly = false)
+stock int FindRandomPlayerBlacklist(bool isBossTeam, const bool blacklist[MAX_PLAYERS_ARRAY], float position[3] = NULL_VECTOR, float maxDistance = 0.0, bool anyTeam = false, bool deadOnly = false)
 {
-	new player = -1;
+	int player = -1;
 
 	// first, get a player count for the team we care about
-	new playerCount = 0;
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	int playerCount = 0;
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!deadOnly && !IsValidClient(clientIdx))
 			continue;
@@ -2324,7 +2293,7 @@ stock FindRandomPlayerBlacklist(bool:isBossTeam, const bool:blacklist[MAX_PLAYER
 			continue;
 
 		// fixed to not grab people in spectator, since we can now include the dead
-		new bool:valid = anyTeam && (GetClientTeam(clientIdx) == FF2_GetBossTeam() || GetClientTeam(clientIdx) != FF2_GetBossTeam());
+		bool valid = anyTeam && (GetClientTeam(clientIdx) == FF2_GetBossTeam() || GetClientTeam(clientIdx) != FF2_GetBossTeam());
 		if (!valid)
 			valid = (isBossTeam && GetClientTeam(clientIdx) == FF2_GetBossTeam()) || (!isBossTeam && GetClientTeam(clientIdx) != FF2_GetBossTeam());
 			
@@ -2337,9 +2306,9 @@ stock FindRandomPlayerBlacklist(bool:isBossTeam, const bool:blacklist[MAX_PLAYER
 		return -1;
 
 	// now randomly choose our victim
-	new rand = GetRandomInt(0, playerCount - 1);
+	int rand = GetRandomInt(0, playerCount - 1);
 	playerCount = 0;
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!deadOnly && !IsValidClient(clientIdx))
 			continue;
@@ -2356,7 +2325,7 @@ stock FindRandomPlayerBlacklist(bool:isBossTeam, const bool:blacklist[MAX_PLAYER
 			continue;
 
 		// fixed to not grab people in spectator, since we can now include the dead
-		new bool:valid = anyTeam && (GetClientTeam(clientIdx) == FF2_GetBossTeam() || GetClientTeam(clientIdx) != FF2_GetBossTeam());
+		bool valid = anyTeam && (GetClientTeam(clientIdx) == FF2_GetBossTeam() || GetClientTeam(clientIdx) != FF2_GetBossTeam());
 		if (!valid)
 			valid = (isBossTeam && GetClientTeam(clientIdx) == FF2_GetBossTeam()) || (!isBossTeam && GetClientTeam(clientIdx) != FF2_GetBossTeam());
 			
@@ -2379,23 +2348,23 @@ stock FindRandomPlayerBlacklist(bool:isBossTeam, const bool:blacklist[MAX_PLAYER
 	return player;
 }
 
-stock bool:IsInstanceOf(entity, const String:desiredClassname[])
+stock bool IsInstanceOf(int entity, const char[] desiredClassname)
 {
-	static String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+	static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 	GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 	return strcmp(classname, desiredClassname) == 0;
 }
 
-stock bool:IsPlayerInRange(player, Float:position[3], Float:maxDistance)
+stock bool IsPlayerInRange(int player, float position[3], float maxDistance)
 {
 	maxDistance *= maxDistance;
 	
-	static Float:playerPos[3];
+	static float playerPos[3];
 	GetEntPropVector(player, Prop_Data, "m_vecOrigin", playerPos);
 	return GetVectorDistance(position, playerPos, true) <= maxDistance;
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;
@@ -2403,7 +2372,7 @@ stock bool:IsValidClient(client)
 	return true;
 }
 
-stock bool:IsValidMinion(client)
+stock bool IsValidMinion(int client)
 {
 	if (GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	if (FF2_GetBossIndex(client) != -1) return false;
@@ -2412,18 +2381,18 @@ stock bool:IsValidMinion(client)
 }
 
 // stole this stock from KissLick. it's a good stock!
-stock DispatchKeyValueFormat(entity, const String:keyName[], const String:format[], any:...)
+stock void DispatchKeyValueFormat(int entity, const char[] keyName, const char[] format, any ...)
 {
-	static String:value[256];
+	static char value[256];
 	VFormat(value, sizeof(value), format, 4);
 
 	DispatchKeyValue(entity, keyName, value);
 } 
 
-// New Stocks!
-stock GetA(c) { return abs(c>>24); }
+// int Stocks!
+stock int GetA(int c) { return abs(c>>24); }
 
-stock charToHex(c)
+stock int charToHex(int c)
 {
 	if (c >= '0' && c <= '9')
 		return c - '0';
@@ -2437,7 +2406,7 @@ stock charToHex(c)
 	return 0;
 }
 
-stock SetColorRGBA(color[4], r, g, b, a)
+stock void SetColorRGBA(int color[4], int r, int g, int b, int a)
 {
 	color[0] = abs(r)%256;
 	color[1] = abs(g)%256;
@@ -2445,9 +2414,9 @@ stock SetColorRGBA(color[4], r, g, b, a)
 	color[3] = abs(a)%256;
 }
 
-stock ParseColor(String:colorStr[])
+stock int ParseColor(char[] colorStr)
 {
-	new ret = 0;
+	int ret = 0;
 	ret |= charToHex(colorStr[0])<<20;
 	ret |= charToHex(colorStr[1])<<16;
 	ret |= charToHex(colorStr[2])<<12;
@@ -2457,9 +2426,9 @@ stock ParseColor(String:colorStr[])
 	return ret;
 }
 
-stock Float:fixAngle(Float:angle)
+stock float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -2468,32 +2437,23 @@ stock Float:fixAngle(Float:angle)
 	return angle;
 }
 
-stock constrainDistance(const Float:startPoint[], Float:endPoint[], Float:distance, Float:maxDistance)
+stock void constrainDistance(const float[] startPoint, float[] endPoint, float distance, float maxDistance)
 {
 	if (distance <= maxDistance)
 		return; // nothing to do
 		
-	new Float:constrainFactor = maxDistance / distance;
+	float constrainFactor = maxDistance / distance;
 	endPoint[0] = ((endPoint[0] - startPoint[0]) * constrainFactor) + startPoint[0];
 	endPoint[1] = ((endPoint[1] - startPoint[1]) * constrainFactor) + startPoint[1];
 	endPoint[2] = ((endPoint[2] - startPoint[2]) * constrainFactor) + startPoint[2];
 }
 
-stock CopyVector(Float:dst[3], Float:src[3])
+stock float ClampBeamWidth(float w) { return w > 128.0 ? 128.0 : w; }
+
+stock void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
-	dst[0] = src[0];
-	dst[1] = src[1];
-	dst[2] = src[2];
-}
-
-stock Float:ClampBeamWidth(Float:w) { return w > 128.0 ? 128.0 : w; }
-
-stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:Frequency)
-{
-	decl Ent;
-
 	//Initialize:
-	Ent = CreateEntityByName("env_shake");
+	int Ent = CreateEntityByName("env_shake");
 		
 	//Spawn:
 	if (IsValidEntity(Ent))
@@ -2521,18 +2481,18 @@ stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, 
 	}
 }
 
-public Action:TimerRemoveEntity(Handle:timer, any:entid)
+public Action TimerRemoveEntity(Handle timer, any entid)
 {
-	new entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
+	int entity = EntRefToEntIndex(entid);
+	if (IsValidEntity(entity))
 	{
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 	}
 }
 
-stock ReadModelToInt(bossIdx, const String:ability_name[], argInt)
+stock int ReadModelToInt(int bossIdx, const char[] ability_name, int argInt)
 {
-	static String:modelFile[MAX_MODEL_FILE_LENGTH];
+	char[] modelFile = new char[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		return PrecacheModel(modelFile);

@@ -1,12 +1,11 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
 
 public Plugin:myinfo = {
 	name	= "Freak Fortress 2: Timed Weapon Rage",
@@ -26,6 +25,13 @@ new Float:WeaponTime;
 
 new Special[MAXPLAYERS+1];
 new Specials;
+
+public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
+{
+	strcopy(err, err_max, "[FF2] DEPRECATED : There is no point in using this plugin!");
+	strcopy(err, err_max, "[FF2] use \"ff2_tnw.ff2\" instead");
+	return APLRes_Failure;
+}
 
 public OnPluginStart2()
 {

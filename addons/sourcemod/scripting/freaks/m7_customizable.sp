@@ -1,59 +1,39 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-//#tryinclude <freak_fortress_2_extras> 
+#include <ff2_ams2>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define CLIPLESS "rage_cliplessweapons"
-new bool:Clipless_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new String:Attributes[768];
-new String:Classname[768];
+bool Clipless_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+char Attributes[125];
+char Classname[64];
 
-
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "FF2 Ability: Customizable Clipless Weapons",
 	author = "M7",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_Pre);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_Pre);
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	for(new client=1;client<=MaxClients;client++)
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, CLIPLESS))
 	{
-		if(!IsValidClient(client))
-			continue;
-			
-		new boss=FF2_GetBossIndex(client);
-		
-		Clipless_TriggerAMS[client] = false;
-		
-		if(boss>=0)
-		{
-			// Initialize if using AMS for these abilities
-			if(FF2_HasAbility(boss, this_plugin_name, CLIPLESS))
-			{
-				Clipless_TriggerAMS[client]=bool:FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 7);
-				if(Clipless_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, CLIPLESS, "CLIP");
-				}
-			}
-		}
+		Clipless_TriggerAMS[client]= FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 7) != 0
+								&& FF2AMS_PushToAMS(client, this_plugin_name, CLIPLESS, "CLIP");
 	}
-	return Plugin_Continue;
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1; client<=MaxClients; client++)
+	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client))
 		{
@@ -63,9 +43,9 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 }
 			
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss,const char[] plugin_name,const char[] ability_name, int action)
 {
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	
 	if(!strcmp(ability_name, CLIPLESS))  // Vaccinator resistances
 	{
@@ -75,32 +55,32 @@ public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:abilit
 }
 
 
-Rage_Cliplessweapons(client)
+void Rage_Cliplessweapons(int client)
 {
 	if(Clipless_TriggerAMS[client])
 		return;
 	
-	CLIP_Invoke(client);
+	CLIP_Invoke(client, 0);
 }
 
-public bool:CLIP_CanInvoke(client)
+public AMSResult CLIP_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public CLIP_Invoke(client)
+public void CLIP_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
-	new Index = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 1);	// weaponindex
+	int Index = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 1);	// weaponindex
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CLIPLESS, 2, Classname, sizeof(Classname));	// weapon attribute
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CLIPLESS, 3, Attributes, sizeof(Attributes));	// weapon classname
-	new Ammo = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 5);	// weaponindex
-	new slot = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 6);
+	int Ammo = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 5);	// weaponindex
+	int slot = FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 6);
 	
 	TF2_RemoveWeaponSlot(client, slot);
 	
-	SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", SpawnWeapon(client, Classname, Index, 100, 5, Attributes), bool:FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 4));
+	SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", SpawnWeapon(client, Classname, Index, 100, 5, Attributes), FF2_GetAbilityArgument(boss, this_plugin_name, CLIPLESS, 4) != 0);
 	
 	if(Ammo)
 	{
@@ -109,7 +89,7 @@ public CLIP_Invoke(client)
 	
 	if(Clipless_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_clipless_weapon", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -118,20 +98,20 @@ public CLIP_Invoke(client)
 	}
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVisible=false)
+stock int SpawnWeapon(int client,char[] name, int index, int level, int qual, char[] att, bool isVisible=false)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, " ; ", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, " ; ", atts, 32, 32);
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 			TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 			i2++;
@@ -141,8 +121,8 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVis
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 		return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
-	CloseHandle(hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
+	delete hWeapon;
 	
 	if(!isVisible)
 	{
@@ -160,67 +140,24 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:isVis
 	return entity;
 }
 
-stock SetAmmo(client, slot, ammo)
+stock void SetAmmo(int client, int slot, int ammo)
 {
-	new weapon = GetPlayerWeaponSlot(client, slot);
+	int weapon = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon))
 	{
-		new iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		new iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+		static int iAmmoTable = 0;
+		if(!iAmmoTable) {
+			iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		}
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
 		
 	return IsClientInGame(client);
-}
-
-stock Handle:FindPlugin(String: pluginName[])
-{
-	new String: buffer[256];
-	new String: path[PLATFORM_MAX_PATH];
-	new Handle: iter = GetPluginIterator();
-	new Handle: pl = INVALID_HANDLE;
-	
-	while (MorePlugins(iter))
-	{
-		pl = ReadPlugin(iter);
-		Format(path, sizeof(path), "%s.ff2", pluginName);
-		GetPluginFilename(pl, buffer, sizeof(buffer));
-		if (StrContains(buffer, path, false) >= 0)
-			break;
-		else
-			pl = INVALID_HANDLE;
-	}
-	
-	CloseHandle(iter);
-
-	return pl;
-}
-
-stock AMS_InitSubability(bossIdx, clientIdx, const String: pluginName[], const String: abilityName[], const String: prefix[])
-{
-	new Handle:plugin = FindPlugin("ff2_sarysapub3");
-	if (plugin != INVALID_HANDLE)
-	{
-		new Function:func = GetFunctionByName(plugin, "AMS_InitSubability");
-		if (func != INVALID_FUNCTION)
-		{
-			Call_StartFunction(plugin, func);
-			Call_PushCell(bossIdx);
-			Call_PushCell(clientIdx);
-			Call_PushString(pluginName);
-			Call_PushString(abilityName);
-			Call_PushString(prefix);
-			Call_Finish();
-		}
-		else
-			LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability()");
-	}
-	else
-		LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
 }

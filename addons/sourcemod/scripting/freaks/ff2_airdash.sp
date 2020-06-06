@@ -1,4 +1,3 @@
-#pragma semicolon 1
 
 //FF2_AIRDASH
 
@@ -19,59 +18,59 @@
 //arg12 = Max glide time
 //Details: You have 1 glide per dash, if you cancel it mid-way, you cannot get it back.
 
-#include <sourcemod>
-#include <sdktools>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
+#pragma newdecls required
 #define PLUGIN_VERSION "0.0"
 
-//new Handle:g_hChargeHUD[MAXPLAYERS+1];
-new Handle:g_hRechargeHandle[MAXPLAYERS+1];
-new Handle:g_hDashReadyHandle[MAXPLAYERS+1];
-new bool:g_bClientDash[MAXPLAYERS+1];
-new bool:g_bDashReady[MAXPLAYERS+1];
-new Float:g_fDashCooldown[MAXPLAYERS+1];
-new g_Override[MAXPLAYERS+1];
-new g_Charges[MAXPLAYERS+1];
-new g_MaxCharges[MAXPLAYERS+1];
-new g_AirTime[MAXPLAYERS+1];
-new g_MinAirTime[MAXPLAYERS+1];
-new g_TimeUntilGlide[MAXPLAYERS+1];
-new g_SoundSlot[MAXPLAYERS+1];
-new g_GlideTime[MAXPLAYERS+1];
-new g_CanGlide[MAXPLAYERS+1];
-new g_GlideState[MAXPLAYERS+1];
-new Float:g_fGlideSpeed[MAXPLAYERS+1];
-new Float:g_fMaxGlideTime[MAXPLAYERS+1];
-new Float:g_fVelocity[MAXPLAYERS+1];
-new Float:g_fRechargeTimer[MAXPLAYERS+1];
-new Float:g_fRageCost[MAXPLAYERS+1];
-new g_TimeSinceDash[MAXPLAYERS+1];
+//Handle g_hChargeHUD[MAXPLAYERS+1];
+Handle g_hRechargeHandle[MAXPLAYERS+1];
+Handle g_hDashReadyHandle[MAXPLAYERS+1];
+bool g_bClientDash[MAXPLAYERS+1];
+bool g_bDashReady[MAXPLAYERS+1];
+float g_fDashCooldown[MAXPLAYERS+1];
+int g_Override[MAXPLAYERS+1];
+int g_Charges[MAXPLAYERS+1];
+int g_MaxCharges[MAXPLAYERS+1];
+int g_AirTime[MAXPLAYERS+1];
+int g_MinAirTime[MAXPLAYERS+1];
+int g_TimeUntilGlide[MAXPLAYERS+1];
+int g_SoundSlot[MAXPLAYERS+1];
+int g_GlideTime[MAXPLAYERS+1];
+int g_CanGlide[MAXPLAYERS+1];
+int g_GlideState[MAXPLAYERS+1];
+float g_fGlideSpeed[MAXPLAYERS+1];
+float g_fMaxGlideTime[MAXPLAYERS+1];
+float g_fVelocity[MAXPLAYERS+1];
+float g_fRechargeTimer[MAXPLAYERS+1];
+float g_fRageCost[MAXPLAYERS+1];
+int g_TimeSinceDash[MAXPLAYERS+1];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
    name = "Freak Fortress 2: Air dashes",
    author = "Blinx/Ankhxy/Ankhy",
    description = "Allows bosses to dash in the target eye direction by pressing jump",
    version = PLUGIN_VERSION
 }
 
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int status)
 {
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", OnRoundStart);
 	HookEvent("teamplay_round_win", OnRoundEnd);
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	//PrintToChatAll("Airdash init");
 	
-	for(new client = 1; client <=MaxClients; client++)
+	for(int client = 1; client <=MaxClients; client++)
 	{
 		g_hRechargeHandle[client] = INVALID_HANDLE;
 		g_hDashReadyHandle[client] = INVALID_HANDLE;
@@ -79,7 +78,7 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 		
 		if (IsValidClient(client))
 		{
-			new boss = FF2_GetBossIndex(client);
+			int boss = FF2_GetBossIndex(client);
 			
 			if (boss>=0)
 			{
@@ -108,22 +107,22 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 	}
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client = 1; client <= MaxClients; client++)
+	for(int client = 1; client <= MaxClients; client++)
 	{
 		g_bClientDash[client] = false;
 	}
 }
 
-public Action:t_EnableDash(Handle:timer, int client)
+public Action t_EnableDash(Handle timer, int client)
 {
 	g_bClientDash[client] = true;
 	
 	return Plugin_Continue;
 }
 
-public Action:t_AddCharge(Handle:timer, int client)
+public Action t_AddCharge(Handle timer, int client)
 {
 	if(g_Charges[client] < g_MaxCharges[client])
 		g_Charges[client]++;
@@ -138,26 +137,28 @@ public Action:t_AddCharge(Handle:timer, int client)
 	return Plugin_Continue;
 }
 
-public Action:t_DashCooldown(Handle:timer, int client)
+public Action t_DashCooldown(Handle timer, int client)
 {
 	g_bDashReady[client] = true;
 	
 	return Plugin_Continue;
 }
 
-public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if(IsValidClient(client))
 	{
-		new flags = GetEntityFlags(client);
-		new boss = FF2_GetBossIndex(client);
+		int flags = GetEntityFlags(client);
+		int boss = FF2_GetBossIndex(client);
 		
 		if(boss>=0)
 		{
 			//If you came here to understand how this works
 			//Good fucking luck
 			
-			new Float:rage = FF2_GetBossCharge(boss, 0);
+			float rage = FF2_GetBossCharge(boss, 0);
 			
 			if(flags & FL_ONGROUND)
 			{
@@ -191,9 +192,9 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 			{
 				if(!(g_GlideState[client]) && (g_Charges[client] > 0) && (rage >= g_fRageCost[client]) && (g_bDashReady[client]) && (g_AirTime[client] >= g_MinAirTime[client]))
 				{
-					decl Float:eyeAng[3];
-					decl Float:forwardVector[3];
-					decl Float:newVel[3];
+					static float eyeAng[3];
+					static float forwardVector[3];
+					static float newVel[3];
 					
 					GetClientEyeAngles(client, eyeAng);
 					
@@ -207,7 +208,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 						newVel[1] = GetEntPropFloat(client, Prop_Send, "m_vecVelocity[1]");
 						newVel[2] = GetEntPropFloat(client, Prop_Send, "m_vecVelocity[2]");
 						
-						for(new i = 0; i < 3; i++)
+						for(int i = 0; i < 3; i++)
 						{
 							forwardVector[i] += newVel[i];
 						}
@@ -235,10 +236,10 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 					if(g_hRechargeHandle[client] == INVALID_HANDLE)
 						g_hRechargeHandle[client] = CreateTimer(g_fRechargeTimer[client], t_AddCharge, client);
 						
-					decl Float:position[3];
+					static float position[3];
 					GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
 
-					decl String:s[PLATFORM_MAX_PATH];
+					static char s[PLATFORM_MAX_PATH];
 					if(FF2_RandomSound("sound_ability",s,PLATFORM_MAX_PATH,boss,g_SoundSlot[client]))
 					{
 						EmitSoundToAll(s, client, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, client, position, NULL_VECTOR, true, 0.0);
@@ -249,7 +250,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 				}
 				else if((g_GlideState[client]) && (g_CanGlide[client]) && (g_TimeSinceDash[client] > g_TimeUntilGlide[client]) && (g_GlideTime[client] < g_fMaxGlideTime[client]*66))
 				{
-					decl Float:newVel[3];
+					static float newVel[3];
 					g_GlideState[client] = 2;
 					g_GlideTime[client]++;
 					
@@ -267,7 +268,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 	}
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client)) return false;

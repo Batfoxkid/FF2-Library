@@ -8,25 +8,19 @@ rage_overlay_v2:	arg0 - slot (def.0)
 					etc.
 */
 
-"ability6"
-{
-	"name" "1"
-	"arg1" ""
-}
 
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-new BossTeam=_:TFTeam_Blue;
+#pragma semicolon 1
+#pragma newdecls required
+
+int BossTeam = view_as<int>(TFTeam_Blue);
 
 #define PLUGIN_VERSION "2.0.0"
 
-public Plugin:myinfo=
+public Plugin myinfo=
 {
 	name="Freak Fortress 2: rage_overlay_2",
 	author="Jery0987, RainBolt Dash, Naydef",
@@ -34,24 +28,24 @@ public Plugin:myinfo=
 	version=PLUGIN_VERSION,
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", OnRoundStart);
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.3, Timer_GetBossTeam, _, TIMER_FLAG_NO_MAPCHANGE);
 	return Plugin_Continue;
 }
 
-public Action:Timer_GetBossTeam(Handle:hTimer)
+public Action Timer_GetBossTeam(Handle hTimer)
 {
 	BossTeam=FF2_GetBossTeam();
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!strcmp(ability_name, "rage_overlay_v2"))
 	{
@@ -60,12 +54,12 @@ public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:abil
 	return Plugin_Continue;
 }
 
-Rage_Overlay(boss, const String:ability_name[])
+void Rage_Overlay(int boss, const char[] ability_name)
 {
-	new String:overlay[PLATFORM_MAX_PATH];
-	new String:buffer[PLATFORM_MAX_PATH];
+	char overlay[PLATFORM_MAX_PATH];
+	char buffer[PLATFORM_MAX_PATH];
 	
-	new numberofsounds=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 1, -1);
+	int numberofsounds=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 1, -1);
 	if(numberofsounds<=0)
 	{
 		FF2_GetBossSpecial(boss, buffer, sizeof(buffer), 0);
@@ -73,7 +67,7 @@ Rage_Overlay(boss, const String:ability_name[])
 		return;
 	}
 	
-	new random=2*GetRandomInt(1, numberofsounds); // Only even numbers
+	int random=2*GetRandomInt(1, numberofsounds); // Only even numbers
 	
 	
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, random , buffer, sizeof(buffer));
@@ -86,7 +80,7 @@ Rage_Overlay(boss, const String:ability_name[])
 	
 	Format(overlay, sizeof(overlay), "r_screenoverlay \"%s\"", buffer);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
 		{
@@ -98,10 +92,10 @@ Rage_Overlay(boss, const String:ability_name[])
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
 }
 
-public Action:Timer_Remove_Overlay(Handle:timer)
+public Action Timer_Remove_Overlay(Handle timer)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
 		{

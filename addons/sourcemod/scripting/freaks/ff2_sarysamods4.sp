@@ -1,18 +1,12 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
-#undef REQUIRE_PLUGIN
-#include <goomba>
-#define REQUIRE_PLUGIN
+
+#pragma semicolon 1
+#pragma newdecls required
 
 /**
  * A fourth wave of mods, composed entirely of rages for others' models.
@@ -39,40 +33,36 @@
  
 // NOTE: Added this due to issues with the bots after the taunt change. Do not have this set to true on your live server!
 // otherwise, any admin could activate her rage at any time.
-new bool:DEBUG_FORCE_RAGE = false;
+bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
-new bool:PRINT_DEBUG_INFO = true;
-new bool:PRINT_DEBUG_SPAM = false;
+bool PRINT_DEBUG_INFO = true;
+bool PRINT_DEBUG_SPAM = false;
  
-new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
-
 #define REAL_FL_SWIM (FL_SWIM | FL_INWATER)
 
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 80
 #define MAX_MODEL_FILE_LENGTH 128
 #define MAX_MATERIAL_FILE_LENGTH 128
-#define MAX_WEAPON_NAME_LENGTH 64
 #define MAX_WEAPON_ARG_LENGTH 256
 #define MAX_EFFECT_NAME_LENGTH 48
 #define MAX_ENTITY_CLASSNAME_LENGTH 48
 #define MAX_CENTER_TEXT_LENGTH 128
 #define MAX_RANGE_STRING_LENGTH 66
 #define MAX_HULL_STRING_LENGTH 197
-#define COLOR_BUFFER_SIZE 12
 #define HEX_OR_DEC_STRING_LENGTH 12 // max -2 billion is 11 chars + null termination
 
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
-new MercTeam = _:TFTeam_Red;
-new BossTeam = _:TFTeam_Blue;
+int MercTeam = view_as<int>(TFTeam_Red);
+int BossTeam = view_as<int>(TFTeam_Blue);
 
-new RoundInProgress = false;
-new bool:PluginActiveThisRound = false;
+int RoundInProgress = false;
+bool PluginActiveThisRound = false;
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods, fourth pack",
 	author = "sarysa",
 	version = "1.4.2",
@@ -107,86 +97,86 @@ public Plugin:myinfo = {
 #define LOW_WORLD_DAMAGE_THRESHOLD 100.0
 #define ROCKS_MINIMUM_KNOCKBACK_Z 450.0 // needs to be higher than the absolute minimum 260 so users can get above hills
 #define POST_SWIM_FREE_CONTROL_DURATION 1.0
-new bool:RR_ActiveThisRound = false;
-new String:RR_ModelName[MAX_MODEL_FILE_LENGTH];
+bool RR_ActiveThisRound = false;
+char RR_ModelName[MAX_MODEL_FILE_LENGTH];
 // minion info
 #define MI_TP_INTERVAL 1.0
-new bool:MI_IsMonitoredClone[MAX_PLAYERS_ARRAY]; // internal
-new TFClassType:MI_LastClass[MAX_PLAYERS_ARRAY]; // internal
-new Float:MI_ImmuneUntil[MAX_PLAYERS_ARRAY][MAX_PLAYERS_ARRAY]; // internal
-new MI_OwnerUserId[MAX_PLAYERS_ARRAY]; // internal
-new Float:MI_LastSwamAt[MAX_PLAYERS_ARRAY]; // internal
-new Float:MI_NextRollingSoundAt[MAX_PLAYERS_ARRAY]; // internal (for an aesthetic)
-new bool:MI_WasOnGroundLastTick[MAX_PLAYERS_ARRAY]; // internal (for an aesthetic)
-new Float:MI_PushAt[MAX_PLAYERS_ARRAY]; // internal, next velocity push
-new Float:MI_PreviousYaw[MAX_PLAYERS_ARRAY]; // internal, prevent rock from turning too quickly
-new Float:MI_RenewThirdPersonAt[MAX_PLAYERS_ARRAY]; // internal
+bool MI_IsMonitoredClone[MAX_PLAYERS_ARRAY]; // internal
+TFClassType MI_LastClass[MAX_PLAYERS_ARRAY]; // internal
+float MI_ImmuneUntil[MAX_PLAYERS_ARRAY][MAX_PLAYERS_ARRAY]; // internal
+int MI_OwnerUserId[MAX_PLAYERS_ARRAY]; // internal
+float MI_LastSwamAt[MAX_PLAYERS_ARRAY]; // internal
+float MI_NextRollingSoundAt[MAX_PLAYERS_ARRAY]; // internal (for an aesthetic)
+bool MI_WasOnGroundLastTick[MAX_PLAYERS_ARRAY]; // internal (for an aesthetic)
+float MI_PushAt[MAX_PLAYERS_ARRAY]; // internal, next velocity push
+float MI_PreviousYaw[MAX_PLAYERS_ARRAY]; // internal, prevent rock from turning too quickly
+float MI_RenewThirdPersonAt[MAX_PLAYERS_ARRAY]; // internal
 // WASD prevention
 #define WASD_HUD_INTERVAL 0.1
 #define WASD_HUD_POSITION 0.60
 #define WASD_DAMAGE_BEGIN_DELAY 1.0
-new Float:MI_LastValidOrigin[MAX_PLAYERS_ARRAY][3];
-new Float:MI_WASDDownSince[MAX_PLAYERS_ARRAY];
-new Float:MI_AccumulatedWASD[MAX_PLAYERS_ARRAY];
-new Float:MI_NextWASDHudAt[MAX_PLAYERS_ARRAY];
-new Float:MI_EnableDamageAt[MAX_PLAYERS_ARRAY];
-new Float:MI_EquipModelAt[MAX_PLAYERS_ARRAY];
-new MI_EquipModelRetries[MAX_PLAYERS_ARRAY];
-new Float:MI_FixTauntCamAt[MAX_PLAYERS_ARRAY];
+float MI_LastValidOrigin[MAX_PLAYERS_ARRAY][3];
+float MI_WASDDownSince[MAX_PLAYERS_ARRAY];
+float MI_AccumulatedWASD[MAX_PLAYERS_ARRAY];
+float MI_NextWASDHudAt[MAX_PLAYERS_ARRAY];
+float MI_EnableDamageAt[MAX_PLAYERS_ARRAY];
+float MI_EquipModelAt[MAX_PLAYERS_ARRAY];
+int MI_EquipModelRetries[MAX_PLAYERS_ARRAY];
+float MI_FixTauntCamAt[MAX_PLAYERS_ARRAY];
 // arguments more or less directly from the .cfg
-new TFClassType:MI_ExpectedClass[MAX_PLAYERS_ARRAY]; // arg2
-new Float:MI_TurnSpeed[MAX_PLAYERS_ARRAY]; // arg7
-new Float:MI_MoveSpeed[MAX_PLAYERS_ARRAY]; // arg8
-new Float:MI_DamageOnTouch[MAX_PLAYERS_ARRAY]; // arg9
-new MI_StunType[MAX_PLAYERS_ARRAY]; // arg10
-new Float:MI_StunDuration[MAX_PLAYERS_ARRAY]; // arg11
-new Float:MI_KnockbackIntensity[MAX_PLAYERS_ARRAY]; // arg12
-new Float:MI_ImmunityDuration[MAX_PLAYERS_ARRAY]; // arg13, immunity between hits
-new Float:MI_HitDetectionHull[MAX_PLAYERS_ARRAY][2][3]; // arg14
-new Float:MI_MaxIncomingDamage[MAX_PLAYERS_ARRAY]; // arg15
-new Float:MI_RockNoDamageUntil[MAX_PLAYERS_ARRAY]; // arg17
-new Float:MI_WASDDamage[MAX_PLAYERS_ARRAY]; // arg18
-new MI_RockFlags[MAX_PLAYERS_ARRAY]; // arg19
+TFClassType MI_ExpectedClass[MAX_PLAYERS_ARRAY]; // arg2
+float MI_TurnSpeed[MAX_PLAYERS_ARRAY]; // arg7
+float MI_MoveSpeed[MAX_PLAYERS_ARRAY]; // arg8
+float MI_DamageOnTouch[MAX_PLAYERS_ARRAY]; // arg9
+int MI_StunType[MAX_PLAYERS_ARRAY]; // arg10
+float MI_StunDuration[MAX_PLAYERS_ARRAY]; // arg11
+float MI_KnockbackIntensity[MAX_PLAYERS_ARRAY]; // arg12
+float MI_ImmunityDuration[MAX_PLAYERS_ARRAY]; // arg13, immunity between hits
+float MI_HitDetectionHull[MAX_PLAYERS_ARRAY][2][3]; // arg14
+float MI_MaxIncomingDamage[MAX_PLAYERS_ARRAY]; // arg15
+float MI_RockNoDamageUntil[MAX_PLAYERS_ARRAY]; // arg17
+float MI_WASDDamage[MAX_PLAYERS_ARRAY]; // arg18
+int MI_RockFlags[MAX_PLAYERS_ARRAY]; // arg19
 // rolling rocks victim info
-new RRVI_IsStunned[MAX_PLAYERS_ARRAY];
-new Float:RRVI_StunnedUntil[MAX_PLAYERS_ARRAY];
+int RRVI_IsStunned[MAX_PLAYERS_ARRAY];
+float RRVI_StunnedUntil[MAX_PLAYERS_ARRAY];
 
 // rolling rocks aesthetics
 #define RRA_STRING "rolling_rocks_aesthetics"
-new String:RRA_RollingSound[MAX_SOUND_FILE_LENGTH]; // arg1
-new Float:RRA_RollingSoundLoopInterval = 0.0; // arg2
-new String:RRA_PlayerHitSound[MAX_SOUND_FILE_LENGTH]; // arg3
-new String:RRA_WallHitSound[MAX_SOUND_FILE_LENGTH]; // arg4, also plays when minion lands after falling
-new String:RRA_PlayerHitEffect[MAX_EFFECT_NAME_LENGTH]; // arg5
+char RRA_RollingSound[MAX_SOUND_FILE_LENGTH]; // arg1
+float RRA_RollingSoundLoopInterval = 0.0; // arg2
+char RRA_PlayerHitSound[MAX_SOUND_FILE_LENGTH]; // arg3
+char RRA_WallHitSound[MAX_SOUND_FILE_LENGTH]; // arg4, also plays when minion lands after falling
+char RRA_PlayerHitEffect[MAX_EFFECT_NAME_LENGTH]; // arg5
 // arg6 is displayed only at minion spawn, not needed here
-new String:RRA_WASDMessage[MAX_CENTER_TEXT_LENGTH]; // arg7
-new String:RRA_WASDSound[MAX_SOUND_FILE_LENGTH]; // arg8
+char RRA_WASDMessage[MAX_CENTER_TEXT_LENGTH]; // arg7
+char RRA_WASDSound[MAX_SOUND_FILE_LENGTH]; // arg8
 
 // glide
 #define GLIDE_STRING "ff2_glide"
-new bool:GLIDE_ActiveThisRound = false;
-new bool:GLIDE_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new bool:GLIDE_IsUsing[MAX_PLAYERS_ARRAY]; // internal
-new Float:GLIDE_UsableUntil[MAX_PLAYERS_ARRAY]; // internal, if the glide is part of a rage and not an innate ability
-new Float:GLIDE_SingleUseEndTime[MAX_PLAYERS_ARRAY]; // internal, if max duration is set
-new Float:GLIDE_SingleUseStartTime[MAX_PLAYERS_ARRAY]; // internal, if max duration is set
-new bool:GLIDE_SpaceBarWasDown[MAX_PLAYERS_ARRAY]; // internal
-new bool:GLIDE_RageOnly[MAX_PLAYERS_ARRAY]; // arg1
+bool GLIDE_ActiveThisRound = false;
+bool GLIDE_CanUse[MAX_PLAYERS_ARRAY]; // internal
+bool GLIDE_IsUsing[MAX_PLAYERS_ARRAY]; // internal
+float GLIDE_UsableUntil[MAX_PLAYERS_ARRAY]; // internal, if the glide is part of a rage and not an innate ability
+float GLIDE_SingleUseEndTime[MAX_PLAYERS_ARRAY]; // internal, if max duration is set
+float GLIDE_SingleUseStartTime[MAX_PLAYERS_ARRAY]; // internal, if max duration is set
+bool GLIDE_SpaceBarWasDown[MAX_PLAYERS_ARRAY]; // internal
+bool GLIDE_RageOnly[MAX_PLAYERS_ARRAY]; // arg1
 // arg2 is duration if rage only, does not need to be stored
-new Float:GLIDE_OriginalMaxVelocity[MAX_PLAYERS_ARRAY]; // arg3
-new Float:GLIDE_DecayPerSecond[MAX_PLAYERS_ARRAY]; // arg4
-new Float:GLIDE_Cooldown[MAX_PLAYERS_ARRAY]; // arg5
-new Float:GLIDE_MaxDuration[MAX_PLAYERS_ARRAY]; // arg6
-new String:GLIDE_UseSound[MAX_SOUND_FILE_LENGTH]; // arg7
+float GLIDE_OriginalMaxVelocity[MAX_PLAYERS_ARRAY]; // arg3
+float GLIDE_DecayPerSecond[MAX_PLAYERS_ARRAY]; // arg4
+float GLIDE_Cooldown[MAX_PLAYERS_ARRAY]; // arg5
+float GLIDE_MaxDuration[MAX_PLAYERS_ARRAY]; // arg6
+char GLIDE_UseSound[MAX_SOUND_FILE_LENGTH]; // arg7
 
 // improved stun
 #define IS_STRING "rage_improved_stun"
-new IS_ActiveThisRound = false;
-new bool:IS_IsStunned[MAX_PLAYERS_ARRAY];
-new IS_ParticleEntRef[MAX_PLAYERS_ARRAY];
-new Float:IS_StunnedUntil[MAX_PLAYERS_ARRAY];
-new Float:IS_SpeedModifier[MAX_PLAYERS_ARRAY];
-new Float:IS_ExpectedSpeed[MAX_PLAYERS_ARRAY];
+int IS_ActiveThisRound = false;
+bool IS_IsStunned[MAX_PLAYERS_ARRAY];
+int IS_ParticleEntRef[MAX_PLAYERS_ARRAY];
+float IS_StunnedUntil[MAX_PLAYERS_ARRAY];
+float IS_SpeedModifier[MAX_PLAYERS_ARRAY];
+float IS_ExpectedSpeed[MAX_PLAYERS_ARRAY];
 
 // meteor shower
 #define MS_STRING "rage_meteor_shower"
@@ -213,81 +203,81 @@ new Float:IS_ExpectedSpeed[MAX_PLAYERS_ARRAY];
 #define MS_TEST_DEVIATION_ANGLE 25.0
 #define MAX_ROCKET_MODELS 5
 #define ROCKET_ARG_STRING_LENGTH ((MAX_MODEL_FILE_LENGTH * MAX_ROCKET_MODELS) + MAX_ROCKET_MODELS) // semicolon separated
-new MS_ActiveThisRound = false;
-new bool:MS_IsDOT[MAX_PLAYERS_ARRAY]; // internal
-new bool:MS_CanUse[MAX_PLAYERS_ARRAY]; // internal, only used by the DOT version
-new bool:MS_IsUsing[MAX_PLAYERS_ARRAY]; // internal
-new Float:MS_StartTime[MAX_PLAYERS_ARRAY]; // internal
-new Float:MS_SpawnMeteorsUntil[MAX_PLAYERS_ARRAY]; // internal, affected by arg1
-new MS_ModelCount[MAX_PLAYERS_ARRAY]; // internal, related to arg8
-new MS_SpawnCount[MAX_PLAYERS_ARRAY]; // internal
-new MS_TotalRoundSpawnCount[MAX_PLAYERS_ARRAY]; // statistics
-new MS_WallFailedCount[MAX_PLAYERS_ARRAY]; // statistics
-new MS_EOLCount[MAX_PLAYERS_ARRAY]; // statistics
-new Float:MS_SpeedFactor[MAX_PLAYERS_ARRAY]; // arg2
-new Float:MS_Damage[MAX_PLAYERS_ARRAY]; // arg3
-new Float:MS_SpawnRadius[MAX_PLAYERS_ARRAY]; // arg4
-new MS_MeteorsPerSecond[MAX_PLAYERS_ARRAY]; // arg5
-new Float:MS_Ang0Minimum[MAX_PLAYERS_ARRAY]; // arg6, angle the meteors fall will be minimum to 89.9
-new MS_ModelIndices[MAX_PLAYERS_ARRAY][MAX_ROCKET_MODELS]; // arg7
-new String:MS_TrailEffectOverride[MAX_PLAYERS_ARRAY][MAX_MATERIAL_FILE_LENGTH]; // arg8
-new MS_EffectFlags[MAX_PLAYERS_ARRAY]; // arg9 (ignite, bleed, freeze, and what invalidates the effects...)
-new Float:MS_EffectDuration[MAX_PLAYERS_ARRAY]; // arg10
-new String:MS_EffectModel[MAX_PLAYERS_ARRAY][MAX_MODEL_FILE_LENGTH]; // arg11
-new Float:MS_EffectOpacity[MAX_PLAYERS_ARRAY]; // arg12
-new Float:MS_EffectIntensity[MAX_PLAYERS_ARRAY]; // arg13
-new Float:MS_EffectMedicDurationLimit[MAX_PLAYERS_ARRAY]; // arg14
-new MS_EffectHealth[MAX_PLAYERS_ARRAY]; // arg15
-new MS_EscapeButtonMashCount[MAX_PLAYERS_ARRAY]; // arg16
+int MS_ActiveThisRound = false;
+bool MS_IsDOT[MAX_PLAYERS_ARRAY]; // internal
+bool MS_CanUse[MAX_PLAYERS_ARRAY]; // internal, only used by the DOT version
+bool MS_IsUsing[MAX_PLAYERS_ARRAY]; // internal
+float MS_StartTime[MAX_PLAYERS_ARRAY]; // internal
+float MS_SpawnMeteorsUntil[MAX_PLAYERS_ARRAY]; // internal, affected by arg1
+int MS_ModelCount[MAX_PLAYERS_ARRAY]; // internal, related to arg8
+int MS_SpawnCount[MAX_PLAYERS_ARRAY]; // internal
+int MS_TotalRoundSpawnCount[MAX_PLAYERS_ARRAY]; // statistics
+int MS_WallFailedCount[MAX_PLAYERS_ARRAY]; // statistics
+int MS_EOLCount[MAX_PLAYERS_ARRAY]; // statistics
+float MS_SpeedFactor[MAX_PLAYERS_ARRAY]; // arg2
+float MS_Damage[MAX_PLAYERS_ARRAY]; // arg3
+float MS_SpawnRadius[MAX_PLAYERS_ARRAY]; // arg4
+int MS_MeteorsPerSecond[MAX_PLAYERS_ARRAY]; // arg5
+float MS_Ang0Minimum[MAX_PLAYERS_ARRAY]; // arg6, angle the meteors fall will be minimum to 89.9
+int MS_ModelIndices[MAX_PLAYERS_ARRAY][MAX_ROCKET_MODELS]; // arg7
+char MS_TrailEffectOverride[MAX_PLAYERS_ARRAY][MAX_MATERIAL_FILE_LENGTH]; // arg8
+int MS_EffectFlags[MAX_PLAYERS_ARRAY]; // arg9 (ignite, bleed, freeze, and what invalidates the effects...)
+float MS_EffectDuration[MAX_PLAYERS_ARRAY]; // arg10
+char MS_EffectModel[MAX_PLAYERS_ARRAY][MAX_MODEL_FILE_LENGTH]; // arg11
+float MS_EffectOpacity[MAX_PLAYERS_ARRAY]; // arg12
+float MS_EffectIntensity[MAX_PLAYERS_ARRAY]; // arg13
+float MS_EffectMedicDurationLimit[MAX_PLAYERS_ARRAY]; // arg14
+int MS_EffectHealth[MAX_PLAYERS_ARRAY]; // arg15
+int MS_EscapeButtonMashCount[MAX_PLAYERS_ARRAY]; // arg16
 // meteor shower victim info
-new MSVI_Attacker[MAX_PLAYERS_ARRAY];
-new Float:MSVI_EffectStartTime[MAX_PLAYERS_ARRAY];
-new Float:MSVI_BleedingUntil[MAX_PLAYERS_ARRAY];
-new Float:MSVI_OnFireUntil[MAX_PLAYERS_ARRAY];
-new Float:MSVI_FrozenUntil[MAX_PLAYERS_ARRAY];
-new MSVI_EscapeMask[MAX_PLAYERS_ARRAY];
-new MSVI_EscapeButtonMashesRemaining[MAX_PLAYERS_ARRAY];
-new Float:MSVI_SlowUntil[MAX_PLAYERS_ARRAY];
-new MSVI_FrozenEntRef[MAX_PLAYERS_ARRAY];
-new bool:MSVI_FreezeEntitySettled[MAX_PLAYERS_ARRAY];
-new Float:MSVI_ExpectedSlowSpeed[MAX_PLAYERS_ARRAY];
-new Float:MSVI_RefreshBleedAt[MAX_PLAYERS_ARRAY]; // workaround to bleed's odd mechanics, static damage pool spread out over specified bleed time
+int MSVI_Attacker[MAX_PLAYERS_ARRAY];
+float MSVI_EffectStartTime[MAX_PLAYERS_ARRAY];
+float MSVI_BleedingUntil[MAX_PLAYERS_ARRAY];
+float MSVI_OnFireUntil[MAX_PLAYERS_ARRAY];
+float MSVI_FrozenUntil[MAX_PLAYERS_ARRAY];
+int MSVI_EscapeMask[MAX_PLAYERS_ARRAY];
+int MSVI_EscapeButtonMashesRemaining[MAX_PLAYERS_ARRAY];
+float MSVI_SlowUntil[MAX_PLAYERS_ARRAY];
+int MSVI_FrozenEntRef[MAX_PLAYERS_ARRAY];
+bool MSVI_FreezeEntitySettled[MAX_PLAYERS_ARRAY];
+float MSVI_ExpectedSlowSpeed[MAX_PLAYERS_ARRAY];
+float MSVI_RefreshBleedAt[MAX_PLAYERS_ARRAY]; // workaround to bleed's odd mechanics, static damage pool spread out over specified bleed time
 
 // block all taunts (needed to work around an issue with the gentlemen rage)
 // unlike other abilities, this one by design is not reset when the round ends
 // rather, it gets reset only when the round begins
 #define BAT_STRING "ff2_block_all_taunts"
-new bool:BAT_ActiveThisRound;
+bool BAT_ActiveThisRound;
 
 // a limited disguise ability, released as a DOT
 #define DD_STRING "dot_disguise"
-new bool:DD_ActiveThisRound;
-new bool:DD_CanUse[MAX_PLAYERS_ARRAY];
-new bool:DD_IsUsing[MAX_PLAYERS_ARRAY];
-new bool:DD_DisguiseInProgress[MAX_PLAYERS_ARRAY];
-new Float:DD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
-new Float:DD_DisguiseDuration[MAX_PLAYERS_ARRAY]; // arg1
+bool DD_ActiveThisRound;
+bool DD_CanUse[MAX_PLAYERS_ARRAY];
+bool DD_IsUsing[MAX_PLAYERS_ARRAY];
+bool DD_DisguiseInProgress[MAX_PLAYERS_ARRAY];
+float DD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+float DD_DisguiseDuration[MAX_PLAYERS_ARRAY]; // arg1
 
 // exploit fixes
 #define EF_STRING "ff2_exploit_fixes"
-new bool:EF_ActiveThisRound;
-new bool:EF_CanUse[MAX_PLAYERS_ARRAY];
-new Float:EF_LastCloakedAt[MAX_PLAYERS_ARRAY]; // internal
-new bool:EF_BlockingTelegoomba[MAX_PLAYERS_ARRAY]; // arg1
-new Float:EF_UncloakGoombaFailTime[MAX_PLAYERS_ARRAY]; // arg2
-new EF_TelegoombasAllowed[MAX_PLAYERS_ARRAY]; // arg3
-new Float:EF_FlatReplacementDamage[MAX_PLAYERS_ARRAY]; // arg4
-new Float:EF_ReplacementDamageMultiplier[MAX_PLAYERS_ARRAY]; // arg5
+bool EF_ActiveThisRound;
+bool EF_CanUse[MAX_PLAYERS_ARRAY];
+float EF_LastCloakedAt[MAX_PLAYERS_ARRAY]; // internal
+bool EF_BlockingTelegoomba[MAX_PLAYERS_ARRAY]; // arg1
+float EF_UncloakGoombaFailTime[MAX_PLAYERS_ARRAY]; // arg2
+int EF_TelegoombasAllowed[MAX_PLAYERS_ARRAY]; // arg3
+float EF_FlatReplacementDamage[MAX_PLAYERS_ARRAY]; // arg4
+float EF_ReplacementDamageMultiplier[MAX_PLAYERS_ARRAY]; // arg5
 // exploit fixes: unreasonable distance test for telegoomba
 #define EF_TERMINAL_VELOCITY 3500.0
 #define EF_FRAME_HISTORY_SIZE 7
-new Float:EF_FrameTime[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE];
-new Float:EF_FramePosition[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE][3];
+float EF_FrameTime[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE];
+float EF_FramePosition[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE][3];
 
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
-PrintRageWarning()
+void PrintRageWarning()
 {
 	PrintToServer("*********************************************************************");
 	PrintToServer("*                             WARNING                               *");
@@ -298,7 +288,7 @@ PrintRageWarning()
 }
  
 #define CMD_FORCE_RAGE "rage"
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
@@ -310,7 +300,7 @@ public OnPluginStart2()
 	}
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	// NOTE: For DOTs, only basic inits go here. The real init happens on a time delay shortly after.
 	// It is recommended you don't load anything related to DOTs until then.
@@ -323,7 +313,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	EF_ActiveThisRound = false;
 		
 	// initialize arrays
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// rolling rocks
 		MI_IsMonitoredClone[clientIdx] = false;
@@ -369,7 +359,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		EF_TelegoombasAllowed[clientIdx] = 0;
 		
 		// precaches
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
@@ -452,7 +442,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		}
 			
 		// meteor shower
-		new String:msString[20] = MS_STRING;
+		char msString[20] = MS_STRING;
 		MS_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, msString);
 		if (!MS_CanUse[clientIdx])
 		{
@@ -469,12 +459,12 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			MS_SpawnRadius[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, msString, 4);
 			MS_MeteorsPerSecond[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, msString, 5);
 			MS_Ang0Minimum[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, msString, 6);
-			static String:modelsStr[ROCKET_ARG_STRING_LENGTH];
+			static char modelsStr[ROCKET_ARG_STRING_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, msString, 7, modelsStr, ROCKET_ARG_STRING_LENGTH);
-			new String:modelNames[MAX_ROCKET_MODELS][MAX_MODEL_FILE_LENGTH];
+			char modelNames[MAX_ROCKET_MODELS][MAX_MODEL_FILE_LENGTH];
 			ExplodeString(modelsStr, ";", modelNames, MAX_ROCKET_MODELS, MAX_MODEL_FILE_LENGTH);
 			MS_ModelCount[clientIdx] = 0;
-			for (new i = 0; i < MAX_ROCKET_MODELS; i++)
+			for (int i = 0; i < MAX_ROCKET_MODELS; i++)
 			{
 				if (strlen(modelNames[i]) > 3)
 				{
@@ -537,7 +527,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	}
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = false;
 	
@@ -545,7 +535,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	{
 		RR_ActiveThisRound = false;
 		RR_UnregisterListeners();
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (MI_IsMonitoredClone[clientIdx] && IsLivingPlayer(clientIdx))
 			{
@@ -573,7 +563,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	if (IS_ActiveThisRound)
 	{
 		IS_ActiveThisRound = false;
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (IS_IsStunned[victim])
 			{
@@ -584,7 +574,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 			
 			if (IS_ParticleEntRef[victim] != 0)
 			{
-				new particle = EntRefToEntIndex(IS_ParticleEntRef[victim]);
+				int particle = EntRefToEntIndex(IS_ParticleEntRef[victim]);
 				if (IsValidEntity(particle))
 					RemoveEntity(IS_ParticleEntRef[victim]);
 				IS_ParticleEntRef[victim] = 0;
@@ -596,7 +586,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	{
 		MS_ActiveThisRound = false;
 		MS_UnregisterListeners();
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
 				MS_RemoveAllAilments(clientIdx);
@@ -616,7 +606,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 	}
 }
 
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (strcmp(plugin_name, this_plugin_name) != 0)
 		return Plugin_Continue;
@@ -638,10 +628,10 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Debug Only!
  */
-public Action:CmdForceRage(user, argsInt)
+public Action CmdForceRage(int user, int argsInt)
 {
 	// get actual args
-	new String:unparsedArgs[ARG_LENGTH];
+	char unparsedArgs[ARG_LENGTH];
 	GetCmdArgString(unparsedArgs, ARG_LENGTH);
 	
 	// gotta do this
@@ -670,7 +660,7 @@ public Action:CmdForceRage(user, argsInt)
 /**
  * BAT workaround
  */
-public Action:BAT_BlockTaunt(clientIdx, const String:command[], argc)
+public Action BAT_BlockTaunt(int clientIdx, const char[] command, int argc)
 {
 	if (IsLivingPlayer(clientIdx) && BAT_ActiveThisRound && GetClientTeam(clientIdx) == BossTeam)
 		return Plugin_Stop;
@@ -681,12 +671,12 @@ public Action:BAT_BlockTaunt(clientIdx, const String:command[], argc)
 /**
  * Required by DOT rages
  */
-DOTPostRoundStartInit()
+void DOTPostRoundStartInit()
 {
 	// nothing to do
 }
 
-OnDOTAbilityActivated(clientIdx)
+void OnDOTAbilityActivated(int clientIdx)
 {
 	if (MS_CanUse[clientIdx] && MS_IsDOT[clientIdx])
 	{
@@ -705,7 +695,7 @@ OnDOTAbilityActivated(clientIdx)
 	}
 }
 
-OnDOTAbilityDeactivated(clientIdx)
+void OnDOTAbilityDeactivated(int clientIdx)
 {
 	if (MS_CanUse[clientIdx] && MS_IsDOT[clientIdx])
 	{
@@ -714,13 +704,13 @@ OnDOTAbilityDeactivated(clientIdx)
 	}
 }
 
-OnDOTUserDeath(clientIdx, isInGame)
+void OnDOTUserDeath(int clientIdx, int isInGame)
 {
 	// suppress
 	if (isInGame || clientIdx) { }
 } 
 
-Action:OnDOTAbilityTick(clientIdx, tickCount)
+Action OnDOTAbilityTick(int clientIdx, int tickCount)
 {
 	if (DD_CanUse[clientIdx] && DD_IsUsing[clientIdx])
 		ForceDOTAbilityDeactivation(clientIdx);
@@ -732,9 +722,9 @@ Action:OnDOTAbilityTick(clientIdx, tickCount)
 /**
  * Rolling Rocks helper methods
  */
-public Action:Timer_RestoreLastClass(Handle:timer, any:userId)
+public Action Timer_RestoreLastClass(Handle timer, any userId)
 {
-	new clientIdx = GetClientOfUserId(userId);
+	int clientIdx = GetClientOfUserId(userId);
 	if (clientIdx < 1 || clientIdx >= MAX_PLAYERS)
 		return Plugin_Continue;
 	
@@ -747,7 +737,7 @@ public Action:Timer_RestoreLastClass(Handle:timer, any:userId)
 	return Plugin_Continue;
 }
  
-public RR_RegisterListeners()
+public void RR_RegisterListeners()
 {
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods4] Rolling rocks this round. Registering taunt listeners.");
@@ -761,7 +751,7 @@ public RR_RegisterListeners()
 	HookEvent("player_disconnect", RR_PlayerDisconnect, EventHookMode_Pre);
 }
 
-public RR_UnregisterListeners()
+public void RR_UnregisterListeners()
 {
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods4] Unregistering taunt listeners.");
@@ -775,7 +765,7 @@ public RR_UnregisterListeners()
 	UnhookEvent("player_disconnect", RR_PlayerDisconnect, EventHookMode_Pre);
 }
 
-public RR_RegisterUserSpecificListeners(clientIdx)
+public void RR_RegisterUserSpecificListeners(int clientIdx)
 {
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysamods4] Client %d is a rock, will get user-specific listeners.", clientIdx);
@@ -786,7 +776,7 @@ public RR_RegisterUserSpecificListeners(clientIdx)
 		TF2_AddCondition(clientIdx, TFCond_MegaHeal, -1.0);
 }
 
-public RR_UnregisterUserSpecificListeners(clientIdx)
+public void RR_UnregisterUserSpecificListeners(int clientIdx)
 {
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysamods4] Client %d is a rock, will lose user-specific listeners.", clientIdx);
@@ -797,7 +787,7 @@ public RR_UnregisterUserSpecificListeners(clientIdx)
 		TF2_RemoveCondition(clientIdx, TFCond_MegaHeal);
 }
 
-public Action:BlockTaunt(client, const String:command[], argc)
+public Action BlockTaunt(int client, const char[] command, int argc)
 {
 	if (client > 0 && client < MAX_PLAYERS)
 	{
@@ -809,7 +799,9 @@ public Action:BlockTaunt(client, const String:command[], argc)
 }
 
 // tweaked from the FF2 version
-public Action:BlockSound(clients[64], &numClients, String:sample[PLATFORM_MAX_PATH], &clientIdx, &channel, &Float:volume, &level, &pitch, &flags)
+public Action BlockSound(int clients[MAXPLAYERS], int& numClients, char sample[PLATFORM_MAX_PATH],
+					  int& clientIdx, int& channel, float& volume, int& level, int& pitch, int& flags,
+					  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
@@ -826,9 +818,9 @@ public Action:BlockSound(clients[64], &numClients, String:sample[PLATFORM_MAX_PA
 	return Plugin_Continue;
 }
 
-Float:GetMoveSpeedModifier(Float:speed, TFClassType:class)
+float GetMoveSpeedModifier(float speed, TFClassType class)
 {
-	new Float:baseSpeed = 300.0;
+	float baseSpeed = 300.0;
 	if (class == TFClass_Scout)
 		baseSpeed = 400.0;
 	else if (class == TFClass_Soldier)
@@ -849,18 +841,18 @@ Float:GetMoveSpeedModifier(Float:speed, TFClassType:class)
  * The spawning portion is modified Rage_Clone from ff2_1st_set_abilities
  * While the control augmentation is my doing.
  */
-public RR_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
+public void RR_PlayerDisconnect(Event event, const char[] name, bool dontBroadcast)
 {
 	// prevent client takeover from getting class switched
-	new clientIdx = GetClientOfUserId(GetEventInt(event, "userid"));
+	int clientIdx = GetClientOfUserId(event.GetInt("userid"));
 	if (clientIdx < 1 && clientIdx > MAX_PLAYERS)
 		MI_LastClass[clientIdx] = TFClass_Unknown;
 }
 
-public RR_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public void RR_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	new victim = GetClientOfUserId(GetEventInt(event, "userid"));
-	//new killer = GetClientOfUserId(GetEventInt(event, "attacker"));
+	int victim = GetClientOfUserId(event.GetInt("userid"));
+	//int killer = GetClientOfUserId(GetEventInt(event, "attacker"));
 	
 	if (victim <= 0 || victim >= MAX_PLAYERS)
 		return;
@@ -873,7 +865,9 @@ public RR_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
 }
 
 #define CRIT_MASK (DMG_CRIT | (DMG_CRIT<<1))
-public Action:OnRocksTakeDamage(clientIdx, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnRocksTakeDamage(int clientIdx, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
@@ -893,7 +887,7 @@ public Action:OnRocksTakeDamage(clientIdx, &attacker, &inflictor, &Float:damage,
 
 	if (attacker <= 0 || attacker >= MAX_PLAYERS)
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		if (attacker >= MAX_PLAYERS)
 			GetEntityClassname(attacker, classname, sizeof(classname));
 	
@@ -927,7 +921,9 @@ public Action:OnRocksTakeDamage(clientIdx, &attacker, &inflictor, &Float:damage,
 	return Plugin_Changed;
 }
 
-public OnRocksTakeDamagePost(clientIdx, attacker, inflictor, Float:damage, damagetype)
+public void OnRocksTakeDamagePost(int clientIdx, int attacker, int inflictor, 
+								float damage, int damagetype, int weapon,
+							const float damageForce[3], const float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return;
@@ -938,7 +934,7 @@ public OnRocksTakeDamagePost(clientIdx, attacker, inflictor, Float:damage, damag
 		TF2_RemoveCondition(clientIdx, TFCond_Bleeding);
 }
 
-public Action:OnStomp(attacker, victim, &Float:damageMultiplier, &Float:damageBonus, &Float:JumpPower)
+public Action OnStomp(int attacker, int victim, float& damageMultiplier, float& damageBonus, float& JumpPower)
 {
 	// note for all these goomba blocking cases
 	// I tried Plugin_Stop but it does not prevent the victim from dying
@@ -958,17 +954,17 @@ public Action:OnStomp(attacker, victim, &Float:damageMultiplier, &Float:damageBo
 	// sarysa 2014-10-08
 	if (EF_BlockingTelegoomba[attacker])
 	{
-		new bool:shouldBlock = TF2_IsPlayerInCondition(attacker, TFCond_Dazed);
+		bool shouldBlock = TF2_IsPlayerInCondition(attacker, TFCond_Dazed);
 		if (!shouldBlock)
 		{
 			// do the distance test
-			new Float:timeDiff = GetEngineTime() - EF_FrameTime[attacker][0];
-			static Float:attackerPos[3];
+			float timeDiff = GetEngineTime() - EF_FrameTime[attacker][0];
+			static float attackerPos[3];
 			GetEntPropVector(attacker, Prop_Data, "m_vecOrigin", attackerPos);
 			
-			new Float:dist = GetVectorDistance(attackerPos, EF_FramePosition[attacker][0]);
+			float dist = GetVectorDistance(attackerPos, EF_FramePosition[attacker][0]);
 			
-			new Float:maxAllowedDistance = (EF_TERMINAL_VELOCITY * 1.3) * timeDiff;
+			float maxAllowedDistance = (EF_TERMINAL_VELOCITY * 1.3) * timeDiff;
 			if (dist > maxAllowedDistance)
 				shouldBlock = true;
 		}
@@ -1011,17 +1007,17 @@ public Action:OnStomp(attacker, victim, &Float:damageMultiplier, &Float:damageBo
 	return Plugin_Continue;
 }
 
-public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action RR_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float vel[3], float angles[3], int& weapon)
 {
 	// rolling rocks
 	if (RR_ActiveThisRound)
 	{
 		// frame by frame time deltas are extremely unreliable
-		new Float:curTime = GetEngineTime();
+		float curTime = GetEngineTime();
 				
 		if (MI_IsMonitoredClone[clientIdx])
 		{
-			new bool:wasdPressed = false;
+			bool wasdPressed = false;
 			if (buttons & (IN_MOVELEFT | IN_MOVERIGHT | IN_FORWARD | IN_BACK))
 				wasdPressed = true;
 			buttons = 0;
@@ -1065,7 +1061,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 			}
 
 			// did the player hit the ground? if so, play a sound
-			new bool:onGround = (GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
+			bool onGround = (GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
 			if (onGround && !MI_WasOnGroundLastTick[clientIdx])
 			{
 				if (strlen(RRA_WallHitSound) > 3)
@@ -1084,7 +1080,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 			// ensure the owner is still alive. if not, kill off this rock.
 			if (!IsLivingPlayer(GetClientOfUserId(MI_OwnerUserId[clientIdx])))
 			{
-				new rockSlayer = FindRandomPlayer(false);
+				int rockSlayer = FindRandomPlayer(false);
 				if (!IsLivingPlayer(rockSlayer)) // wtf?
 				{
 					MI_IsMonitoredClone[clientIdx] = false;
@@ -1103,30 +1099,30 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 				return Plugin_Continue;
 			}
 
-			new Float:rockOrigin[3];
-			new Float:angRotation[3];
-			new Float:vecVelocity[3];
+			float rockOrigin[3];
+			float angRotation[3];
+			float vecVelocity[3];
 			GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", rockOrigin);
 			GetEntPropVector(clientIdx, Prop_Send, "m_angRotation", angRotation);
 			GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", vecVelocity);
-			new Float:velocityThisFrame = velocityFromVector(vecVelocity);
+			float velocityThisFrame = velocityFromVector(vecVelocity);
 
 			// test every player for collision
 			// it's a two-bit collision test to be sure, but it'll work since the rocks move slow enough
 			// and their collision area is huge.
-			new Float:min[3];
-			new Float:max[3];
+			float min[3];
+			float max[3];
 			min[0] = rockOrigin[0] + MI_HitDetectionHull[clientIdx][0][0];
 			min[1] = rockOrigin[1] + MI_HitDetectionHull[clientIdx][0][1];
 			min[2] = rockOrigin[2] + MI_HitDetectionHull[clientIdx][0][2];
 			max[0] = rockOrigin[0] + MI_HitDetectionHull[clientIdx][1][0];
 			max[1] = rockOrigin[1] + MI_HitDetectionHull[clientIdx][1][1];
 			max[2] = rockOrigin[2] + MI_HitDetectionHull[clientIdx][1][2];
-			new Float:victimOrigin[3];
-			new Float:knockbackVelocity[3];
+			float victimOrigin[3];
+			float knockbackVelocity[3];
 			if (curTime >= MI_RockNoDamageUntil[clientIdx])
 			{
-				for (new victim = 1; victim < MAX_PLAYERS; victim++)
+				for (int victim = 1; victim < MAX_PLAYERS; victim++)
 				{
 					if (!IsLivingPlayer(victim))
 						continue;
@@ -1136,7 +1132,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 					// test the top of the player and the bottom for collision in our simple rectangle
 					// will work since the rocks' collision rects should be taller than players and extend well beyond the rocks
 					GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimOrigin);
-					new bool:withinBounds = WithinBounds(victimOrigin, min, max);
+					bool withinBounds = WithinBounds(victimOrigin, min, max);
 					victimOrigin[2] += 63.0;
 					withinBounds = withinBounds || WithinBounds(victimOrigin, min, max);
 					victimOrigin[2] -= 63.0;
@@ -1182,7 +1178,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 								if (PRINT_DEBUG_SPAM)
 									PrintToServer("[sarysamods4] Client %d stunned %f", clientIdx, victim);
 
-								new flags = MI_StunType[clientIdx] == RR_STUN_MOONSHOT ? (TF_STUNFLAG_BONKSTUCK | TF_STUNFLAG_NOSOUNDOREFFECT) : (TF_STUNFLAGS_SMALLBONK | TF_STUNFLAG_NOSOUNDOREFFECT);
+								int flags = MI_StunType[clientIdx] == RR_STUN_MOONSHOT ? (TF_STUNFLAG_BONKSTUCK | TF_STUNFLAG_NOSOUNDOREFFECT) : (TF_STUNFLAGS_SMALLBONK | TF_STUNFLAG_NOSOUNDOREFFECT);
 								TF2_StunPlayer(victim, 99999.0, 0.0, flags, clientIdx);
 								RRVI_IsStunned[victim] = true;
 								RRVI_StunnedUntil[victim] = MI_StunDuration[clientIdx] + curTime;
@@ -1209,8 +1205,8 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 
 				if (MI_RockFlags[clientIdx] & RR_DESTROY_BUILDINGS)
 				{
-					new String:entName[MAX_ENTITY_CLASSNAME_LENGTH];
-					for (new i = 0; i < 3; i++)
+					char entName[MAX_ENTITY_CLASSNAME_LENGTH];
+					for (int i = 0; i < 3; i++)
 					{
 						if (i == 0)
 							entName = "obj_sentrygun";
@@ -1219,11 +1215,11 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 						else if (i == 2)
 							entName = "obj_teleporter";
 
-						new building = -1;
+						int building = -1;
 						while ((building = FindEntityByClassname(building, entName)) != -1)
 						{
 							GetEntPropVector(building, Prop_Send, "m_vecOrigin", victimOrigin);
-							new bool:withinBounds = WithinBounds(victimOrigin, min, max);
+							bool withinBounds = WithinBounds(victimOrigin, min, max);
 							victimOrigin[2] += 63.0;
 							withinBounds = withinBounds || WithinBounds(victimOrigin, min, max);
 							victimOrigin[2] -= 63.0;
@@ -1241,7 +1237,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 				}
 			}
 			
-			// renew third person every second
+			// reint third person every second
 			if (curTime >= MI_RenewThirdPersonAt[clientIdx])
 			{
 				SetVariantInt(1);
@@ -1258,7 +1254,7 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 			// otherwise, block WASD
 			if (wasdPressed)
 			{
-				TeleportEntity(clientIdx, MI_LastValidOrigin[clientIdx], NULL_VECTOR, Float:{0.0,0.0,0.0});
+				TeleportEntity(clientIdx, MI_LastValidOrigin[clientIdx], NULL_VECTOR, view_as<float>({0.0,0.0,0.0}));
 				
 				// wasd just got pressed
 				if (MI_WASDDownSince[clientIdx] == FAR_FUTURE)
@@ -1295,17 +1291,17 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 			if (curTime >= MI_PushAt[clientIdx])
 			{
 				// figure out the actual time delta
-				new Float:deltaTime = (curTime - MI_PushAt[clientIdx]) + RR_PUSH_INTERVAL;
-				new Float:maxAngleDifference = deltaTime * MI_TurnSpeed[clientIdx];
+				float deltaTime = (curTime - MI_PushAt[clientIdx]) + RR_PUSH_INTERVAL;
+				float maxAngleDifference = deltaTime * MI_TurnSpeed[clientIdx];
 				//PrintToServer("maxAngleDifference = %f ... turnspeed=%f", maxAngleDifference, MI_TurnSpeed[clientIdx]);
 				
 				// ensure the push angle doesn't exceed the maximum
-				static Float:eyeAngles[3];
+				static float eyeAngles[3];
 				GetClientEyeAngles(clientIdx, eyeAngles);
 				eyeAngles[0] = 0.0; // 2015-03-23, toss out pitch, so the rocks can't throttle
-				new bool:angleDecreased = MI_PreviousYaw[clientIdx] > eyeAngles[1];
-				new Float:angleDifference = fabs(MI_PreviousYaw[clientIdx] - eyeAngles[1]);
-				new bool:forceReangle = false; // only used by TeleportEntity, it'd be jarring to always change angles with that
+				bool angleDecreased = MI_PreviousYaw[clientIdx] > eyeAngles[1];
+				float angleDifference = fabs(MI_PreviousYaw[clientIdx] - eyeAngles[1]);
+				bool forceReangle = false; // only used by TeleportEntity, it'd be jarring to always change angles with that
 				if (angleDifference > 180.0)
 				{
 					angleDifference = 360.0 - angleDifference;
@@ -1324,8 +1320,8 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 				}
 			
 				// get push velocity
-				static Float:pushVel[3];
-				static Float:curVel[3];
+				static float pushVel[3];
+				static float curVel[3];
 
 				GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", curVel);
 				GetAngleVectors(eyeAngles, pushVel, NULL_VECTOR, NULL_VECTOR);
@@ -1357,62 +1353,62 @@ public Action:RR_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 	return Plugin_Continue;
 }
 
-public Rage_RollingRocks(const String:ability_name[], bossIdx)
+public void Rage_RollingRocks(const char[] ability_name, int bossIdx)
 {
 	// classic parameters for rage_clone_attack
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 1, modelName, MAX_MODEL_FILE_LENGTH);
-	new classIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2);
-	new Float:ratio = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 3);
-	new String:weaponName[MAX_ENTITY_CLASSNAME_LENGTH];
+	TFClassType classIdx = view_as<TFClassType>(FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2));
+	float ratio = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 3);
+	char weaponName[MAX_ENTITY_CLASSNAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 4, weaponName, MAX_ENTITY_CLASSNAME_LENGTH);
-	new weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5);
-	new String:attributes[MAX_WEAPON_ARG_LENGTH];
+	int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5);
+	char attributes[MAX_WEAPON_ARG_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 6, attributes, MAX_WEAPON_ARG_LENGTH);
 	
 	// parameters specific to rage_rolling_rocks
-	new String:rangeStr[MAX_RANGE_STRING_LENGTH];
+	char rangeStr[MAX_RANGE_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 7, rangeStr, MAX_RANGE_STRING_LENGTH);
-	new Float:minTurnSpeed;
-	new Float:maxTurnSpeed;
+	float minTurnSpeed;
+	float maxTurnSpeed;
 	ParseFloatRange(rangeStr, minTurnSpeed, maxTurnSpeed);
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 8, rangeStr, MAX_RANGE_STRING_LENGTH);
-	new Float:minSpeed;
-	new Float:maxSpeed;
+	float minSpeed;
+	float maxSpeed;
 	ParseFloatRange(rangeStr, minSpeed, maxSpeed);
-	new Float:damageOnTouch = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 9);
-	new stunTypeOnTouch = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
-	new Float:stunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 11);
-	new Float:knockbackIntensityModifier = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 12);
-	new Float:immunityDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 13);
-	new String:hullStr[MAX_HULL_STRING_LENGTH];
+	float damageOnTouch = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 9);
+	int stunTypeOnTouch = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
+	float stunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 11);
+	float knockbackIntensityModifier = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 12);
+	float immunityDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 13);
+	char hullStr[MAX_HULL_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 14, hullStr, MAX_HULL_STRING_LENGTH);
-	new Float:hull[2][3];
+	float hull[2][3];
 	ParseHull(hullStr, hull);
-	new Float:maxIncomingDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 15);
-	new maxHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 16);
-	new Float:rockDamageStartDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 17);
-	new Float:wasdDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 18);
-	new rockFlags = ReadHexOrDecString(bossIdx, ability_name, 19);
+	float maxIncomingDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 15);
+	int maxHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 16);
+	float rockDamageStartDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 17);
+	float wasdDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 18);
+	int rockFlags = ReadHexOrDecString(bossIdx, ability_name, 19);
 	
 	// an aesthetic that only happens at spawn time
-	new String:centerText[MAX_CENTER_TEXT_LENGTH];
+	char centerText[MAX_CENTER_TEXT_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RRA_STRING, 6, centerText, MAX_CENTER_TEXT_LENGTH);
 
-	new Float:bossOrigin[3];
-	new Float:velocity[3];
+	float bossOrigin[3];
+	float velocity[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", bossOrigin);
 
-	new alive = 0;
-	new dead = 0;
-	new Handle:players = CreateArray();
-	for (new target = 1; target < MAX_PLAYERS; target++)
+	int alive = 0;
+	int dead = 0;
+	Handle players = CreateArray();
+	for (int target = 1; target < MAX_PLAYERS; target++)
 	{
 		if (IsClientInGame(target))
 		{
-			new team = GetClientTeam(target);
-			if (team > _:TFTeam_Spectator)
+			int team = GetClientTeam(target);
+			if (team > view_as<int>(TFTeam_Spectator))
 			{
 				if (IsPlayerAlive(target) && team != BossTeam)
 				{
@@ -1429,7 +1425,7 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 		}
 	}
 
-	new totalMinions = RoundToCeil(alive * ratio);
+	int totalMinions = RoundToCeil(alive * ratio);
 	
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods4] Client %d executing %s, with up to %d minions, %d valid dead players.", clientIdx, RR_STRING, totalMinions, dead);
@@ -1438,21 +1434,21 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 	{
 		totalMinions = alive;
 	}
-	new clone, temp;
-	for (new i = 0; i < dead && i < totalMinions; i++)
+	int clone, temp;
+	for (int i = 0; i < dead && i < totalMinions; i++)
 	{
 		// find a random player and store their class
 		temp = GetRandomInt(0, GetArraySize(players) - 1);
 		clone = GetArrayCell(players, temp);
 		RemoveFromArray(players, temp);
-		if (TF2_GetPlayerClass(clone) != TFClassType:classIdx)
+		if (TF2_GetPlayerClass(clone) != classIdx)
 			MI_LastClass[clone] = TF2_GetPlayerClass(clone);
 
 		// respawn them as a blu
 		FF2_SetFF2flags(clone, FF2_GetFF2flags(clone) | FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 		ChangeClientTeam(clone, BossTeam);
 		TF2_RespawnPlayer(clone);
-		TF2_SetPlayerClass(clone, TFClassType:classIdx);
+		TF2_SetPlayerClass(clone, classIdx);
 
 		// change their model
 		if (strlen(modelName) > 3)
@@ -1463,16 +1459,16 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 		}
 		
 		// tweak their weapon
-		new weapon;
+		int weapon;
 		TF2_RemoveAllWeapons(clone);
-		new String:tweakedAttributes[MAX_WEAPON_ARG_LENGTH + 40];
-		new Float:moveSpeed = GetRandomFloat(minSpeed, maxSpeed);
-		new Float:moveSpeedModifier = GetMoveSpeedModifier(moveSpeed, TFClassType:classIdx);
+		char tweakedAttributes[MAX_WEAPON_ARG_LENGTH + 40];
+		float moveSpeed = GetRandomFloat(minSpeed, maxSpeed);
+		float moveSpeedModifier = GetMoveSpeedModifier(moveSpeed, classIdx);
 		if (moveSpeedModifier == 1.0) // will almost never happen...
 			Format(tweakedAttributes, sizeof(tweakedAttributes), "%s", attributes);
 		else
 		{
-			new attr1 = moveSpeedModifier > 1.0 ? 107 : 54;
+			int attr1 = moveSpeedModifier > 1.0 ? 107 : 54;
 			if (strlen(attributes) < 3)
 				Format(tweakedAttributes, sizeof(tweakedAttributes), "%d ; %f", attr1, moveSpeedModifier);
 			else
@@ -1490,8 +1486,8 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 		velocity[0] = GetRandomFloat(300.0, 500.0) * (GetRandomInt(0, 1) ? 1 : -1);
 		velocity[1] = GetRandomFloat(300.0, 500.0) * (GetRandomInt(0, 1) ? 1 : -1);
 		velocity[2] = GetRandomFloat(300.0, 500.0);
-		new Float:startingYaw = GetRandomFloat(-179.9, 179.9);
-		new Float:teleportAngle[3];
+		float startingYaw = GetRandomFloat(-179.9, 179.9);
+		float teleportAngle[3];
 		teleportAngle[0] = 0.0;
 		teleportAngle[1] = startingYaw;
 		teleportAngle[2] = 0.0;
@@ -1507,10 +1503,10 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 		
 		// initialize the data we'll be following for this player
 		MI_IsMonitoredClone[clone] = true;
-		for (new j = 1; j < MAX_PLAYERS; j++)
+		for (int j = 1; j < MAX_PLAYERS; j++)
 			MI_ImmuneUntil[clone][j] = 0.0;
 		MI_OwnerUserId[clone] = GetClientUserId(clientIdx);
-		MI_ExpectedClass[clone] = TFClassType:classIdx;
+		MI_ExpectedClass[clone] = classIdx;
 		MI_MoveSpeed[clone] = moveSpeed;
 		MI_TurnSpeed[clone] = GetRandomFloat(minTurnSpeed, maxTurnSpeed);
 		MI_DamageOnTouch[clone] = damageOnTouch;
@@ -1518,8 +1514,8 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 		MI_StunDuration[clone] = stunDuration;
 		MI_KnockbackIntensity[clone] = knockbackIntensityModifier;
 		MI_ImmunityDuration[clone] = immunityDuration;
-		for (new j = 0; j <= 1; j++)
-			for (new k = 0; k <= 2; k++)
+		for (int j = 0; j <= 1; j++)
+			for (int k = 0; k <= 2; k++)
 				MI_HitDetectionHull[clone][j][k] = hull[j][k];
 		MI_MaxIncomingDamage[clone] = maxIncomingDamage;
 		MI_RockFlags[clone] = rockFlags;
@@ -1554,8 +1550,8 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 	}
 	CloseHandle(players);
 
-	new entity;
-	new owner;
+	int entity;
+	int owner;
 	while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
 	{
 		if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==BossTeam)
@@ -1584,13 +1580,13 @@ public Rage_RollingRocks(const String:ability_name[], bossIdx)
 /**
  * Glide
  */
-public Action:GLIDE_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action GLIDE_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float vel[3], float angles[3], int& weapon)
 {
 	// glide
 	if (GLIDE_ActiveThisRound && GLIDE_CanUse[clientIdx])
 	{
-		new bool:spaceBarIsDown = (buttons & IN_JUMP) != 0;
-		new bool:onGround = (GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
+		bool spaceBarIsDown = (buttons & IN_JUMP) != 0;
+		bool onGround = (GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
 		
 		// stop using if user releases key, if user is on ground, if user's rage ended and it's a rage-only ability, or if it's passed the max duration
 		if (GLIDE_IsUsing[clientIdx] && ((GLIDE_SpaceBarWasDown[clientIdx] && !spaceBarIsDown) || (onGround) || (GetEngineTime() >= GLIDE_UsableUntil[clientIdx]) || (GLIDE_SingleUseStartTime[clientIdx] + GLIDE_MaxDuration[clientIdx] <= GetEngineTime())))
@@ -1631,9 +1627,9 @@ public Action:GLIDE_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], 
 			//if (PRINT_DEBUG_SPAM)
 			//	PrintToServer("[sarysamods4] %d is gliding.", clientIdx);
 				
-			new Float:currentVelocityLimit = -(GLIDE_OriginalMaxVelocity[clientIdx] + ((GetEngineTime() - GLIDE_SingleUseStartTime[clientIdx]) * GLIDE_DecayPerSecond[clientIdx]));
+			float currentVelocityLimit = -(GLIDE_OriginalMaxVelocity[clientIdx] + ((GetEngineTime() - GLIDE_SingleUseStartTime[clientIdx]) * GLIDE_DecayPerSecond[clientIdx]));
 		
-			new Float:vecVelocity[3];
+			float vecVelocity[3];
 			GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", vecVelocity);
 			if (vecVelocity[2] < currentVelocityLimit)
 				vecVelocity[2] = currentVelocityLimit;
@@ -1647,9 +1643,9 @@ public Action:GLIDE_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], 
 	return Plugin_Continue;
 }
 
-public Rage_Glide(const String:ability_name[], bossIdx)
+public void Rage_Glide(const char[] ability_name, int bossIdx)
 {
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	if (GLIDE_RageOnly[clientIdx])
 		GLIDE_UsableUntil[clientIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 2);
@@ -1661,7 +1657,7 @@ public Rage_Glide(const String:ability_name[], bossIdx)
 #define IMMUNE_NEVER 0
 #define IMMUNE_UBER 1
 #define IMMUNE_ALWAYS 2
-public IS_Tick(clientIdx, Float:curTime)
+public void IS_Tick(int clientIdx, float curTime)
 {
 	if (IS_IsStunned[clientIdx] && IS_StunnedUntil[clientIdx] <= GetEngineTime())
 	{
@@ -1674,19 +1670,19 @@ public IS_Tick(clientIdx, Float:curTime)
 		
 		if (IS_ParticleEntRef[clientIdx] != 0)
 		{
-			new particle = EntRefToEntIndex(IS_ParticleEntRef[clientIdx]);
+			int particle = EntRefToEntIndex(IS_ParticleEntRef[clientIdx]);
 			if (IsValidEntity(particle))
 				RemoveEntity(IS_ParticleEntRef[clientIdx]);
 			IS_ParticleEntRef[clientIdx] = 0;
 		}
 		
-		new Float:speed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
+		float speed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
 		if (speed == IS_ExpectedSpeed[clientIdx] && IS_SpeedModifier[clientIdx] != 1.0)
 			SetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed", speed / IS_SpeedModifier[clientIdx]);
 	}
 	else if (IS_IsStunned[clientIdx])
 	{
-		new Float:speed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
+		float speed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
 		if (speed != IS_ExpectedSpeed[clientIdx])
 		{
 			speed *= IS_SpeedModifier[clientIdx];
@@ -1696,46 +1692,46 @@ public IS_Tick(clientIdx, Float:curTime)
 	}
 }
 
-public Rage_ImprovedStun(const String:ability_name[], bossIdx)
+public void Rage_ImprovedStun(const char[] ability_name, int bossIdx)
 {
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
-	new Float:duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new Float:radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 2);
-	new bool:isHardStun = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 3) == 1;
-	new Float:slowdown = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 4);
-	new bool:playDefaultStunSound = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5) == 1;
-	new String:particleEffect[MAX_EFFECT_NAME_LENGTH];
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 2);
+	bool isHardStun = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 3) == 1;
+	float slowdown = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 4);
+	bool playDefaultStunSound = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5) == 1;
+	char particleEffect[MAX_EFFECT_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 6, particleEffect, MAX_EFFECT_NAME_LENGTH);
-	new medigunUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
-	new medigunPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 8);
-	new quickFixUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 9);
-	new quickFixPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
-	new vaccinatorUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 11);
-	new vaccinatorPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 12);
-	new String:flagOverrideStr[HEX_OR_DEC_STRING_LENGTH];
+	int medigunUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
+	int medigunPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 8);
+	int quickFixUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 9);
+	int quickFixPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
+	int vaccinatorUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 11);
+	int vaccinatorPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 12);
+	char flagOverrideStr[HEX_OR_DEC_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 13, flagOverrideStr, HEX_OR_DEC_STRING_LENGTH);
-	new flagOverride = ReadHexOrDecInt(flagOverrideStr);
-	new Float:speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
+	int flagOverride = ReadHexOrDecInt(flagOverrideStr);
+	float speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
 	if (speedFactor <= 0.0)
 		speedFactor = 1.0;
 
-	new stunFlags = isHardStun ? TF_STUNFLAG_BONKSTUCK : TF_STUNFLAGS_SMALLBONK;
+	int stunFlags = isHardStun ? TF_STUNFLAG_BONKSTUCK : TF_STUNFLAGS_SMALLBONK;
 	if (!playDefaultStunSound)
 		stunFlags |= TF_STUNFLAG_NOSOUNDOREFFECT;
 	if (flagOverride != 0)
 		stunFlags = flagOverride;
 	
-	new Float:bossOrigin[3];
-	new Float:victimOrigin[3];
+	float bossOrigin[3];
+	float victimOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 	
-	static bool:isImmune[MAX_PLAYERS_ARRAY];
-	for (new victim = 1; victim < MAX_PLAYERS; victim++) // initialize
+	static bool isImmune[MAX_PLAYERS_ARRAY];
+	for (int victim = 1; victim < MAX_PLAYERS; victim++) // initialize
 		isImmune[victim] = false;
 		
 	// iterate through the list to see if targets are valid for stun
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (isImmune[victim])
 			continue; // this player has already been determined due to their link to a medic
@@ -1744,19 +1740,19 @@ public Rage_ImprovedStun(const String:ability_name[], bossIdx)
 			continue;
 			
 		// can't determine if the user isn't equipping a medigun
-		new weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
+		int weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
 		if (IsValidEntity(weapon))
 		{
-			static String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+			static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 			GetEntityClassname(weapon, classname, sizeof(classname));
 			if (!strcmp(classname, "tf_weapon_medigun"))
 			{
-				new itemIndex = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
-				new bool:ubering = (GetEntProp(weapon, Prop_Send, "m_bChargeRelease") & 0x1) == 1;
-				new partner = GetEntProp(weapon, Prop_Send, "m_hHealingTarget") & 0x3ff;
+				int itemIndex = GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex");
+				bool ubering = (GetEntProp(weapon, Prop_Send, "m_bChargeRelease") & 0x1) == 1;
+				int partner = GetEntPropEnt(weapon, Prop_Send, "m_hHealingTarget");
 				
-				new userImmune = medigunUserImmune;
-				new partnerImmune = medigunPartnerImmune;
+				int userImmune = medigunUserImmune;
+				int partnerImmune = medigunPartnerImmune;
 				
 				if (itemIndex == 998) // vaccinator
 				{
@@ -1786,7 +1782,7 @@ public Rage_ImprovedStun(const String:ability_name[], bossIdx)
 	}
 	
 	// now stun valid targets
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (isImmune[victim])
 			continue;
@@ -1818,7 +1814,7 @@ public Rage_ImprovedStun(const String:ability_name[], bossIdx)
 				{
 					if (IS_ParticleEntRef[victim] == 0)
 					{
-						new particle = AttachParticle(victim, particleEffect, 70.0, true);
+						int particle = AttachParticle(victim, particleEffect, 70.0, true);
 						if (IsValidEntity(particle))
 							IS_ParticleEntRef[victim] = EntIndexToEntRef(particle);
 					}
@@ -1842,14 +1838,14 @@ public Rage_ImprovedStun(const String:ability_name[], bossIdx)
 /**
  * Meteor Shower
  */
-public MS_FreezeIfValid(clientIdx)
+public void MS_FreezeIfValid(int clientIdx)
 {
 	if (!MSVI_FreezeEntitySettled[clientIdx] && MSVI_FrozenEntRef[clientIdx] != 0)
 	{
-		new entity = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
+		int entity = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
 		if (IsValidEntity(entity))
 		{
-			new Float:origin[3];
+			float origin[3];
 			GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", origin);
 			SetEntPropVector(entity, Prop_Send, "m_vecOrigin", origin);
 		}
@@ -1864,27 +1860,27 @@ public MS_FreezeIfValid(clientIdx)
 		MSVI_FreezeEntitySettled[clientIdx] = false;
 }
  
-public MS_PlayerDeath(Handle:event, const String:name[], bool:dontBroadcast)
+public void MS_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
 {
-	new victim = GetClientOfUserId(GetEventInt(event, "userid"));
+	int victim = GetClientOfUserId(event.GetInt("userid"));
 	
 	if (victim <= 0 || victim >= MAX_PLAYERS)
 		return;
 		
 	if (MSVI_FrozenEntRef[victim] != 0)
 	{
-		new entity = EntRefToEntIndex(MSVI_FrozenEntRef[victim]);
+		int entity = EntRefToEntIndex(MSVI_FrozenEntRef[victim]);
 		if (IsValidEntity(entity))
 			RemoveEntity(entity);
 		MSVI_FrozenEntRef[victim] = 0;
 	}
 }
 
-public MS_RegisterListeners()
+public void MS_RegisterListeners()
 {
 	HookEvent("player_spawn", Event_PlayerSpawnMS, EventHookMode_Post);
 	HookEvent("player_death", MS_PlayerDeath);
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
 		{
@@ -1894,11 +1890,11 @@ public MS_RegisterListeners()
 	}
 }
 
-public MS_UnregisterListeners()
+public void MS_UnregisterListeners()
 {
 	UnhookEvent("player_spawn", Event_PlayerSpawnMS, EventHookMode_Post);
 	UnhookEvent("player_death", MS_PlayerDeath);
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
 		{
@@ -1908,7 +1904,7 @@ public MS_UnregisterListeners()
 	}
 }
 
-MS_RemoveAllAilments(clientIdx)
+void MS_RemoveAllAilments(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx) || MSVI_Attacker[clientIdx] <= 0)
 		return;
@@ -1933,7 +1929,7 @@ MS_RemoveAllAilments(clientIdx)
 		SetEntityMoveType(clientIdx, MOVETYPE_WALK);
 		if (MSVI_FrozenEntRef[clientIdx] != 0)
 		{
-			new entity = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
+			int entity = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
 			if (IsValidEntity(entity))
 				RemoveEntity(entity);
 		}
@@ -1944,7 +1940,7 @@ MS_RemoveAllAilments(clientIdx)
 	{
 		MSVI_SlowUntil[clientIdx] = 0.0;
 		
-		new Float:maxSpeed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
+		float maxSpeed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
 		if (maxSpeed == MSVI_ExpectedSlowSpeed[clientIdx])
 			SetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed", maxSpeed / MS_EffectIntensity[MSVI_Attacker[clientIdx]]);
 	}
@@ -1952,7 +1948,9 @@ MS_RemoveAllAilments(clientIdx)
 	MSVI_Attacker[clientIdx] = -1;
 }
 
-public Action:OnTakeDamageMS(victim, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTakeDamageMS(int victim, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!MS_ActiveThisRound) // it seems to have leaked
 		return Plugin_Continue;
@@ -1965,18 +1963,18 @@ public Action:OnTakeDamageMS(victim, &attacker, &inflictor, &Float:damage, &dama
 	if (TF2_IsPlayerInCondition(victim, TFCond_MegaHeal) || TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
 		return Plugin_Continue;
 		
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 
 	// detecting the initial effect-triggering explosion requires the attacker to be a living player
 	// so do certain cancel cases like explosion and melee damage (which is a two-bit lazy check)
 	if (IsLivingPlayer(attacker))
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		GetEntityClassname(inflictor, classname, sizeof(classname));
 	
 		if (!strcmp(classname, "tf_projectile_rocket") && GetClientTeam(attacker) == BossTeam)
 		{
-			new bool:secondaryEffect = false;
+			bool secondaryEffect = false;
 
 			if ((MS_EffectFlags[attacker] & MS_EFFECT_BLEED) != 0)
 			{
@@ -2006,13 +2004,13 @@ public Action:OnTakeDamageMS(victim, &attacker, &inflictor, &Float:damage, &dama
 				MSVI_EscapeButtonMashesRemaining[victim] = MS_EscapeButtonMashCount[attacker];
 				if (strlen(MS_EffectModel[attacker]) > 3 && MSVI_FrozenEntRef[victim] == 0)
 				{
-					new effect = CreateEntityByName("prop_physics_override");
+					int effect = CreateEntityByName("prop_physics_override");
 					if (IsValidEntity(effect))
 					{
 						if (PRINT_DEBUG_SPAM)
 							PrintToServer("[sarysamods4] Created freeze entity %d", effect);
 					
-						new Float:victimOrigin[3];
+						float victimOrigin[3];
 						GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimOrigin);
 						SetEntityModel(effect, MS_EffectModel[attacker]);
 						DispatchSpawn(effect);
@@ -2073,9 +2071,9 @@ public Action:OnTakeDamageMS(victim, &attacker, &inflictor, &Float:damage, &dama
 	return Plugin_Continue;
 }
 
-public Action:Event_PlayerSpawnMS(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerSpawnMS(Handle event, const char[] name, bool dontBroadcast)
 {
-	new clientIdx = GetClientOfUserId(GetEventInt(event, "userid"));
+	int clientIdx = GetClientOfUserId(GetEventInt(event, "userid"));
 	if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != BossTeam)
 	{
 		SDKHook(clientIdx, SDKHook_OnTakeDamage, OnTakeDamageMS);
@@ -2083,54 +2081,52 @@ public Action:Event_PlayerSpawnMS(Handle:event, const String:name[], bool:dontBr
 	}
 }
 
-public Action:RemoveRocket(Handle:timer, any:entRef)
+public Action RemoveRocket(Handle timer, any entRef)
 {
-	new entity = EntRefToEntIndex(entRef);
+	int entity = EntRefToEntIndex(entRef);
 	if (IsValidEntity(entity))
 	{
-		new clientIdx = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+		int clientIdx = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 		if (IsLivingPlayer(clientIdx))
 			MS_EOLCount[clientIdx]++;
 		AcceptEntityInput(entity, "kill");
 	}
 }
 
-public SpawnMeteor(clientIdx)
+public void SpawnMeteor(int clientIdx)
 {
 	// get the modified position of the player, for our ray traces
-	new Float:bossOrigin[3];
-	new Float:bossRayOrigin[3];
+	float bossOrigin[3];
+	float bossRayOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 	bossRayOrigin[0] = bossOrigin[0];
 	bossRayOrigin[1] = bossOrigin[1];
 	bossRayOrigin[2] = bossOrigin[2] + 41.5;
 	
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
-	new Float:speed = 1100.0 * MS_SpeedFactor[clientIdx];
-	new Float:damage = fixDamageForFF2(MS_Damage[clientIdx]);
-	new String:classname[MAX_ENTITY_CLASSNAME_LENGTH] = "CTFProjectile_Rocket";
-	new String:entname[MAX_ENTITY_CLASSNAME_LENGTH] = "tf_projectile_rocket";
-	new rocket = CreateEntityByName(entname);
+	float speed = 1100.0 * MS_SpeedFactor[clientIdx];
+	float damage = fixDamageForFF2(MS_Damage[clientIdx]);
+	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
-		PrintToServer("[sarysamods4] Error: Invalid entity %s. Won't spawn rocket.", entname);
+		PrintToServer("[sarysamods4] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket.");
 		return;
 	}
 	
 	// make a whole bunch of attempts at finding a good spawn position
-	new Float:spawnPosition[3];
-	new Float:traceEndPosition[3];
-	new Float:traceAngles[3];
-	new Handle:trace;
-	new Float:minDistance;
-	new Float:traceDistance;
-	new bool:foundValidPoint = false;
-	new locationAttempts = (MS_EffectFlags[clientIdx] & MS_FLAG_IGNORE_WALL_TEST) ? 1 : MS_LOCATION_ATTEMPTS;
-	for (new i = 0; i < locationAttempts; i++)
+	float spawnPosition[3];
+	float traceEndPosition[3];
+	float traceAngles[3];
+	Handle trace;
+	float minDistance;
+	float traceDistance;
+	bool foundValidPoint = false;
+	int locationAttempts = (MS_EffectFlags[clientIdx] & MS_FLAG_IGNORE_WALL_TEST) ? 1 : MS_LOCATION_ATTEMPTS;
+	for (int i = 0; i < locationAttempts; i++)
 	{
 		traceAngles[1] = GetRandomFloat(-179.9, 179.9);
 		minDistance = GetRandomFloat(0.0, MS_SpawnRadius[clientIdx]);
-		for (new j = 0; j < 3; j++)
+		for (int j = 0; j < 3; j++)
 		{
 			traceAngles[0] = j == 0 ? 0.0 : (j == 1 ? MS_TEST_DEVIATION_ANGLE : -MS_TEST_DEVIATION_ANGLE);
 			
@@ -2171,12 +2167,12 @@ public SpawnMeteor(clientIdx)
 	spawnPosition[2] = fmin(spawnPosition[2], bossOrigin[2] + MS_ROCKET_MAX_SPAWN_HEIGHT);
 	
 	// come up with random angles
-	new Float:spawnAngles[3];
+	float spawnAngles[3];
 	spawnAngles[0] = GetRandomFloat(MS_Ang0Minimum[clientIdx], 89.9);
 	spawnAngles[1] = GetRandomFloat(-179.9, 179.9);
 	
 	// determine velocity
-	new Float:spawnVelocity[3];
+	float spawnVelocity[3];
 	GetAngleVectors(spawnAngles, spawnVelocity, NULL_VECTOR, NULL_VECTOR);
 	spawnVelocity[0] *= speed;
 	spawnVelocity[1] *= speed;
@@ -2185,7 +2181,7 @@ public SpawnMeteor(clientIdx)
 	// deploy!
 	TeleportEntity(rocket, spawnPosition, spawnAngles, spawnVelocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
-	SetEntDataFloat(rocket, FindSendPropOffs(classname, "m_iDeflected") + 4, damage, true); // credit to voogru
+	SetEntDataFloat(rocket, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, damage, true); // credit to voogru
 	SetEntProp(rocket, Prop_Send, "m_nSkin", 1); // set skin to blue team's
 	SetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity", clientIdx);
 	SetVariantInt(BossTeam);
@@ -2199,13 +2195,13 @@ public SpawnMeteor(clientIdx)
 	SetEntPropEnt(rocket, Prop_Send, "m_hLauncher", GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Melee));
 
 	// must reskin after spawn
-	new model = MS_ModelCount[clientIdx] == 0 ? 0 : MS_ModelIndices[clientIdx][GetRandomInt(0, MS_ModelCount[clientIdx] - 1)];
+	int model = MS_ModelCount[clientIdx] == 0 ? 0 : MS_ModelIndices[clientIdx][GetRandomInt(0, MS_ModelCount[clientIdx] - 1)];
 	SetEntProp(rocket, Prop_Send, "m_nModelIndex", model);
 	
 	// trail override
 	if (!IsEmptyString(MS_TrailEffectOverride[clientIdx]))
 	{
-		new particle = AttachParticle(rocket, MS_TrailEffectOverride[clientIdx]);
+		int particle = AttachParticle(rocket, MS_TrailEffectOverride[clientIdx]);
 		if (IsValidEntity(particle))
 			CreateTimer(MS_ROCKET_LIFE, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
@@ -2217,7 +2213,7 @@ public SpawnMeteor(clientIdx)
 	CreateTimer(MS_ROCKET_LIFE, RemoveRocket, EntIndexToEntRef(rocket), TIMER_FLAG_NO_MAPCHANGE); // I'm deciding to allow this timer to stay. the alternative would be inefficient.
 }
 
-public MS_Tick(clientIdx, Float:curTime)
+public void MS_Tick(int clientIdx, float curTime)
 {
 	if (MS_IsUsing[clientIdx])
 	{
@@ -2228,20 +2224,20 @@ public MS_Tick(clientIdx, Float:curTime)
 		}
 
 		// time since this instance of the rage began
-		new Float:timeSinceStart = curTime - MS_StartTime[clientIdx];
+		float timeSinceStart = curTime - MS_StartTime[clientIdx];
 
 		// how many should have been spawned by now?
-		new expectedMeteorCount = RoundFloat(timeSinceStart * float(MS_MeteorsPerSecond[clientIdx]));
+		int expectedMeteorCount = RoundFloat(timeSinceStart * float(MS_MeteorsPerSecond[clientIdx]));
 
 		// spawn meteors
-		for (new i = MS_SpawnCount[clientIdx]; i < expectedMeteorCount; i++)
+		for (int i = MS_SpawnCount[clientIdx]; i < expectedMeteorCount; i++)
 			SpawnMeteor(clientIdx);
 		MS_TotalRoundSpawnCount[clientIdx] += expectedMeteorCount - MS_SpawnCount[clientIdx];
 		MS_SpawnCount[clientIdx] = expectedMeteorCount;
 	}
 	else if (MSVI_Attacker[clientIdx] > 0) // is a victim
 	{
-		new attacker = MSVI_Attacker[clientIdx];
+		int attacker = MSVI_Attacker[clientIdx];
 		if (!IsLivingPlayer(attacker))
 		{
 			MS_RemoveAllAilments(clientIdx);
@@ -2261,7 +2257,7 @@ public MS_Tick(clientIdx, Float:curTime)
 		// remove freeze if the freeze entity is gone
 		if (MSVI_FrozenEntRef[clientIdx] != 0)
 		{
-			new freezeObject = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
+			int freezeObject = EntRefToEntIndex(MSVI_FrozenEntRef[clientIdx]);
 			if (!IsValidEntity(freezeObject))
 			{
 				SetEntityMoveType(clientIdx, MOVETYPE_WALK);
@@ -2277,7 +2273,7 @@ public MS_Tick(clientIdx, Float:curTime)
 		// refresh slow if necessary
 		if (MSVI_SlowUntil[clientIdx] > curTime)
 		{
-			new Float:maxSpeed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
+			float maxSpeed = GetEntPropFloat(clientIdx, Prop_Send, "m_flMaxspeed");
 			if (maxSpeed != MSVI_ExpectedSlowSpeed[clientIdx])
 			{
 				MSVI_ExpectedSlowSpeed[clientIdx] = maxSpeed * MS_EffectIntensity[attacker];
@@ -2312,13 +2308,13 @@ public MS_Tick(clientIdx, Float:curTime)
 	}
 }
 
-public Action:MS_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action MS_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float vel[3], float angles[3], int& weapon)
 {
 	if (MSVI_Attacker[clientIdx] > 0 && MSVI_FrozenUntil[clientIdx] > 0.0 && MSVI_EscapeButtonMashesRemaining[clientIdx] > 0)
 	{
-		new escapeMask = (buttons & MS_ESCAPE_MASK);
-		new escapeCount = 0;
-		for (new i = 0; i < 32; i++)
+		int escapeMask = (buttons & MS_ESCAPE_MASK);
+		int escapeCount = 0;
+		for (int i = 0; i < 32; i++)
 			if ((escapeMask & (1<<i)) != 0 && (MSVI_EscapeMask[clientIdx] & (1<<i)) == 0)
 				escapeCount++;
 		
@@ -2329,7 +2325,7 @@ public Action:MS_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 			MSVI_FrozenUntil[clientIdx] = GetEngineTime(); // queue unfreeze
 		else if (escapeCount > 0)
 		{
-			static Float:punchVel[3];
+			static float punchVel[3];
 			punchVel[0] = punchVel[1] = punchVel[2] = 25.0 * float(escapeCount);
 			SetEntPropVector(clientIdx, Prop_Send, "m_vecPunchAngleVel", punchVel);
 		}
@@ -2338,12 +2334,12 @@ public Action:MS_OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Flo
 	return Plugin_Continue;
 }
 
-public Rage_MeteorShower(const String:ability_name[], bossIdx)
+public void Rage_MeteorShower(const char[] ability_name, int bossIdx)
 {
 	// all this method does is trigger the beginning of the meteor shower
-	new clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
-	new Float:duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
 	MS_SpawnMeteorsUntil[clientIdx] = GetEngineTime() + duration;
 	MS_IsUsing[clientIdx] = true;
 	MS_SpawnCount[clientIdx] = 0;
@@ -2353,7 +2349,7 @@ public Rage_MeteorShower(const String:ability_name[], bossIdx)
 /**
  * DOT Disguise
  */
-public bool:DOTDisguise(clientIdx)
+public bool DOTDisguise(int clientIdx)
 {
 	if (DD_DisguiseInProgress[clientIdx])
 		return false;
@@ -2364,14 +2360,14 @@ public bool:DOTDisguise(clientIdx)
 	return true;
 }
 
-public DD_Tick(clientIdx, Float:curTime)
+public void DD_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= DD_ExecuteRageAt[clientIdx])
 	{
 		DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 		DD_DisguiseInProgress[clientIdx] = false;
 
-		new randomMerc = FindRandomPlayer(false);
+		int randomMerc = FindRandomPlayer(false);
 		if (randomMerc == -1)
 			return;
 
@@ -2383,7 +2379,7 @@ public DD_Tick(clientIdx, Float:curTime)
 /**
  * Exploit Fixes
  */
-public EF_Tick(clientIdx, Float:curTime)
+public void EF_Tick(int clientIdx, float curTime)
 {
 	if (EF_UncloakGoombaFailTime[clientIdx] > 0.0 && TF2_IsPlayerInCondition(clientIdx, TFCond_Cloaked))
 	{
@@ -2393,7 +2389,7 @@ public EF_Tick(clientIdx, Float:curTime)
 	if (EF_BlockingTelegoomba[clientIdx])
 	{
 		// move back all the previous stored positions by 1
-		for (new i = 0; i < EF_FRAME_HISTORY_SIZE - 1; i++)
+		for (int i = 0; i < EF_FRAME_HISTORY_SIZE - 1; i++)
 		{
 			EF_FrameTime[clientIdx][i] = EF_FrameTime[clientIdx][i+1];
 			EF_FramePosition[clientIdx][i][0] = EF_FramePosition[clientIdx][i+1][0];
@@ -2410,16 +2406,16 @@ public EF_Tick(clientIdx, Float:curTime)
 /**
  * OnGameFrame/OnPlayerRunCmd, needed by one or more rages.
  */
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 		
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 		
 	if (DD_ActiveThisRound || MS_ActiveThisRound || EF_ActiveThisRound || IS_ActiveThisRound)
 	{
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsLivingPlayer(clientIdx))
 				continue;
@@ -2444,14 +2440,16 @@ public OnGameFrame()
 	}
 }
  
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!PluginActiveThisRound)
 		return Plugin_Continue;
 
-	new Action:resultRR = RR_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
-	new Action:resultGlide = GLIDE_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
-	new Action:resultMS = MS_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
+	Action resultRR = RR_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
+	Action resultGlide = GLIDE_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
+	Action resultMS = MS_OnPlayerRunCmd(clientIdx, buttons, impulse, vel, angles, weapon);
 	
 	if (resultRR != Plugin_Continue)
 		return resultRR;
@@ -2466,45 +2464,45 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 /**
  * General helper stocks, some original, some taken/modified from other sources
  */
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char[] soundFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		PrecacheSound(soundFile);
 }
 
-stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MODEL_FILE_LENGTH])
+stock void ReadModel(int bossIdx, const char[] ability_name, int argInt, char[] modelFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		PrecacheModel(modelFile);
 }
 
-stock ReadModelToInt(bossIdx, const String:ability_name[], argInt)
+stock int ReadModelToInt(int bossIdx, const char[] ability_name, int argInt)
 {
-	static String:modelFile[MAX_MODEL_FILE_LENGTH];
+	static char modelFile[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		return PrecacheModel(modelFile);
 	return -1;
 }
  
-stock PlaySoundLocal(clientIdx, String:soundPath[], bool:followPlayer = true, repeat = 1)
+stock void PlaySoundLocal(int clientIdx, char[] soundPath, bool followPlayer = true, int repeat = 1)
 {
 	// play a speech sound that travels normally, local from the player.
-	decl Float:playerPos[3];
+	static float playerPos[3];
 	GetClientEyePosition(clientIdx, playerPos);
 	//PrintToServer("eye pos=%f,%f,%f     sound=%s", playerPos[0], playerPos[1], playerPos[2], soundPath);
-	for (new i = 0; i < repeat; i++)
+	for (int i = 0; i < repeat; i++)
 		EmitAmbientSound(soundPath, playerPos, followPlayer ? clientIdx : SOUND_FROM_WORLD);
 }
 
-stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 0.1)
+stock int ParticleEffectAt(float position[3], char[] effectName, float duration = 0.1)
 {
 	if (!IsEmptyString(effectName))
 		return -1; // nothing to display
 		
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
 		TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -2519,15 +2517,15 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 	return particle;
 }
 
-stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	
 	if (!IsValidEntity(particle))
 		return -1;
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2] += offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -2550,17 +2548,14 @@ stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool
 	return particle;
 }
 
-public Action:Timer_RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
-	{
-		TeleportEntity(entity, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR); // send it away first in case it feels like dying dramatically
-		AcceptEntityInput(entity, "Kill");
-	}
+	int entity = EntRefToEntIndex(entid);
+	if (IsValidEntity(entity))
+		RemoveEntity(entity);
 }
 
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -2568,7 +2563,7 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock bool:IsValidBoss(clientIdx)
+stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
@@ -2576,40 +2571,15 @@ stock bool:IsValidBoss(clientIdx)
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
-stock FindRandomLivingMerc(team = 2, exclude = -1)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, bool visible = true)
 {
-	new sanity = 0;
-	while (sanity < 100) // break inside
-	{
-		new i = GetRandomInt(1, 32);
-		if (IsLivingPlayer(i) && GetClientTeam(i) == team && i != exclude)
-			return i;
-			
-		sanity++;
-	}
-			
-	return -1;
-}
-
-stock SwitchWeapon(bossClient, String:weaponName[], weaponIdx, String:weaponAttributes[], visible)
-{
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Primary);
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Secondary);
-	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Melee);
-	new weapon;
-	weapon = SpawnWeapon(bossClient, weaponName, weaponIdx, 101, 5, weaponAttributes, visible);
-	SetEntPropEnt(bossClient, Prop_Data, "m_hActiveWeapon", weapon);
-}
-
-stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], visible = 1)
-{
-	new Handle:weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
 	TF2Items_SetItemIndex(weapon, index);
 	TF2Items_SetLevel(weapon, level);
 	TF2Items_SetQuality(weapon, quality);
-	new String:attributes[32][32];
-	new count = ExplodeString(attribute, ";", attributes, 32, 32);
+	char attributes[32][32];
+	int count = ExplodeString(attribute, ";", attributes, 32, 32);
 	if(count%2!=0)
 	{
 		count--;
@@ -2618,10 +2588,10 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(weapon, count/2);
-		new i2 = 0;
-		for(new i = 0; i < count; i += 2)
+		int i2 = 0;
+		for(int i = 0; i < count; i += 2)
 		{
-			new attrib = StringToInt(attributes[i]);
+			int attrib = StringToInt(attributes[i]);
 			if (attrib == 0)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
@@ -2642,7 +2612,7 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 		return -1;
 	}
 
-	new entity = TF2Items_GiveNamedItem(client, weapon);
+	int entity = TF2Items_GiveNamedItem(client, weapon);
 	CloseHandle(weapon);
 	EquipPlayerWeapon(client, entity);
 	
@@ -2656,20 +2626,20 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	return entity;
 }
 
-stock ParseFloatRange(String:rangeStr[MAX_RANGE_STRING_LENGTH], &Float:min, &Float:max)
+stock void ParseFloatRange(char[] rangeStr, float& min, float& max)
 {
-	new String:rangeStrs[2][32];
+	char rangeStrs[2][32];
 	ExplodeString(rangeStr, ",", rangeStrs, 2, 32);
 	min = StringToFloat(rangeStrs[0]);
 	max = StringToFloat(rangeStrs[1]);
 }
 
-stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
+stock void ParseHull(char[] hullStr, float hull[2][3])
 {
-	new String:hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
-	new String:vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
+	char hullStrs[2][MAX_HULL_STRING_LENGTH / 2];
+	char vectorStrs[3][MAX_HULL_STRING_LENGTH / 6];
 	ExplodeString(hullStr, " ", hullStrs, 2, MAX_HULL_STRING_LENGTH / 2);
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		ExplodeString(hullStrs[i], ",", vectorStrs, 3, MAX_HULL_STRING_LENGTH / 6);
 		hull[i][0] = StringToFloat(vectorStrs[0]);
@@ -2678,18 +2648,18 @@ stock ParseHull(String:hullStr[MAX_HULL_STRING_LENGTH], Float:hull[2][3])
 	}
 }
 
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-stock FindRandomPlayer(bool:isBossTeam)
+stock int FindRandomPlayer(bool isBossTeam)
 {
-	new player = -1;
+	int player = -1;
 
 	// first, get a player count for the team we care about
-	new playerCount = 0;
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	int playerCount = 0;
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -2703,9 +2673,9 @@ stock FindRandomPlayer(bool:isBossTeam)
 		return -1;
 
 	// now randomly choose our victim
-	new rand = GetRandomInt(0, playerCount - 1);
+	int rand = GetRandomInt(0, playerCount - 1);
 	playerCount = 0;
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -2729,9 +2699,9 @@ stock FindRandomPlayer(bool:isBossTeam)
 	return player;
 }
 
-stock Float:fixAngle(Float:angle)
+stock float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -2740,56 +2710,41 @@ stock Float:fixAngle(Float:angle)
 	return angle;
 }
 
-stock Float:fmin(Float:one, Float:two)
+stock float fmin(float one, float two)
 {
 	return one < two ? one : two;
 }
 
-stock Float:fixDamageForFF2(Float:damage)
+stock float fixDamageForFF2(float damage)
 {
 	if (damage <= 160.0)
 		return damage / 3.0;
 	return damage;
 }
 
-stock fixAngles(Float:angles[3])
-{
-	for (new i = 0; i < 3; i++)
-		angles[i] = fixAngle(angles[i]);
-}
-
-stock abs(x)
+stock float fabs(float x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock Float:fabs(Float:x)
-{
-	return x < 0 ? -x : x;
-}
-
-stock Float:velocityFromVector(Float:vecVelocity[3])
+stock float velocityFromVector(float vecVelocity[3])
 {
 	return SquareRoot((vecVelocity[0] * vecVelocity[0]) + (vecVelocity[1] * vecVelocity[1]));
 }
 
-stock Float:DEG2RAD(Float:n) { return n * 0.017453; }
-
-stock Float:RAD2DEG(Float:n) { return n * 57.29578; }
-
-stock bool:WithinBounds(Float:point[3], Float:min[3], Float:max[3])
+stock bool WithinBounds(float point[3], float min[3], float max[3])
 {
 	return point[0] >= min[0] && point[0] <= max[0] &&
 		point[1] >= min[1] && point[1] <= max[1] &&
 		point[2] >= min[2] && point[2] <= max[2];
 }
 
-stock ReadHexOrDecInt(String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH])
+stock int ReadHexOrDecInt(char[] hexOrDecString)
 {
 	if (StrContains(hexOrDecString, "0x") == 0)
 	{
-		new result = 0;
-		for (new i = 2; i < 10 && hexOrDecString[i] != 0; i++)
+		int result = 0;
+		for (int i = 2; i < 10 && hexOrDecString[i] != 0; i++)
 		{
 			result = result<<4;
 				
@@ -2807,21 +2762,21 @@ stock ReadHexOrDecInt(String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH])
 		return StringToInt(hexOrDecString);
 }
 
-stock ReadHexOrDecString(bossIdx, const String:ability_name[], argIdx)
+stock int ReadHexOrDecString(int bossIdx, const char[] ability_name, int argIdx)
 {
-	static String:hexOrDecString[HEX_OR_DEC_STRING_LENGTH];
+	static char hexOrDecString[HEX_OR_DEC_STRING_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argIdx, hexOrDecString, HEX_OR_DEC_STRING_LENGTH);
 	return ReadHexOrDecInt(hexOrDecString);
 }
 
-stock Float:ConformAxisValue(Float:src, Float:dst, Float:distCorrectionFactor)
+stock float ConformAxisValue(float src, float dst, float distCorrectionFactor)
 {
 	return src - ((src - dst) * distCorrectionFactor);
 }
 
-stock ConformLineDistance(Float:result[3], const Float:src[3], const Float:dst[3], Float:maxDistance, bool:canExtend = false)
+stock void ConformLineDistance(float result[3], const float src[3], const float dst[3], float maxDistance, bool canExtend = false)
 {
-	new Float:distance = GetVectorDistance(src, dst);
+	float distance = GetVectorDistance(src, dst);
 	if (distance <= maxDistance && !canExtend)
 	{
 		// everything's okay.
@@ -2832,7 +2787,7 @@ stock ConformLineDistance(Float:result[3], const Float:src[3], const Float:dst[3
 	else
 	{
 		// need to find a point at roughly maxdistance. (FP irregularities aside)
-		new Float:distCorrectionFactor = maxDistance / distance;
+		float distCorrectionFactor = maxDistance / distance;
 		result[0] = ConformAxisValue(src[0], dst[0], distCorrectionFactor);
 		result[1] = ConformAxisValue(src[1], dst[1], distCorrectionFactor);
 		result[2] = ConformAxisValue(src[2], dst[2], distCorrectionFactor);

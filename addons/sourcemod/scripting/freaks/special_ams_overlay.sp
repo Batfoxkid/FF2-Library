@@ -5,14 +5,14 @@ rage_ams_overlay:	arg0 - slot (def.0)
 */
 #pragma semicolon 1
 
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <ff2_ams>
 
-public Plugin:myinfo=
+#pragma newdecls required
+
+public Plugin myinfo =
 {
 	name="Freak Fortress 2: Overlay Rage for AMS",
 	author="M76030",
@@ -21,49 +21,24 @@ public Plugin:myinfo=
 };
 
 #define OVERLAY "rage_ams_overlay"
-new bool:Overlay_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+bool Overlay_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", event_round_end, EventHookMode_PostNoCopy);
 }
 
-public Action:event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
-		return;
-		
-	PrepareAbilities();
-}
-
-public PrepareAbilities()
-{
-	for(new client=1;client<=MaxClients;client++)
+	if(FF2_HasAbility(FF2_GetBossIndex(client), this_plugin_name, OVERLAY))
 	{
-		if (IsValidClient(client))
-		{
-			Overlay_TriggerAMS[client]=false;
-			
-			new boss=FF2_GetBossIndex(client);
-			if(boss>=0)
-			{
-				if(FF2_HasAbility(boss, this_plugin_name, OVERLAY))
-				{
-					Overlay_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, OVERLAY);
-					if(Overlay_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, OVERLAY, "RAOV"); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			}
-		}
+		Overlay_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, OVERLAY, "RAOV");
 	}
 }
 
-public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -72,40 +47,40 @@ public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadc
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 	
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name, OVERLAY))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS"))
 		{
 			Overlay_TriggerAMS[client]=false;
 		}
 		
 		if(!Overlay_TriggerAMS[client])
-			RAOV_Invoke(client);
+			RAOV_Invoke(client, -1);
 	}
 	return Plugin_Continue;
 }
 
-public bool:RAOV_CanInvoke(client)
+public AMSResult RAOV_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public RAOV_Invoke(client)
+public void RAOV_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	
-	decl String:overlay[PLATFORM_MAX_PATH];
+	char overlay[PLATFORM_MAX_PATH];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, OVERLAY, 1, overlay, PLATFORM_MAX_PATH);
 	
 	if(Overlay_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		static char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_ams_overlay", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -115,7 +90,7 @@ public RAOV_Invoke(client)
 	
 	Format(overlay, PLATFORM_MAX_PATH, "r_screenoverlay \"%s\"", overlay);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -127,10 +102,10 @@ public RAOV_Invoke(client)
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
 }
 
-public Action:Timer_Remove_Overlay(Handle:timer)
+public Action Timer_Remove_Overlay(Handle timer)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -141,7 +116,7 @@ public Action:Timer_Remove_Overlay(Handle:timer)
 	return Plugin_Continue;
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;

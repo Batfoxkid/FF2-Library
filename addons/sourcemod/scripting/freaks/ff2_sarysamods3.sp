@@ -1,16 +1,13 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 #include <ff2_dynamic_defaults>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 /**
  * A third wave of mods, some stuff for Doctor Whooves and maybe one or two others.
@@ -55,10 +52,10 @@
  * Revamped on 2015-03-22
  */
 
-new bool:PRINT_DEBUG_INFO = true;
-new bool:PRINT_DEBUG_SPAM = false;
+bool PRINT_DEBUG_INFO = true;
+bool PRINT_DEBUG_SPAM = false;
 
-new Float:OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
+float OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 80
@@ -106,17 +103,16 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
 
-//new MercTeam = _:TFTeam_Red;
-new BossTeam = _:TFTeam_Blue;
+int BossTeam = view_as<int>(TFTeam_Blue);
 
 #define FAR_FUTURE 100000000.0
 #define IsEmptyString(%1) (%1[0] == 0)
 #define INVALID_ENTREF INVALID_ENT_REFERENCE
 
-new RoundInProgress = false;
-new bool:PluginActiveThisRound = false;
+int RoundInProgress = false;
+bool PluginActiveThisRound = false;
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods, third pack",
 	author = "sarysa",
 	version = "1.1.1",
@@ -124,105 +120,105 @@ public Plugin:myinfo = {
 
 // regeneration shockwave
 #define RS_STRING "rage_regeneration_shockwave"
-new Beam_Laser;
-new Beam_Glow;
-new Beam_Halo;
-new bool:RS_ActiveThisRound;
-new bool:RS_CanUse[MAX_PLAYERS_ARRAY];
-new Float:RS_RemoveGodModeAt[MAX_PLAYERS_ARRAY];
-new Float:RS_RemoveIgniteAt[MAX_PLAYERS_ARRAY];
-new Float:RS_BeginShockwaveAt[MAX_PLAYERS_ARRAY];
-new Float:RS_AnimateShockwaveAt[MAX_PLAYERS_ARRAY];
-new bool:RS_BlockingAllInput = false;
-new Float:RS_BlockingAllInputUntil;
-new Float:RS_PlayerCount = 1.0;
-new RS_AnimTickCount[MAX_PLAYERS_ARRAY];
-new RS_EffectColor[MAX_PLAYERS_ARRAY];
-new RS_FrameTotal[MAX_PLAYERS_ARRAY];
-new Float:RS_Medigun[MAX_PLAYERS_ARRAY];
-new Float:RS_Rage[MAX_PLAYERS_ARRAY];
-new Float:RS_Cloak[MAX_PLAYERS_ARRAY];
-new Float:RS_Hype[MAX_PLAYERS_ARRAY];
-new Float:RS_Charge[MAX_PLAYERS_ARRAY];
+int Beam_Laser;
+int Beam_Glow;
+int Beam_Halo;
+bool RS_ActiveThisRound;
+bool RS_CanUse[MAX_PLAYERS_ARRAY];
+float RS_RemoveGodModeAt[MAX_PLAYERS_ARRAY];
+float RS_RemoveIgniteAt[MAX_PLAYERS_ARRAY];
+float RS_BeginShockwaveAt[MAX_PLAYERS_ARRAY];
+float RS_AnimateShockwaveAt[MAX_PLAYERS_ARRAY];
+bool RS_BlockingAllInput = false;
+float RS_BlockingAllInputUntil;
+float RS_PlayerCount = 1.0;
+int RS_AnimTickCount[MAX_PLAYERS_ARRAY];
+int RS_EffectColor[MAX_PLAYERS_ARRAY];
+int RS_FrameTotal[MAX_PLAYERS_ARRAY];
+float RS_Medigun[MAX_PLAYERS_ARRAY];
+float RS_Rage[MAX_PLAYERS_ARRAY];
+float RS_Cloak[MAX_PLAYERS_ARRAY];
+float RS_Hype[MAX_PLAYERS_ARRAY];
+float RS_Charge[MAX_PLAYERS_ARRAY];
 
 // sentry hijack
 #define SH_STRING "dot_sentry_hijack"
-new bool:SH_ActiveThisRound = false;
-new bool:SH_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new bool:SH_IsHijacking[MAX_PLAYERS_ARRAY]; // internal
-new bool:SH_WeaponSwapped[MAX_PLAYERS_ARRAY]; // internal
-new SH_SentryOriginalOwner[MAX_PLAYERS_ARRAY]; // internal. is NOT a user Id since it doesn't work properly with bots.
-new SH_OriginalSentryEntityRef[MAX_PLAYERS_ARRAY]; // internal
-new SH_HaleSentryEntityRef[MAX_PLAYERS_ARRAY]; // internal
-new bool:SH_BuildBlocked[MAX_PLAYERS_ARRAY]; // internal
-new Float:SH_HaleSentryHPBoostFactor[MAX_PLAYERS_ARRAY]; // arg1
-new Float:SH_RestoredSentryInvulnDuration[MAX_PLAYERS_ARRAY]; // arg2
-new String:SH_FailSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg3
-new String:SH_ExitTooEarlySound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg4
-new bool:SH_SapperResist[MAX_PLAYERS_ARRAY]; // arg5
+bool SH_ActiveThisRound = false;
+bool SH_CanUse[MAX_PLAYERS_ARRAY]; // internal
+bool SH_IsHijacking[MAX_PLAYERS_ARRAY]; // internal
+bool SH_WeaponSwapped[MAX_PLAYERS_ARRAY]; // internal
+int SH_SentryOriginalOwner[MAX_PLAYERS_ARRAY]; // internal. is NOT a user Id since it doesn't work properly with bots.
+int SH_OriginalSentryEntityRef[MAX_PLAYERS_ARRAY]; // internal
+int SH_HaleSentryEntityRef[MAX_PLAYERS_ARRAY]; // internal
+bool SH_BuildBlocked[MAX_PLAYERS_ARRAY]; // internal
+float SH_HaleSentryHPBoostFactor[MAX_PLAYERS_ARRAY]; // arg1
+float SH_RestoredSentryInvulnDuration[MAX_PLAYERS_ARRAY]; // arg2
+char SH_FailSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg3
+char SH_ExitTooEarlySound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg4
+bool SH_SapperResist[MAX_PLAYERS_ARRAY]; // arg5
 // arg6 - arg18 are loaded at rage time
 
 // character scramble
 #define CS_STRING "rage_character_scramble"
-new bool:CS_ActiveThisRound;
-new bool:CS_CanUse[MAX_PLAYERS_ARRAY];
-new Float:CS_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+bool CS_ActiveThisRound;
+bool CS_CanUse[MAX_PLAYERS_ARRAY];
+float CS_ExecuteRageAt[MAX_PLAYERS_ARRAY];
 
 // meter scramble
 #define MS_STRING "rage_meter_scramble"
-new bool:MS_ActiveThisRound;
-new bool:MS_CanUse[MAX_PLAYERS_ARRAY];
-new Float:MS_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+bool MS_ActiveThisRound;
+bool MS_CanUse[MAX_PLAYERS_ARRAY];
+float MS_ExecuteRageAt[MAX_PLAYERS_ARRAY];
 
 // sentry delevel
 #define SD_STRING "rage_sentry_delevel"
-new bool:SD_ActiveThisRound;
-new bool:SD_CanUse[MAX_PLAYERS_ARRAY];
-new Float:SD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+bool SD_ActiveThisRound;
+bool SD_CanUse[MAX_PLAYERS_ARRAY];
+float SD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
 
 // TARDIS
 #define TARDIS_STRING "rage_tardis"
 #define MAX_TARDIS_SPAWN_ATTEMPTS 20
 #define TARDIS_FADE_IN_TIME 3.0
 #define TARDIS_FADE_OUT_TIME 3.0
-new bool:TARDIS_ActiveThisRound = false;
-new bool:TARDIS_CanUse[MAX_PLAYERS_ARRAY];
-new Float:TARDIS_FreezeAt[MAX_PLAYERS_ARRAY];
-new bool:TARDIS_OnMap[MAX_PLAYERS_ARRAY];
-new bool:TARDIS_Used[MAX_PLAYERS_ARRAY]; // a used TARDIS still needs to animate out
-new TARDIS_EntityRef[MAX_PLAYERS_ARRAY];
-new Float:TARDIS_MinMax[MAX_PLAYERS_ARRAY][2][3];
-new Float:TARDIS_NextBeaconTime[MAX_PLAYERS_ARRAY];
-new Float:TARDIS_FadeInTime[MAX_PLAYERS_ARRAY];
-new Float:TARDIS_FadeOutTime[MAX_PLAYERS_ARRAY];
-new BEACON_BEAM;
-new BEACON_HALO;
+bool TARDIS_ActiveThisRound = false;
+bool TARDIS_CanUse[MAX_PLAYERS_ARRAY];
+float TARDIS_FreezeAt[MAX_PLAYERS_ARRAY];
+bool TARDIS_OnMap[MAX_PLAYERS_ARRAY];
+bool TARDIS_Used[MAX_PLAYERS_ARRAY]; // a used TARDIS still needs to animate out
+int TARDIS_EntityRef[MAX_PLAYERS_ARRAY];
+float TARDIS_MinMax[MAX_PLAYERS_ARRAY][2][3];
+float TARDIS_NextBeaconTime[MAX_PLAYERS_ARRAY];
+float TARDIS_FadeInTime[MAX_PLAYERS_ARRAY];
+float TARDIS_FadeOutTime[MAX_PLAYERS_ARRAY];
+int BEACON_BEAM;
+int BEACON_HALO;
 
 // flaming debris
 #define FD_STRING "rage_flaming_debris"
-new bool:FD_ActiveThisRound;
-new bool:FD_CanUse[MAX_PLAYERS_ARRAY];
-new Float:FD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
+bool FD_ActiveThisRound;
+bool FD_CanUse[MAX_PLAYERS_ARRAY];
+float FD_ExecuteRageAt[MAX_PLAYERS_ARRAY];
 
 // war3 teleport ported as a DOT rage
 #define DT_STRING "dot_teleport"
-new bool:DT_CanUse[MAX_PLAYERS_ARRAY]; // internal
-new Float:DT_MaxDistance[MAX_PLAYERS_ARRAY]; // arg1
-new String:DT_FailSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg2
-new String:DT_OldLocationParticleEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg3
-new String:DT_NewLocationParticleEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg4
-new String:DT_UseSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg5
+bool DT_CanUse[MAX_PLAYERS_ARRAY]; // internal
+float DT_MaxDistance[MAX_PLAYERS_ARRAY]; // arg1
+char DT_FailSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg2
+char DT_OldLocationParticleEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg3
+char DT_NewLocationParticleEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg4
+char DT_UseSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg5
 
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	// NOTE: For DOTs, only basic inits go here. The real init happens on a time delay shortly after.
 	// It is recommended you don't load anything related to DOTs until then.
@@ -238,10 +234,10 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	FD_ActiveThisRound = false;
 	RS_BlockingAllInput = false;
 	
-	new playerCount = 0;
+	int playerCount = 0;
 	
 	// initialize arrays
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsLivingPlayer(clientIdx) && !IsValidBoss(clientIdx))
 			playerCount++;
@@ -277,7 +273,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		if (!IsValidBoss(clientIdx))
 			continue;
 	
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
@@ -291,7 +287,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 			RS_BeginShockwaveAt[clientIdx] = FAR_FUTURE;
 			RS_AnimateShockwaveAt[clientIdx] = FAR_FUTURE;
 		
-			new String:str[MAX_SOUND_FILE_LENGTH];
+			char str[MAX_SOUND_FILE_LENGTH];
 			ReadSound(bossIdx, RS_STRING, 2, str);
 			ReadSound(bossIdx, RS_STRING, 3, str);
 			ReadSound(bossIdx, RS_STRING, 15, str);
@@ -352,7 +348,7 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 		
 			ReadModelToInt(bossIdx, TARDIS_STRING, 1);
 		
-			new String:str[MAX_SOUND_FILE_LENGTH];
+			char str[MAX_SOUND_FILE_LENGTH];
 			ReadSound(bossIdx, TARDIS_STRING, 3, str);
 			ReadSound(bossIdx, TARDIS_STRING, 4, str);
 				
@@ -368,13 +364,13 @@ public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroad
 	RS_PlayerCount = float(playerCount);
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	// round has ended, this'll kill the looping timer
 	RoundInProgress = false;
 	
 	// end of round cleanup
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// sentry hijack
 		SH_CanUse[clientIdx] = false;
@@ -387,7 +383,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 		// remove any TARDISes that may exist
 		if (TARDIS_OnMap[clientIdx])
 		{
-			new tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
+			int tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
 			if (tardis != -1)
 				AcceptEntityInput(tardis, "kill");
 			TARDIS_OnMap[clientIdx] = false;
@@ -398,7 +394,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 		if (RS_ActiveThisRound && RS_CanUse[clientIdx] && IsLivingPlayer(clientIdx))
 		{
 			// cancel any pre-rage momentum or stored knockback from being frozen
-			TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, Float:{0.0, 0.0, 0.0});
+			TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 			SetEntityMoveType(clientIdx, MOVETYPE_WALK);
 			if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed))
 				TF2_RemoveCondition(clientIdx, TFCond_Dazed);
@@ -422,7 +418,7 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 /**
  * METHODS REQUIRED BY dot subplugin
  */
-DOTPostRoundStartInit()
+void DOTPostRoundStartInit()
 {
 	if (!RoundInProgress)
 	{
@@ -430,12 +426,12 @@ DOTPostRoundStartInit()
 		return;
 	}
 	
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsValidBoss(clientIdx))
 			continue;
 	
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue; // this may seem weird, but rages often break on duo bosses if the leader suicides. these DOTs can be an exception. :D
 			
@@ -481,12 +477,12 @@ DOTPostRoundStartInit()
 	}
 }
 
-new SH_TraceSentryEntity = -1;
-public bool:SH_TraceSentry(entity, contentsMask)
+int SH_TraceSentryEntity = -1;
+public bool SH_TraceSentry(int entity, int contentsMask)
 {
 	if (SH_TraceSentryEntity == -1 && IsValidEntity(entity))
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 		if (!strcmp(classname, "obj_sentrygun"))
 		{
@@ -498,7 +494,7 @@ public bool:SH_TraceSentry(entity, contentsMask)
 	return !entity;
 }
  
-OnDOTAbilityActivated(clientIdx)
+void OnDOTAbilityActivated(int clientIdx)
 {
 	if (!PluginActiveThisRound)
 		return;
@@ -507,12 +503,12 @@ OnDOTAbilityActivated(clientIdx)
 	{
 		// is the user looking at a sentry? won't allow players to body block either.
 		SH_TraceSentryEntity = -1;
-		new Float:bossOrigin[3];
-		new Float:bossEyeAngles[3];
+		float bossOrigin[3];
+		float bossEyeAngles[3];
 		//GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 		GetClientEyePosition(clientIdx, bossOrigin);
 		GetClientEyeAngles(clientIdx, bossEyeAngles);
-		new Handle:trace = TR_TraceRayFilterEx(bossOrigin, bossEyeAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, SH_TraceSentry);
+		Handle trace = TR_TraceRayFilterEx(bossOrigin, bossEyeAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, SH_TraceSentry);
 		CloseHandle(trace); // results not important
 
 		// I normally don't like to bury important method calls in statements like this. Oh well.
@@ -527,10 +523,10 @@ OnDOTAbilityActivated(clientIdx)
 		}
 
 		// switch the user to a Wrangler
-		new String:weaponName[32] = "tf_weapon_laser_pointer";
-		new String:attributes[MAX_WEAPON_ARG_LENGTH];
+		char weaponName[32] = "tf_weapon_laser_pointer";
+		char attributes[MAX_WEAPON_ARG_LENGTH];
 		FF2_GetAbilityArgumentString(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 10, attributes, MAX_WEAPON_ARG_LENGTH);
-		SwitchWeapon(clientIdx, weaponName, 140, attributes, 0);
+		SwitchWeapon(clientIdx, weaponName, 140, attributes, false);
 		SH_WeaponSwapped[clientIdx] = true;
 	}
 	
@@ -546,7 +542,7 @@ OnDOTAbilityActivated(clientIdx)
 	}
 }
 
-OnDOTAbilityDeactivated(clientIdx)
+void OnDOTAbilityDeactivated(int clientIdx)
 {
 	if (!PluginActiveThisRound)
 		return;
@@ -566,7 +562,7 @@ OnDOTAbilityDeactivated(clientIdx)
 	}
 }
 
-OnDOTUserDeath(clientIdx, isInGame)
+void OnDOTUserDeath(int clientIdx, int isInGame)
 {
 	if (!PluginActiveThisRound)
 		return;
@@ -582,7 +578,7 @@ OnDOTUserDeath(clientIdx, isInGame)
 	if (isInGame) { }
 }
 
-Action:OnDOTAbilityTick(clientIdx, tickCount)
+Action OnDOTAbilityTick(int clientIdx, int tickCount)
 {
 	if (!PluginActiveThisRound)
 		return;
@@ -590,14 +586,14 @@ Action:OnDOTAbilityTick(clientIdx, tickCount)
 	// sentry hijack: if the sentry is dead, force the DOT rage to deactivate.
 	if (SH_CanUse[clientIdx])
 	{
-		new sentryEntity = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
+		int sentryEntity = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
 		if (!IsValidEntity(sentryEntity))
 			ForceDOTAbilityDeactivation(clientIdx);
 	}
 	
 	if (DT_CanUse[clientIdx])
 	{
-		// since DOT teleport is just a one-time action, deactivate it.
+		// since DOT teleport is just a one-time Action , deactivate it.
 		ForceDOTAbilityDeactivation(clientIdx);
 	}
 	
@@ -608,7 +604,7 @@ Action:OnDOTAbilityTick(clientIdx, tickCount)
 /**
  * METHODS USED BY NORMAL RAGES
  */
-public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (strcmp(plugin_name, this_plugin_name) != 0)
 		return Plugin_Continue;
@@ -634,29 +630,29 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 /**
  * Regeneration Shockwave
  */
-public bool:TraceWallsOnly(entity, contentsMask)
+public bool TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
 
-new IgniteNextNGibs = 0;
-new Float:IgniteGibsDuration = 0.0;
+int IgniteNextNGibs = 0;
+float IgniteGibsDuration = 0.0;
 
 #define BEAM_TOP 0
 #define BEAM_LEFT 1
 #define BEAM_RIGHT 2
 #define BEAM_COUNT 3
-new Float:ARS_BossOrigins[MAX_PLAYERS_ARRAY][3];
-new Float:ARS_BeamTargetPoints[MAX_PLAYERS_ARRAY][BEAM_COUNT][3];
-new Float:ARS_StoredEyeAngles[MAX_PLAYERS_ARRAY][3];
+float ARS_BossOrigins[MAX_PLAYERS_ARRAY][3];
+float ARS_BeamTargetPoints[MAX_PLAYERS_ARRAY][BEAM_COUNT][3];
+float ARS_StoredEyeAngles[MAX_PLAYERS_ARRAY][3];
 #define ARM_BEAM_LENGTH 700.0
 #define TOP_BEAM_LENGTH 1250.0
 #define BEAM_WIDTH_MODIFIER 1.28
 #define BEAM_FREQUENCY 0.18
-public AnimateRegenerationShockwave(clientIdx)
+public void AnimateRegenerationShockwave(int clientIdx)
 {
 	// get animation percentage, luckily it's a pretty simple job, except for the halo
-	new Float:animationPercentage = ((RS_AnimTickCount[clientIdx] + 0.5) * 100.0) / RS_FrameTotal[clientIdx];
+	float animationPercentage = ((RS_AnimTickCount[clientIdx] + 0.5) * 100.0) / RS_FrameTotal[clientIdx];
 	
 	// store the boss origin vector and beam points (for consistency) if this is frame 0
 	if (RS_AnimTickCount[clientIdx] == 0)
@@ -672,7 +668,7 @@ public AnimateRegenerationShockwave(clientIdx)
 		
 		// will need to trace for left and right. just a simple ray trace since the beam does no damage.
 		ARS_StoredEyeAngles[clientIdx][1] = fixAngle(ARS_StoredEyeAngles[clientIdx][1] + 90);
-		new Handle:trace = TR_TraceRayFilterEx(ARS_BossOrigins[clientIdx], ARS_StoredEyeAngles[clientIdx], (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+		Handle trace = TR_TraceRayFilterEx(ARS_BossOrigins[clientIdx], ARS_StoredEyeAngles[clientIdx], (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(ARS_BeamTargetPoints[clientIdx][BEAM_LEFT], trace);
 		CloseHandle(trace);
 		constrainDistance(ARS_BossOrigins[clientIdx], ARS_BeamTargetPoints[clientIdx][BEAM_LEFT], GetVectorDistance(ARS_BossOrigins[clientIdx], ARS_BeamTargetPoints[clientIdx][BEAM_LEFT]), ARM_BEAM_LENGTH);
@@ -685,46 +681,46 @@ public AnimateRegenerationShockwave(clientIdx)
 	}
 		
 	// get the colors for the beams, which I took straight from dot_beam :P
-	new r = GetR(RS_EffectColor[clientIdx]);
-	new g = GetG(RS_EffectColor[clientIdx]);
-	new b = GetB(RS_EffectColor[clientIdx]);
-	decl colorLayer4[4]; SetColorRGBA(colorLayer4, r, g, b, 255);
-	decl colorLayer3[4]; SetColorRGBA(colorLayer3,  (((colorLayer4[0] * 7) + (255 * 1)) / 8),
+	int r = GetR(RS_EffectColor[clientIdx]);
+	int g = GetG(RS_EffectColor[clientIdx]);
+	int b = GetB(RS_EffectColor[clientIdx]);
+	int colorLayer4[4]; SetColorRGBA(colorLayer4, r, g, b, 255);
+	int colorLayer3[4]; SetColorRGBA(colorLayer3,  (((colorLayer4[0] * 7) + (255 * 1)) / 8),
 							(((colorLayer4[1] * 7) + (255 * 1)) / 8),
 							(((colorLayer4[2] * 7) + (255 * 1)) / 8),
 							255);
-	decl colorLayer2[4]; SetColorRGBA(colorLayer2,  (((colorLayer4[0] * 6) + (255 * 2)) / 8),
+	int colorLayer2[4]; SetColorRGBA(colorLayer2,  (((colorLayer4[0] * 6) + (255 * 2)) / 8),
 							(((colorLayer4[1] * 6) + (255 * 2)) / 8),
 							(((colorLayer4[2] * 6) + (255 * 2)) / 8),
 							255);
-	decl colorLayer1[4]; SetColorRGBA(colorLayer1,  (((colorLayer4[0] * 5) + (255 * 3)) / 8),
+	int colorLayer1[4]; SetColorRGBA(colorLayer1,  (((colorLayer4[0] * 5) + (255 * 3)) / 8),
 							(((colorLayer4[1] * 5) + (255 * 3)) / 8),
 							(((colorLayer4[2] * 5) + (255 * 3)) / 8),
 							255);
-	decl glowColor[4]; SetColorRGBA(glowColor, r, g, b, 255);
+	int glowColor[4]; SetColorRGBA(glowColor, r, g, b, 255);
 							
 	// get the frame-specific target points for the beams
-	new Float:beamStarts[BEAM_COUNT][3];
-	new Float:beamEnds[BEAM_COUNT][3];
-	for (new i = 0; i < BEAM_COUNT; i++)
+	float beamStarts[BEAM_COUNT][3];
+	float beamEnds[BEAM_COUNT][3];
+	for (int i = 0; i < BEAM_COUNT; i++)
 	{
 		CopyVector(beamStarts[i], ARS_BossOrigins[clientIdx]);
 		CopyVector(beamEnds[i], ARS_BeamTargetPoints[clientIdx][i]);
 	}
 	if (animationPercentage < 10.0)
 	{
-		for (new i = 0; i < BEAM_COUNT; i++)
+		for (int i = 0; i < BEAM_COUNT; i++)
 			constrainDistance(beamStarts[i], beamEnds[i], 10.0, animationPercentage);
 	}
 	else if (animationPercentage > 90.0)
 	{
-		for (new i = 0; i < BEAM_COUNT; i++)
+		for (int i = 0; i < BEAM_COUNT; i++)
 			constrainDistance(beamEnds[i], beamStarts[i], 10.0, 100.0 - animationPercentage);
 	}
 	
 	// draw all the beams
-	new diameter = 100;
-	for (new i = 0; i < BEAM_COUNT; i++)
+	int diameter = 100;
+	for (int i = 0; i < BEAM_COUNT; i++)
 	{
 		TE_SetupBeamPoints(beamStarts[i], beamEnds[i], Beam_Laser, 0, 0, 0, BEAM_FREQUENCY, ClampBeamWidth(0.3 * diameter * BEAM_WIDTH_MODIFIER), ClampBeamWidth(0.3 * diameter * BEAM_WIDTH_MODIFIER), 0, 1.0, colorLayer1, 3);
 		TE_SendToAll();
@@ -742,10 +738,10 @@ public AnimateRegenerationShockwave(clientIdx)
 	}
 	
 	// draw the halo, only needs to be done first tick
-	new Float:duration = RS_FrameTotal[clientIdx] / 10.0;
+	float duration = RS_FrameTotal[clientIdx] / 10.0;
 	if (RS_AnimTickCount[clientIdx] == 0)
 	{
-		decl haloColor1[4]; SetColorRGBA(haloColor1, r, g, b, 255);
+		int haloColor1[4]; SetColorRGBA(haloColor1, r, g, b, 255);
 		TE_SetupBeamRingPoint(ARS_BossOrigins[clientIdx], 0.0, 2000.0, Beam_Glow, Beam_Halo, 0, 0, duration / 5, 128.0, 10.0, haloColor1, 0, 0);
 		TE_SendToAll();
 		TE_SetupBeamRingPoint(ARS_BossOrigins[clientIdx], 0.0, 2333.0, Beam_Glow, Beam_Halo, 0, 0, duration / 4, 92.0, 5.0, haloColor1, 0, 0);
@@ -760,15 +756,15 @@ public AnimateRegenerationShockwave(clientIdx)
 	RS_AnimTickCount[clientIdx]++;
 	if (RS_AnimTickCount[clientIdx] == RS_FrameTotal[clientIdx])
 	{
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		
 		// cancel any pre-rage momentum or stored knockback from being frozen
-		new Float:ZeroVec[3];
+		float ZeroVec[3];
 		TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, ZeroVec);
 
 		// allow movement and remove invincibility
 		SetEntityMoveType(clientIdx, MOVETYPE_WALK);
-		new Float:godModeDuration = (bossIdx < 0) ? 0.0 : FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 16);
+		float godModeDuration = (bossIdx < 0) ? 0.0 : FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 16);
 		if (godModeDuration <= 0.0)
 		{
 			SetEntProp(clientIdx, Prop_Data, "m_takedamage", 2);
@@ -785,12 +781,12 @@ public AnimateRegenerationShockwave(clientIdx)
 		SetDOTUsability(clientIdx, true);
 		
 		// restore all sentries
-		new sentryEntity = -1;
+		int sentryEntity = -1;
 		while ((sentryEntity = FindEntityByClassname(sentryEntity, "obj_sentrygun")) != -1)
 			SetEntProp(sentryEntity, Prop_Send, "m_bDisabled", 0);
 			
 		// play the mapwide sound
-		new String:soundFile[MAX_SOUND_FILE_LENGTH];
+		char soundFile[MAX_SOUND_FILE_LENGTH];
 		if (bossIdx >= 0)
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RS_STRING, 15, soundFile, MAX_SOUND_FILE_LENGTH);
 		if (strlen(soundFile) > 3)
@@ -800,40 +796,40 @@ public AnimateRegenerationShockwave(clientIdx)
 	}
 }
  
-public DoRegenerationShockwave(bossIdx)
+public void DoRegenerationShockwave(int bossIdx)
 {
-	new clientIdx = GetBossClientId(bossIdx);
+	int clientIdx = GetBossClientId(bossIdx);
 	RS_AnimTickCount[clientIdx] = 0;
 	
 	// get all the info we need for knockback and damage
-	new Float:earthquakeDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 4);
-	new Float:damageRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 7);
-	new Float:knockbackRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 8);
-	new String:damagePointBlankStr[29];
-	new String:damagePointBlankStrSplit[2][15];
+	float earthquakeDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 4);
+	float damageRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 7);
+	float knockbackRadius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 8);
+	char damagePointBlankStr[29];
+	char damagePointBlankStrSplit[2][15];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RS_STRING, 9, damagePointBlankStr, 29);
 	ExplodeString(damagePointBlankStr, ",", damagePointBlankStrSplit, 2, 15);
-	new Float:damageMin = StringToFloat(damagePointBlankStrSplit[0]);
-	new Float:damageMax = StringToFloat(damagePointBlankStrSplit[1]);
-	new Float:damagePointBlank = damageMin + ((damageMax - damageMin) * RS_PlayerCount / 31.0);
-	new Float:igniteDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 10);
-	new Float:knockbackIntensityPointBlank = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 11);
-	new Float:knockbackIntensityMidpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 12);
-	new Float:knockbackIntensityFarpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 13);
-	new Float:minimumZLift = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 14);
+	float damageMin = StringToFloat(damagePointBlankStrSplit[0]);
+	float damageMax = StringToFloat(damagePointBlankStrSplit[1]);
+	float damagePointBlank = damageMin + ((damageMax - damageMin) * RS_PlayerCount / 31.0);
+	float igniteDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 10);
+	float knockbackIntensityPointBlank = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 11);
+	float knockbackIntensityMidpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 12);
+	float knockbackIntensityFarpoint = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 13);
+	float minimumZLift = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 14);
 	
 	// knock back players first, and then damage them
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
-	new Float:mercOrigin[3];
-	new Float:currentVelocity[3];
-	new Float:knockbackVelocity[3];
-	new Float:distance;
-	new Float:intensity;
-	new Float:diffIntensity;
-	new Float:distanceRatio;
-	new Float:damage;
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	float mercOrigin[3];
+	float currentVelocity[3];
+	float knockbackVelocity[3];
+	float distance;
+	float intensity;
+	float diffIntensity;
+	float distanceRatio;
+	float damage;
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (IsLivingPlayer(victim) && GetClientTeam(victim) != BossTeam)
 		{
@@ -893,7 +889,7 @@ public DoRegenerationShockwave(bossIdx)
 	}
 	
 	// play the mapwide sound
-	new String:soundFile[MAX_SOUND_FILE_LENGTH];
+	char soundFile[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RS_STRING, 3, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		EmitSoundToAll(soundFile);
@@ -905,24 +901,24 @@ public DoRegenerationShockwave(bossIdx)
 	RS_AnimateShockwaveAt[clientIdx] = GetEngineTime();
 }
 
-public RegenerationShockwave(clientIdx)
+public void RegenerationShockwave(int clientIdx)
 {
 	// allow everyone but the hale to move again
 	RS_BlockingAllInput = false;
-	for (new victim = 1; victim < MAX_PLAYERS; victim++)
+	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
 		if (victim != clientIdx && IsLivingPlayer(victim))
 			SetEntityMoveType(victim, MOVETYPE_WALK);
 	}
 		
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 
 	DoRegenerationShockwave(bossIdx);
 }
 
-public RS_Tick(clientIdx, Float:curTime)
+public void RS_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= RS_RemoveGodModeAt[clientIdx])
 	{
@@ -938,7 +934,7 @@ public RS_Tick(clientIdx, Float:curTime)
 	if (curTime >= RS_RemoveIgniteAt[clientIdx])
 	{
 		RS_RemoveIgniteAt[clientIdx] = FAR_FUTURE;
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
 				continue;
@@ -961,10 +957,10 @@ public RS_Tick(clientIdx, Float:curTime)
 	}
 }
  
-public Rage_RegenerationShockwave(const String:ability_name[], bossIdx)
+public void Rage_RegenerationShockwave(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 1);
-	new clientIdx = GetBossClientId(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 1);
+	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (RS_FrameTotal[clientIdx] <= 1)
 	{
@@ -977,13 +973,13 @@ public Rage_RegenerationShockwave(const String:ability_name[], bossIdx)
 	SetDOTUsability(clientIdx, false);
 	
 	// play the mapwide sound
-	new String:soundFile[MAX_SOUND_FILE_LENGTH];
+	char soundFile[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RS_STRING, 2, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		EmitSoundToAll(soundFile);
 	
 	// stun all sentries
-	new sentryEntity = -1;
+	int sentryEntity = -1;
 	while ((sentryEntity = FindEntityByClassname(sentryEntity, "obj_sentrygun")) != -1)
 		SetEntProp(sentryEntity, Prop_Send, "m_bDisabled", 1);
 
@@ -1000,7 +996,7 @@ public Rage_RegenerationShockwave(const String:ability_name[], bossIdx)
 	if (delay > 0.0)
 	{
 		// freeze all players and store their charges
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (victim != clientIdx && IsLivingPlayer(victim))
 			{
@@ -1009,10 +1005,10 @@ public Rage_RegenerationShockwave(const String:ability_name[], bossIdx)
 				// medic is the only one that needs to be explicitly checked
 				if (TF2_GetPlayerClass(victim) == TFClass_Medic)
 				{
-					new weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
+					int weapon = GetPlayerWeaponSlot(victim, TFWeaponSlot_Secondary);
 					if (IsValidEntity(weapon))
 					{
-						new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+						char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 						GetEntityClassname(weapon, classname, sizeof(classname));
 						if (!strcmp(classname, "tf_weapon_medigun"))
 							RS_Medigun[victim] = GetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel");
@@ -1039,7 +1035,7 @@ public Rage_RegenerationShockwave(const String:ability_name[], bossIdx)
 /**
  * Character Scramble
  */
-public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
+public void DoCharacterScramble(const char[] particleName, bool cancelVelocity)
 {
 	if (!RoundInProgress)
 		return;
@@ -1048,18 +1044,18 @@ public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
 		PrintToServer("[sarysamods3] Scrambling the locations, angles, and velocities of all living mercenaries!");
 		
 	// a lot of information that needs to be stored
-	new bool:used[MAX_PLAYERS_ARRAY];
-	new shuffle[MAX_PLAYERS_ARRAY];
-	new clientIndexes[MAX_PLAYERS_ARRAY];
-	new Float:clientOrigins[MAX_PLAYERS_ARRAY][3];
-	new Float:clientAngles[MAX_PLAYERS_ARRAY][3];
-	new Float:clientVelocities[MAX_PLAYERS_ARRAY][3];
+	bool used[MAX_PLAYERS_ARRAY];
+	int shuffle[MAX_PLAYERS_ARRAY];
+	int clientIndexes[MAX_PLAYERS_ARRAY];
+	float clientOrigins[MAX_PLAYERS_ARRAY][3];
+	float clientAngles[MAX_PLAYERS_ARRAY][3];
+	float clientVelocities[MAX_PLAYERS_ARRAY][3];
 	
 	// init used, find all living players and store their positions, angles, and movement!
-	for (new pass = 0; pass <= 1; pass++) // need to do ducking players separately from standing players
+	for (int pass = 0; pass <= 1; pass++) // need to do ducking players separately from standing players
 	{
-		new clientIndexCount = 0;
-		for (new i = 1; i < MAX_PLAYERS; i++)
+		int clientIndexCount = 0;
+		for (int i = 1; i < MAX_PLAYERS; i++)
 		{
 			used[i] = false;
 			if (IsLivingPlayer(i) && GetClientTeam(i) != BossTeam)
@@ -1087,10 +1083,10 @@ public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
 			continue;
 
 		// figure out the scramble order
-		new randomIdx = -1;
-		for (new i = 0; i < clientIndexCount; i++)
+		int randomIdx = -1;
+		for (int i = 0; i < clientIndexCount; i++)
 		{
-			new sanity = 0;
+			int sanity = 0;
 		
 			// this could get very expensive with bad luck and large arrays. luckily, it can never be more than 31...
 			do {
@@ -1105,13 +1101,13 @@ public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
 		}
 
 		// scramble! and display a particle effect if applicable.
-		for (new i = 0; i < clientIndexCount; i++)
+		for (int i = 0; i < clientIndexCount; i++)
 		{
 			TeleportEntity(clientIndexes[i], clientOrigins[shuffle[i]], clientAngles[shuffle[i]], clientVelocities[shuffle[i]]);
 			
 			if (!IsEmptyString(particleName))
 			{
-				new particle = AttachParticle(clientIndexes[i], particleName, 75.0);
+				int particle = AttachParticle(clientIndexes[i], particleName, 75.0);
 				if (IsValidEntity(particle))
 					CreateTimer(1.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 			}
@@ -1119,23 +1115,23 @@ public DoCharacterScramble(const String:particleName[], bool:cancelVelocity)
 	}
 }
 
-public CS_Tick(clientIdx, Float:curTime)
+public void CS_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= CS_ExecuteRageAt[clientIdx])
 	{
 		CS_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 		
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx >= 0)
 			DoCharacterScramble(NULL_STRING, (FF2_GetAbilityArgument(bossIdx, this_plugin_name, CS_STRING, 2) == 1));
 	}
 }
 
-public Rage_CharacterScramble(const String:ability_name[], bossIdx)
+public void Rage_CharacterScramble(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new bool:cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
-	new clientIdx = GetBossClientId(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	bool cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
+	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoCharacterScramble(NULL_STRING, cancelVelocity);
@@ -1152,7 +1148,7 @@ public Rage_CharacterScramble(const String:ability_name[], bossIdx)
 #define METER_FLAG_RAGE 0x08
 #define METER_FLAG_HYPE 0x10
 #define METER_FLAG_CHARGE 0x20
-public DoMeterScramble(flags)
+public void DoMeterScramble(int flags)
 {
 	if (!RoundInProgress)
 		return;
@@ -1162,7 +1158,7 @@ public DoMeterScramble(flags)
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods3] Scrambling medigun charge and other charge meters.");
 		
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
@@ -1173,10 +1169,10 @@ public DoMeterScramble(flags)
 			SetEntPropFloat(clientIdx, Prop_Send, "m_flCloakMeter", GetRandomFloat(0.0, 100.0));
 		else if (TF2_GetPlayerClass(clientIdx) == TFClass_Medic && (flags & METER_FLAG_MEDIGUN))
 		{
-			new weapon = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
+			int weapon = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
 			if (IsValidEntity(weapon))
 			{
-				new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+				char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 				GetEntityClassname(weapon, classname, sizeof(classname));
 				if (!strcmp(classname, "tf_weapon_medigun"))
 					SetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel", GetRandomFloat(0.40, 1.00));
@@ -1191,23 +1187,23 @@ public DoMeterScramble(flags)
 	}
 }
 
-public MS_Tick(clientIdx, Float:curTime)
+public void MS_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= MS_ExecuteRageAt[clientIdx])
 	{
 		MS_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 		
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx >= 0)
 			DoMeterScramble(FF2_GetAbilityArgument(bossIdx, this_plugin_name, MS_STRING, 2));
 	}
 }
 
-public Rage_MeterScramble(const String:ability_name[], bossIdx)
+public void Rage_MeterScramble(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new flags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2);
-	new clientIdx = GetBossClientId(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int flags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2);
+	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoMeterScramble(flags);
@@ -1219,23 +1215,25 @@ public Rage_MeterScramble(const String:ability_name[], bossIdx)
  * Sentry Delevel
  */
 #define MAX_SENTRY_MONITOR 10
-new SD_MonitoredSentryEntRefs[MAX_SENTRY_MONITOR];
-new Float:SD_DamageModifiers[MAX_SENTRY_MONITOR];
-public Action:SD_SM_OnTakeDamage(sentryEntity, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+int SD_MonitoredSentryEntRefs[MAX_SENTRY_MONITOR];
+float SD_DamageModifiers[MAX_SENTRY_MONITOR];
+public Action SD_SM_OnTakeDamage(int sentryEntity, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	// this method fixes a bug where the deleveled sentry can withstand level 2 or level 3 damage.
 	// the bug fixes itself once it's been leveled up again.
 	if (!IsValidEntity(sentryEntity))
 		return Plugin_Continue;
 
-	for (new i = 0; i < MAX_SENTRY_MONITOR; i++)
+	for (int i = 0; i < MAX_SENTRY_MONITOR; i++)
 	{
 		if (SD_MonitoredSentryEntRefs[i] != 0)
 		{
-			new tmpEntity = EntRefToEntIndex(SD_MonitoredSentryEntRefs[i]);
+			int tmpEntity = EntRefToEntIndex(SD_MonitoredSentryEntRefs[i]);
 			if (sentryEntity == tmpEntity)
 			{
-				new curLevel = GetEntProp(sentryEntity, Prop_Send, "m_iHighestUpgradeLevel") & 0x03;
+				int curLevel = GetEntProp(sentryEntity, Prop_Send, "m_iHighestUpgradeLevel") & 0x03;
 				if (curLevel == 1)
 					damage *= SD_DamageModifiers[i];
 				return Plugin_Changed;
@@ -1246,15 +1244,15 @@ public Action:SD_SM_OnTakeDamage(sentryEntity, &attacker, &inflictor, &Float:dam
 	return Plugin_Continue;
 }
 
-public HookSentryMonitor(sentryEntity, Float:factor)
+public void HookSentryMonitor(int sentryEntity, float factor)
 {
-	new freeSpot = -1;
-	new foundEntity = -1;
-	for (new i = 0; i < MAX_SENTRY_MONITOR; i++)
+	int freeSpot = -1;
+	int foundEntity = -1;
+	for (int i = 0; i < MAX_SENTRY_MONITOR; i++)
 	{
 		if (SD_MonitoredSentryEntRefs[i] != 0)
 		{
-			new tmpEntity = EntRefToEntIndex(SD_MonitoredSentryEntRefs[i]);
+			int tmpEntity = EntRefToEntIndex(SD_MonitoredSentryEntRefs[i]);
 			if (!IsValidEntity(tmpEntity))
 				SD_MonitoredSentryEntRefs[i] = 0;
 			else if (sentryEntity == tmpEntity)
@@ -1276,7 +1274,7 @@ public HookSentryMonitor(sentryEntity, Float:factor)
 	}
 	else if (freeSpot != -1)
 	{
-		// a new entry
+		// a int entry
 		SD_MonitoredSentryEntRefs[freeSpot] = EntIndexToEntRef(sentryEntity);
 		SD_DamageModifiers[freeSpot] = factor;
 		SDKHook(sentryEntity, SDKHook_OnTakeDamage, SD_SM_OnTakeDamage);
@@ -1285,7 +1283,7 @@ public HookSentryMonitor(sentryEntity, Float:factor)
 		PrintToServer("[sarysamods3] Error: Somehow ran out of sentry monitor space. Sentry will have buggy boosted HP with no damage modifier.");
 }
 
-public DoSentryDelevel(String:particleName[])
+public void DoSentryDelevel(char[] particleName)
 {
 	if (!RoundInProgress)
 		return;
@@ -1293,18 +1291,18 @@ public DoSentryDelevel(String:particleName[])
 	if (PRINT_DEBUG_INFO)
 		PrintToServer("[sarysamods3] Deleveling all sentries to level 1.");
 		
-	new sentryEntity = -1;
+	int sentryEntity = -1;
 	while ((sentryEntity = FindEntityByClassname(sentryEntity, "obj_sentrygun")) != -1)
 	{
-		new oldSentryLevel = GetEntProp(sentryEntity, Prop_Send, "m_iUpgradeLevel") & 0x03;
-		new sentryTeam = GetEntProp(sentryEntity, Prop_Send, "m_iTeamNum") & 0x03;
-		new Float:sentryCenter[3];
+		int oldSentryLevel = GetEntProp(sentryEntity, Prop_Send, "m_iUpgradeLevel") & 0x03;
+		int sentryTeam = GetEntProp(sentryEntity, Prop_Send, "m_iTeamNum") & 0x03;
+		float sentryCenter[3];
 		GetEntPropVector(sentryEntity, Prop_Send, "m_vecOrigin", sentryCenter);
 		sentryCenter[2] += 40;
 		if (oldSentryLevel > 1 && sentryTeam != BossTeam)
 		{
 			// fix health. if this is not done, the sentry's health will get higher every delevel
-			new oldHealth = GetEntProp(sentryEntity, Prop_Send, "m_iHealth");
+			int oldHealth = GetEntProp(sentryEntity, Prop_Send, "m_iHealth");
 			if (oldHealth > 150)
 				SetEntProp(sentryEntity, Prop_Send, "m_iHealth", 150);
 			SetEntProp(sentryEntity, Prop_Send, "m_iMaxHealth", 150);
@@ -1320,12 +1318,12 @@ public DoSentryDelevel(String:particleName[])
 			SetEntProp(sentryEntity, Prop_Send, "m_iAmmoRockets", 0);
 			
 			// find and change max rockets
-			new offs = FindSendPropInfo("CObjectSentrygun", "m_iAmmoRockets");
+			int offs = FindSendPropInfo("CObjectSentrygun", "m_iAmmoRockets");
 			if (offs > 0)
 				SetEntData(sentryEntity, offs - 4, 0, 4, true);
 
 			// clamp shells count
-			new oldShells = GetEntProp(sentryEntity, Prop_Send, "m_iAmmoShells");
+			int oldShells = GetEntProp(sentryEntity, Prop_Send, "m_iAmmoShells");
 			if (oldShells > 150)
 				SetEntProp(sentryEntity, Prop_Send, "m_iAmmoShells", 150);
 
@@ -1357,16 +1355,16 @@ public DoSentryDelevel(String:particleName[])
 	}
 }
 
-public SD_Tick(clientIdx, Float:curTime)
+public void SD_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= SD_ExecuteRageAt[clientIdx])
 	{
 		SD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 		
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx >= 0)
 		{
-			static String:particleName[MAX_EFFECT_NAME_LENGTH];
+			static char particleName[MAX_EFFECT_NAME_LENGTH];
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, SD_STRING, 2, particleName, MAX_EFFECT_NAME_LENGTH);
 
 			DoSentryDelevel(particleName);
@@ -1374,14 +1372,14 @@ public SD_Tick(clientIdx, Float:curTime)
 	}
 }
 
-public Rage_SentryDelevel(const String:ability_name[], bossIdx)
+public void Rage_SentryDelevel(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetBossClientId(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 	{
-		static String:particleName[MAX_EFFECT_NAME_LENGTH];
+		static char particleName[MAX_EFFECT_NAME_LENGTH];
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, SD_STRING, 2, particleName, MAX_EFFECT_NAME_LENGTH);
 		DoSentryDelevel(particleName);
 	}
@@ -1392,13 +1390,13 @@ public Rage_SentryDelevel(const String:ability_name[], bossIdx)
 /**
  * Flaming Debris
  */
-public ShootFlamingGibs(flameCount, const String:modelName[], Float:flameDuration, const Float:origin[3], Float:flameDelay, Float:flameVelocity)
+public void ShootFlamingGibs(int flameCount, const char[] modelName, float flameDuration, const float origin[3], float flameDelay, float flameVelocity)
 {
 	// DEFINE_KEYFIELD is the magic phrase to search for in the tf2 SDK
 	// pass it on :P
-	new flamingGibShooter = CreateEntityByName("env_shooter");
-	new Float:angles[3] = {0.0, 0.0, 0.0};
-	new String:gibCountStr[3];
+	int flamingGibShooter = CreateEntityByName("env_shooter");
+	float angles[3] = {0.0, 0.0, 0.0};
+	char gibCountStr[3];
 	Format(gibCountStr, 3, "%d", flameCount);
 	DispatchKeyValue(flamingGibShooter, "m_iGibs", gibCountStr);
 	IgniteNextNGibs += flameCount;
@@ -1425,7 +1423,7 @@ public ShootFlamingGibs(flameCount, const String:modelName[], Float:flameDuratio
 	CreateTimer(10.0, Timer_RemoveEntity, EntIndexToEntRef(flamingGibShooter), TIMER_FLAG_NO_MAPCHANGE); // remove a one-off entity with no significance? timer's fine.
 }
  
-public DoFlamingDebris(bossIdx)
+public void DoFlamingDebris(int bossIdx)
 {
 	if (!RoundInProgress)
 	{
@@ -1440,7 +1438,7 @@ public DoFlamingDebris(bossIdx)
 		return;
 	}
 		
-	new clientIdx = GetBossClientId(bossIdx);
+	int clientIdx = GetBossClientId(bossIdx);
 	if (!IsValidBoss(clientIdx))
 	{
 		if (PRINT_DEBUG_INFO)
@@ -1448,15 +1446,15 @@ public DoFlamingDebris(bossIdx)
 		return;
 	}
 
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, FD_STRING, 2, modelName, MAX_MODEL_FILE_LENGTH);
-	new flameCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, FD_STRING, 3);
+	int flameCount = FF2_GetAbilityArgument(bossIdx, this_plugin_name, FD_STRING, 3);
 	if (flameCount > 50) // mitigate the risk of running out of entities...not a big issue for between-lives, but could be a problem for standard rage
 	{
 		PrintToServer("[sarysamods3] Warning (FlamingDebris): Flame count had to clamped to 50. This is due to concerns of running out of server-side entities.");
 		flameCount = 50;
 	}
-	new Float:flameDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 4);
+	float flameDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 4);
 	
 	if (strlen(modelName) < 3 || flameCount <= 0 || flameDuration <= 0.0)
 	{
@@ -1464,10 +1462,10 @@ public DoFlamingDebris(bossIdx)
 		return;
 	}
 	
-	new Float:flameDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 5);
-	new Float:flameVelocity = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 6);
+	float flameDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 5);
+	float flameVelocity = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 6);
 	
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 	bossOrigin[2] += 50.0;
 	
@@ -1477,22 +1475,22 @@ public DoFlamingDebris(bossIdx)
 	ShootFlamingGibs(flameCount, modelName, flameDuration, bossOrigin, flameDelay, flameVelocity);
 }
 
-public FD_Tick(clientIdx, Float:curTime)
+public void FD_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= FD_ExecuteRageAt[clientIdx])
 	{
 		FD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 		
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx >= 0)
 			DoFlamingDebris(bossIdx);
 	}
 }
 
-public Rage_FlamingDebris(const String:ability_name[], bossIdx)
+public void Rage_FlamingDebris(const char[] ability_name, int bossIdx)
 {
-	new Float:delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	new clientIdx = GetBossClientId(bossIdx);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoFlamingDebris(bossIdx);
@@ -1503,40 +1501,40 @@ public Rage_FlamingDebris(const String:ability_name[], bossIdx)
 /**
  * TARDIS
  */
-public OnTardisEntered(clientIdx)
+public void OnTardisEntered(int clientIdx)
 {
 	if (!RoundInProgress || !IsValidBoss(clientIdx))
 		return;
 	
 	// boss index
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 	
 	// tardis and origin
-	new tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
+	int tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
 	if (!IsValidEntity(tardis))
 		return;
-	new Float:tardisOrigin[3];
+	float tardisOrigin[3];
 	GetEntPropVector(tardis, Prop_Send, "m_vecOrigin", tardisOrigin);
 	
 	// bring in the various args
-	new String:exitSound[MAX_SOUND_FILE_LENGTH];
+	char exitSound[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 4, exitSound, MAX_SOUND_FILE_LENGTH);
-	new String:particleEffectCharacterScramble[MAX_EFFECT_NAME_LENGTH];
+	char particleEffectCharacterScramble[MAX_EFFECT_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 8, particleEffectCharacterScramble, MAX_EFFECT_NAME_LENGTH);
-	new String:particleEffectDelevel[MAX_EFFECT_NAME_LENGTH];
+	char particleEffectDelevel[MAX_EFFECT_NAME_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 9, particleEffectDelevel, MAX_EFFECT_NAME_LENGTH);
-	new bool:sentryDelevel = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 10) == 1;
-	new bool:characterScramble = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 11) == 1;
-	new Float:sentryStunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, TARDIS_STRING, 12);
-	new bool:cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 13) == 1;
-	new meterFlags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 16);
+	bool sentryDelevel = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 10) == 1;
+	bool characterScramble = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 11) == 1;
+	float sentryStunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, TARDIS_STRING, 12);
+	bool cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 13) == 1;
+	int meterFlags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 16);
 	
 	// play the exit sound
 	if (strlen(exitSound) > 3)
 	{
-		new Float:soundOrigin[3];
+		float soundOrigin[3];
 		soundOrigin[0] = tardisOrigin[0];
 		soundOrigin[1] = tardisOrigin[1];
 		soundOrigin[2] = tardisOrigin[2] + 50.0;
@@ -1557,21 +1555,21 @@ public OnTardisEntered(clientIdx)
 		DSSG_PerformStun(clientIdx, 99999.0, sentryStunDuration);
 	
 	// tell everyone what happened
-	new String:tardisEnteredMessage[MAX_CENTER_TEXT_LENGTH];
+	char tardisEnteredMessage[MAX_CENTER_TEXT_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 15, tardisEnteredMessage, MAX_CENTER_TEXT_LENGTH);
 	if (!IsEmptyString(tardisEnteredMessage))
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 			if (IsLivingPlayer(victim))
 				PrintCenterText(victim, tardisEnteredMessage);
 }
 
-public TARDIS_Tick(clientIdx, Float:curTime)
+public void TARDIS_Tick(int clientIdx, float curTime)
 {
 	if (curTime >= TARDIS_FreezeAt[clientIdx])
 	{
 		TARDIS_FreezeAt[clientIdx] = FAR_FUTURE;
 
-		new tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
+		int tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
 		if (IsValidEntity(tardis))
 		{
 			SetEntityMoveType(tardis, MOVETYPE_NONE);
@@ -1585,7 +1583,7 @@ public TARDIS_Tick(clientIdx, Float:curTime)
 	// legacy code. sigh.
 	if (TARDIS_OnMap[clientIdx])
 	{
-		new tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
+		int tardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
 		if (IsValidEntity(tardis))
 		{
 			if (!IsValidBoss(clientIdx))
@@ -1604,16 +1602,16 @@ public TARDIS_Tick(clientIdx, Float:curTime)
 			}
 
 			// animate the TARDIS fade-in and fade-out
-			new bool:isFadingOut = TARDIS_Used[clientIdx];
-			new bool:isFadingIn = !isFadingOut && (GetEngineTime() < TARDIS_FadeInTime[clientIdx] + TARDIS_FADE_IN_TIME);
+			bool isFadingOut = TARDIS_Used[clientIdx];
+			bool isFadingIn = !isFadingOut && (GetEngineTime() < TARDIS_FadeInTime[clientIdx] + TARDIS_FADE_IN_TIME);
 			if (isFadingOut || isFadingIn)
 			{
 				// since fade out animation is a reverse of fade in animation, do the little 1.0 - dealio ;P
-				new Float:animationCompletion = isFadingOut ? (1.0 - ((GetEngineTime() - TARDIS_FadeOutTime[clientIdx]) / TARDIS_FADE_OUT_TIME)) :
+				float animationCompletion = isFadingOut ? (1.0 - ((GetEngineTime() - TARDIS_FadeOutTime[clientIdx]) / TARDIS_FADE_OUT_TIME)) :
 									      ((GetEngineTime() - TARDIS_FadeInTime[clientIdx]) / TARDIS_FADE_IN_TIME);
 
 				// just gonna do it linear, too lazy to make it like a sine wave
-				new alpha = 255;
+				int alpha = 255;
 
 				if (animationCompletion <= 0.4) // fade in fast, but it won't last
 					alpha = RoundFloat(alpha * animationCompletion * 1.75);
@@ -1637,12 +1635,12 @@ public TARDIS_Tick(clientIdx, Float:curTime)
 				return;
 
 			// need origin
-			new Float:tardisOrigin[3];
+			float tardisOrigin[3];
 			GetEntPropVector(tardis, Prop_Send, "m_vecOrigin", tardisOrigin);
 
 			// get bounds for tardis
-			new Float:boundsMin[3];
-			new Float:boundsMax[3];
+			float boundsMin[3];
+			float boundsMax[3];
 			boundsMin[0] = tardisOrigin[0] + TARDIS_MinMax[clientIdx][0][0];
 			boundsMin[1] = tardisOrigin[1] + TARDIS_MinMax[clientIdx][0][1];
 			boundsMin[2] = tardisOrigin[2] + TARDIS_MinMax[clientIdx][0][2];
@@ -1651,14 +1649,14 @@ public TARDIS_Tick(clientIdx, Float:curTime)
 			boundsMax[2] = tardisOrigin[2] + TARDIS_MinMax[clientIdx][1][2];
 
 			// get origin of player but tweak it a little
-			new Float:bossOrigin[3];
+			float bossOrigin[3];
 			GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
 			bossOrigin[2] += 50.0; // closer to center
 
 			if (TARDIS_NextBeaconTime[clientIdx] <= GetEngineTime() && !isFadingIn && !isFadingOut)
 			{
 				// ripped straight from RTD beacon, since it's the kind everyone's familiar with already
-				new Float:beaconPos[3];
+				float beaconPos[3];
 				beaconPos[0] = tardisOrigin[0];
 				beaconPos[1] = tardisOrigin[1];
 				beaconPos[2] = tardisOrigin[2] + 10.0;
@@ -1695,22 +1693,22 @@ public TARDIS_Tick(clientIdx, Float:curTime)
 	}
 }
 
-public Rage_Tardis(const String:ability_name[], bossIdx)
+public void Rage_Tardis(const char[] ability_name, int bossIdx)
 {
-	new clientIdx = GetBossClientId(bossIdx);
+	int clientIdx = GetBossClientId(bossIdx);
 
 	// a couple strings...
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
-	new String:tardisDimensionsStr[134];
-	new String:tardisDimensionsStrSplit[2][66];
-	new String:tardisStrIndividual[3][21];
+	char modelName[MAX_MODEL_FILE_LENGTH];
+	char tardisDimensionsStr[134];
+	char tardisDimensionsStrSplit[2][66];
+	char tardisStrIndividual[3][21];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 1, modelName, MAX_MODEL_FILE_LENGTH);
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 2, tardisDimensionsStr, 134);
-	new Float:maxZDifference = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
+	float maxZDifference = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
 	
 	// split up and validate the dimensions first of all, necessary for proper spawning and verifying boss is within TARDIS borders
 	ExplodeString(tardisDimensionsStr, " ", tardisDimensionsStrSplit, 2, 66);
-	for (new i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
 		ExplodeString(tardisDimensionsStrSplit[i], ",", tardisStrIndividual, 3, 21);
 		TARDIS_MinMax[clientIdx][i][0] = StringToFloat(tardisStrIndividual[0]);
@@ -1727,48 +1725,48 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 	}
 	
 	// grab the entry sound, but can't play it yet
-	new String:entrySound[MAX_SOUND_FILE_LENGTH];
+	char entrySound[MAX_SOUND_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 3, entrySound, MAX_SOUND_FILE_LENGTH);
 	// skip arg4 for now, not used here
 	
 	// random distance for TARDIS to spawn from rager
-	new Float:minDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 5);
-	new Float:maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 6);
+	float minDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 5);
+	float maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 6);
 	if (maxDistance < minDistance)
 	{
 		PrintToServer("[sarysamods3] WARNING distance to spawn tardis from player, min is less than max. Correcting.");
 		
 		// because I don't know if the 1337 bitwise trick works on floats in SourcePawn :P
-		new Float:tmp = minDistance;
+		float tmp = minDistance;
 		minDistance = maxDistance;
 		maxDistance = tmp;
 	}
 	
 	// health for our TARDIS
-	new health = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
+	int health = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
 	if (health <= 0)
 		health = 999999; // "invincible"
 	
 	// find a suitable place for the TARDIS. fall back to BLU spawn if suitable location cannot be found.
-	new Float:bossOrigin[3];
+	float bossOrigin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
-	new Float:tardisOrigin[3];
-	new Float:testPoint[3];
-	new bool:wallTestFailure = false;
-	new bool:playerTestFailure = false;
-	new Float:testDistanceMinimum = 0.0;
-	new Float:testedDistance = 0.0;
-	new Float:tmpVec[3];
-	new Float:rayAngles[3];
-	new Float:playerOrigin[3];
-	new Float:tardisAngles[3];
+	float tardisOrigin[3];
+	float testPoint[3];
+	bool wallTestFailure = false;
+	bool playerTestFailure = false;
+	float testDistanceMinimum = 0.0;
+	float testedDistance = 0.0;
+	float tmpVec[3];
+	float rayAngles[3];
+	float playerOrigin[3];
+	float tardisAngles[3];
 	tardisAngles[0] = 0.0;
 	tardisAngles[1] = 0.0;
 	tardisAngles[2] = 0.0;
 	
 	// need our widths to test. 1.51 is a cheap way to cover even the center point of the tardis. (i.e. the 2/2/3 triangle)
-	new Float:widthTest = fmax(TARDIS_MinMax[clientIdx][1][0] - TARDIS_MinMax[clientIdx][0][0], TARDIS_MinMax[clientIdx][1][1] - TARDIS_MinMax[clientIdx][0][1]) * 1.51;
-	for (new attempt = 0; attempt < MAX_TARDIS_SPAWN_ATTEMPTS; attempt++)
+	float widthTest = fmax(TARDIS_MinMax[clientIdx][1][0] - TARDIS_MinMax[clientIdx][0][0], TARDIS_MinMax[clientIdx][1][1] - TARDIS_MinMax[clientIdx][0][1]) * 1.51;
+	for (int attempt = 0; attempt < MAX_TARDIS_SPAWN_ATTEMPTS; attempt++)
 	{
 		// placement is simple. Z will always be +80 to account for minor bumps and hills
 		// X and Y will be plus or minus some random offset
@@ -1780,7 +1778,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 		// we don't care about the top points. it'll fall through a ceiling and I can live with that.
 		testPoint[2] = tardisOrigin[2];
 		wallTestFailure = false;
-		for (new testNum = 0; testNum < 4; testNum++)
+		for (int testNum = 0; testNum < 4; testNum++)
 		{
 			// simple way to disperse our four tests
 			if (testNum == 0 || testNum == 1)
@@ -1800,7 +1798,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 			GetVectorAngles(tmpVec, rayAngles);
 			
 			// get the distance a ray can travel
-			new Handle:trace = TR_TraceRayFilterEx(bossOrigin, rayAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+			Handle trace = TR_TraceRayFilterEx(bossOrigin, rayAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 			TR_GetEndPosition(tmpVec, trace);
 			CloseHandle(trace);
 			testedDistance = GetVectorDistance(tmpVec, bossOrigin);
@@ -1822,9 +1820,9 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 		// doing it cheaply as possible by completely ignoring the Z axis.
 		// yes it can be problematic with vertical maps. oh well. but OTOH we don't want it falling on players.
 		playerTestFailure = false;
-		new failPlayer = 0;
+		int failPlayer = 0;
 		
-		for (new victim = 1; victim < MAX_PLAYERS; victim++)
+		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			// for paranoia's sake I'm including the boss in this test
 			if (!IsLivingPlayer(victim))
@@ -1834,7 +1832,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", playerOrigin);
 			
 			// do a simple point-distance test on x and y.
-			for (new testNum = 0; testNum < 4; testNum++)
+			for (int testNum = 0; testNum < 4; testNum++)
 			{
 				// simple way to disperse our four tests
 				if (testNum == 0 || testNum == 1)
@@ -1872,9 +1870,9 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 		tmpVec[2] = tardisOrigin[2] - bossOrigin[2];
 		GetVectorAngles(tmpVec, rayAngles);
 		
-		new Float:eyeAngles[3];
+		float eyeAngles[3];
 		GetClientEyeAngles(clientIdx, eyeAngles);
-		new Float:testAngle = fixAngle(rayAngles[1] - eyeAngles[1]);
+		float testAngle = fixAngle(rayAngles[1] - eyeAngles[1]);
 		if (testAngle >= 45.0 && testAngle < 135.0)
 			tardisAngles[1] = 90.0;
 		else if (testAngle >= -45.0 || testAngle < 45.0)
@@ -1883,12 +1881,12 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 			tardisAngles[1] = -90.0;
 		
 		// and lets set a better origin point so it's close to the ground from the get go
-		new Float:highestSafeZ = -99999.0;
-		new Float:lowestSafeZ = 99999.0;
-		new Float:smallestZDiff = 99999.0;
+		float highestSafeZ = -99999.0;
+		float lowestSafeZ = 99999.0;
+		float smallestZDiff = 99999.0;
 		testPoint[2] = tardisOrigin[2];
 		rayAngles[1] = 0.0;
-		for (new testNum = 0; testNum < 4; testNum++)
+		for (int testNum = 0; testNum < 4; testNum++)
 		{
 			// simple way to disperse our four tests
 			if (testNum == 0 || testNum == 1)
@@ -1902,7 +1900,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 				
 			// perform a ray trace straight down
 			rayAngles[0] = 89.9;
-			new Handle:trace = TR_TraceRayFilterEx(testPoint, rayAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
+			Handle trace = TR_TraceRayFilterEx(testPoint, rayAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 			TR_GetEndPosition(tmpVec, trace);
 			CloseHandle(trace);
 			if (tmpVec[2] > highestSafeZ)
@@ -1912,7 +1910,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 				
 			// also perform a ray trace straight up
 			rayAngles[0] = -89.9;
-			new Float:oldZ = tmpVec[2];
+			float oldZ = tmpVec[2];
 			trace = TR_TraceRayFilterEx(testPoint, rayAngles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 			TR_GetEndPosition(tmpVec, trace);
 			CloseHandle(trace);
@@ -1921,7 +1919,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 		}
 		
 		// determine our max topple
-		new Float:maxTopple = (TARDIS_MinMax[clientIdx][1][0] - TARDIS_MinMax[clientIdx][0][0]) / 3.0;
+		float maxTopple = (TARDIS_MinMax[clientIdx][1][0] - TARDIS_MinMax[clientIdx][0][0]) / 3.0;
 		
 		// looks like we have one more fail condition. too much variation means the tardis will likely topple, and we don't want that
 		// so ensure there is no such variation
@@ -1963,8 +1961,8 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods3] Could not find suitable spawn location for TARDIS. Falling back to BLU spawn.");
 	
-		new spawn = -1;
-		new teamNum = 0;
+		int spawn = -1;
+		int teamNum = 0;
 		while ((spawn = FindEntityByClassname(spawn, "info_player_teamspawn")) != -1)
 		{
 			teamNum = GetEntProp(spawn, Prop_Send, "m_iTeamNum");
@@ -1990,7 +1988,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 	}
 	
 	// now we have our origin, so create our physics prop
-	new tardis = CreateEntityByName("prop_physics");
+	int tardis = CreateEntityByName("prop_physics");
 	SetEntProp(tardis, Prop_Data, "m_takedamage", 2);
 	
 	// reducing the already heavy amount of math here, giving it an angle rotation of 0
@@ -2013,7 +2011,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 	// delete any old TARDIS and replace its ref with this one
 	if (TARDIS_OnMap[clientIdx])
 	{
-		new oldTardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
+		int oldTardis = EntRefToEntIndex(TARDIS_EntityRef[clientIdx]);
 		if (IsValidEntity(oldTardis))
 			AcceptEntityInput(oldTardis, "kill");
 		TARDIS_EntityRef[clientIdx] = INVALID_ENTREF;
@@ -2026,7 +2024,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
 	// play the entry sound
 	if (strlen(entrySound) > 3)
 	{
-		new Float:soundOrigin[3];
+		float soundOrigin[3];
 		soundOrigin[0] = tardisOrigin[0];
 		soundOrigin[1] = tardisOrigin[1];
 		soundOrigin[2] = tardisOrigin[2] + 50.0;
@@ -2048,7 +2046,7 @@ public Rage_Tardis(const String:ability_name[], bossIdx)
  *
  * It's just a port of Otokiru's War3 teleport as a DOT.
  */
-public bool:TracePlayersAndBuildings(entity, contentsMask)
+public bool TracePlayersAndBuildings(int entity, int contentsMask)
 {
 	if (!IsValidEntity(entity))
 		return false;
@@ -2062,7 +2060,7 @@ public bool:TracePlayersAndBuildings(entity, contentsMask)
 	}
 	else
 	{
-		new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+		char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 		GetEntityClassname(entity, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 		if (!strcmp("obj_sentrygun", classname) || !strcmp("obj_dispenser", classname) || !strcmp("obj_teleporter", classname))
 			return true;
@@ -2071,9 +2069,9 @@ public bool:TracePlayersAndBuildings(entity, contentsMask)
 	return false;
 }
 
-new absincarray[]={0,4,-4,8,-8,12,-12,18,-18,22,-22,25,-25};//,27,-27,30,-30,33,-33,40,-40}; //for human it needs to be smaller
+int absincarray[13]={0,4,-4,8,-8,12,-12,18,-18,22,-22,25,-25};//,27,-27,30,-30,33,-33,40,-40}; //for human it needs to be smaller
 
-public bool:CanHitThis(entityhit, mask, any:data)
+public bool CanHitThis(int entityhit, int mask, any data)
 {
 	if(entityhit == data )
 	{// Check if the TraceRay hit the itself.
@@ -2085,26 +2083,26 @@ public bool:CanHitThis(entityhit, mask, any:data)
 	return true; // It didn't hit itself
 }
 
-public bool:GetEmptyLocationHull(client, Float:originalpos[3], Float:emptypos[3])
+public bool GetEmptyLocationHull(int client, float originalpos[3], float emptypos[3])
 {
-	new Float:mins[3];
-	new Float:maxs[3];
+	float mins[3];
+	float maxs[3];
 	GetClientMins(client,mins);
 	GetClientMaxs(client,maxs);
-	new absincarraysize=sizeof(absincarray);
-	new limit=5000;
-	for(new x=0;x<absincarraysize;x++){
+	int absincarraysize=sizeof(absincarray);
+	int limit=5000;
+	for(int x=0;x<absincarraysize;x++){
 		if(limit>0){
-			for(new y=0;y<=x;y++){
+			for(int y=0;y<=x;y++){
 				if(limit>0){
-					for(new z=0;z<=y;z++){
-						new Float:pos[3]={0.0,0.0,0.0};
+					for(int z=0;z<=y;z++){
+						float pos[3]={0.0,0.0,0.0};
 						AddVectors(pos,originalpos,pos);
 						pos[0]+=float(absincarray[x]);
 						pos[1]+=float(absincarray[y]);
 						pos[2]+=float(absincarray[z]);
 						TR_TraceHullFilter(pos,pos,mins,maxs,MASK_SOLID,CanHitThis,client);
-						//new ent;
+						//int ent;
 						if(!TR_DidHit(_))
 						{
 							AddVectors(emptypos,pos,emptypos); ///set this gloval variable
@@ -2127,28 +2125,28 @@ public bool:GetEmptyLocationHull(client, Float:originalpos[3], Float:emptypos[3]
 	}
 } 
 
-public bool:DOTTeleport(clientIdx)
+public bool DOTTeleport(int clientIdx)
 {
 	// taken directly from War3 otokiru with some tweaks
-	new Float:eyeAngles[3];
-	new Float:bossOrigin[3];
+	float eyeAngles[3];
+	float bossOrigin[3];
 	GetClientEyeAngles(clientIdx, eyeAngles);
-	new Float:endPos[3];
-	new Float:startPos[3];
+	float endPos[3];
+	float startPos[3];
 	GetClientEyePosition(clientIdx, startPos);
-	new Float:dir[3];
+	float dir[3];
 	GetAngleVectors(eyeAngles, dir, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(dir, DT_MaxDistance[clientIdx]);
 	AddVectors(startPos, dir, endPos);
 	GetClientAbsOrigin(clientIdx, bossOrigin);
 	TR_TraceRayFilter(startPos, endPos, MASK_ALL, RayType_EndPoint, TracePlayersAndBuildings);
 	TR_GetEndPosition(endPos);
-	new Float:distanceteleport = GetVectorDistance(startPos, endPos);
+	float distanceteleport = GetVectorDistance(startPos, endPos);
 	GetAngleVectors(eyeAngles, dir, NULL_VECTOR, NULL_VECTOR);///get dir again
 	ScaleVector(dir, distanceteleport - 33.0);
 
 	AddVectors(startPos, dir, endPos);
-	new Float:emptyPos[3];
+	float emptyPos[3];
 	emptyPos[0] = 0.0;
 	emptyPos[1] = 0.0;
 	emptyPos[2] = 0.0;
@@ -2180,9 +2178,9 @@ public bool:DOTTeleport(clientIdx)
 /**
  * Sentry Hijack
  */
-public RemoveSentryInvuln(sentryEntityRef)
+public void RemoveSentryInvuln(int sentryEntityRef)
 {
-	new sentryEntity = EntRefToEntIndex(sentryEntityRef);
+	int sentryEntity = EntRefToEntIndex(sentryEntityRef);
 	if (IsValidEntity(sentryEntity))
 		SetEntProp(sentryEntity, Prop_Data, "m_takedamage", 2);
 }
@@ -2190,44 +2188,44 @@ public RemoveSentryInvuln(sentryEntityRef)
 // 2015-03-22, I'm allowing this timer. I must be going soft.
 // Alas, the game frame solution would be clunky as hell, since there could be multiple sentries.
 // Having a sentry go perma-invuln would be VERY BAD as well.
-public Action:Timer_RemoveSentryInvuln(Handle:timer, any:sentryEntityRef)
+public Action Timer_RemoveSentryInvuln(Handle timer, any sentryEntityRef)
 {
 	RemoveSentryInvuln(sentryEntityRef);
 }
 
-public SH_RestoreMeleeWeapon(clientIdx)
+public void SH_RestoreMeleeWeapon(int clientIdx)
 {
 	if (!IsValidBoss(clientIdx))
 		return;
 
-	new bossIdx = FF2_GetBossIndex(clientIdx);
+	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
 		
-	new String:weaponName[MAX_WEAPON_NAME_LENGTH];
-	new String:weaponArgs[MAX_WEAPON_ARG_LENGTH];
+	char weaponName[MAX_WEAPON_NAME_LENGTH];
+	char weaponArgs[MAX_WEAPON_ARG_LENGTH];
 	FF2_GetAbilityArgumentString(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 6, weaponName, MAX_WEAPON_NAME_LENGTH);
-	new weaponIdx = FF2_GetAbilityArgument(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 7);
+	int weaponIdx = FF2_GetAbilityArgument(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 7);
 	FF2_GetAbilityArgumentString(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 8, weaponArgs, MAX_WEAPON_ARG_LENGTH);
-	new visible = FF2_GetAbilityArgument(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 9);
+	bool visible = FF2_GetAbilityArgument(FF2_GetBossIndex(clientIdx), this_plugin_name, SH_STRING, 9) != 0;
 	SwitchWeapon(clientIdx, weaponName, weaponIdx, weaponArgs, visible);
 }
  
-public RestoreSentry(clientIdx)
+public void RestoreSentry(int clientIdx)
 {
 	// don't do this if the round's over
 	if (!RoundInProgress)
 		return;
 		
 	// different things to do depending on if the hale's sentry survived
-	new haleSentry = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
-	new engieSentry = EntRefToEntIndex(SH_OriginalSentryEntityRef[clientIdx]);
+	int haleSentry = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
+	int engieSentry = EntRefToEntIndex(SH_OriginalSentryEntityRef[clientIdx]);
 	
 	if (IsValidEntity(haleSentry))
 	{
 		// it survived, which means the engie's gun can also live.
-		new Float:sentryOrigin[3];
-		new Float:sentryAngles[3];
+		float sentryOrigin[3];
+		float sentryAngles[3];
 		GetEntPropVector(haleSentry, Prop_Send, "m_vecOrigin", sentryOrigin);
 		GetEntPropVector(haleSentry, Prop_Send, "m_angRotation", sentryAngles);
 		
@@ -2261,7 +2259,7 @@ public RestoreSentry(clientIdx)
 	SH_BuildBlocked[SH_SentryOriginalOwner[clientIdx]] = false;
 }
 
-public OnEntityCreated(entity, const String:classname[])
+public void OnEntityCreated(int entity, const char[] classname)
 {
 	//PrintToServer("Entity %d, class %s, created", entity, classname);
 
@@ -2269,7 +2267,7 @@ public OnEntityCreated(entity, const String:classname[])
 	// no sense keeping it around while sappers are broken. saving it for later
 	//if (SH_ActiveThisRound && !strcmp(classname, "obj_attachment_sapper"))
 	//{
-	//	for (new i = 1; i < MAX_PLAYERS; i++)
+	//	for (int i = 1; i < MAX_PLAYERS; i++)
 	//	{
 	//		if (SH_IsHijacking[i])
 	//		{
@@ -2298,13 +2296,15 @@ public OnEntityCreated(entity, const String:classname[])
 	}
 }
 
-public Action:OnHijackedSentryTakeDamage(sentryEntity, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnHijackedSentryTakeDamage(int sentryEntity, int& attacker, int& inflictor, 
+								float& damage, int& damagetype, int& weapon,
+								float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsValidEntity(sentryEntity))
 		return Plugin_Continue;
 
 	damagetype = DMG_GENERIC;
-	new clientIdx = GetEntProp(sentryEntity, Prop_Send, "m_hBuilder") & 0x3ff;
+	int clientIdx = GetEntPropEnt(sentryEntity, Prop_Send, "m_hBuilder");
 	if (IsValidBoss(clientIdx))
 	{
 		if (SH_HaleSentryHPBoostFactor[clientIdx] == 0.0)
@@ -2318,20 +2318,24 @@ public Action:OnHijackedSentryTakeDamage(sentryEntity, &attacker, &inflictor, &F
 	return Plugin_Changed;
 }
 
-public HijackSentry(clientIdx, sentryEntity)
+public bool HijackSentry(int clientIdx, int sentryEntity)
 {
 	// for the hidden props
-	new offs;
-
+	static int m_iAmmoShells = 0, m_iAmmoRockets = 0;
+	if(!m_iAmmoRockets || !m_iAmmoShells) {
+		m_iAmmoShells = FindSendPropInfo("CObjectSentrygun", "m_iAmmoShells");
+		m_iAmmoRockets = FindSendPropInfo("CObjectSentrygun", "m_iAmmoRockets");
+	}
+	
 	// store stuff we'll need to use to restore the sentry later
-	SH_SentryOriginalOwner[clientIdx] = GetEntProp(sentryEntity, Prop_Send, "m_hBuilder") & 0x3ff;
-	new sentryMaxHealth = GetEntProp(sentryEntity, Prop_Send, "m_iMaxHealth");
+	SH_SentryOriginalOwner[clientIdx] = GetEntPropEnt(sentryEntity, Prop_Send, "m_hBuilder");
+	int sentryMaxHealth = GetEntProp(sentryEntity, Prop_Send, "m_iMaxHealth");
 	// for whatever reason this style of HP boost is not working
-	new haleSentryMaxHP = sentryMaxHealth; // RoundFloat(sentryMaxHealth * SH_HaleSentryHPBoostFactor[clientIdx]);
+	int haleSentryMaxHP = sentryMaxHealth; // RoundFloat(sentryMaxHealth * SH_HaleSentryHPBoostFactor[clientIdx]);
 	
 	// get the original sentry's position and angles
-	new Float:sentryOrigin[3];
-	new Float:sentryAngles[3];
+	float sentryOrigin[3];
+	float sentryAngles[3];
 	GetEntPropVector(sentryEntity, Prop_Send, "m_vecOrigin", sentryOrigin);
 	GetEntPropVector(sentryEntity, Prop_Send, "m_angRotation", sentryAngles);
 	
@@ -2346,8 +2350,8 @@ public HijackSentry(clientIdx, sentryEntity)
 	else if (GetEntProp(sentryEntity, Prop_Send, "m_bPlacing")) // don't hijack a sentry being placed
 		return false;
 		
-	// create a new sentry on top of the old one
-	new newSentry = CreateEntityByName("obj_sentrygun");
+	// create a int sentry on top of the old one
+	int newSentry = CreateEntityByName("obj_sentrygun");
 	if (!IsValidEntity(newSentry))
 	{
 		PrintToServer("[sarysamods3] ERROR: Could not create sentry!");
@@ -2362,22 +2366,21 @@ public HijackSentry(clientIdx, sentryEntity)
 	TeleportEntity(newSentry, sentryOrigin, sentryAngles, NULL_VECTOR);
 	
 	// gotta set the model...
-	new oldSentryLevel = GetEntProp(sentryEntity, Prop_Send, "m_iUpgradeLevel") & 0x03;
-	new String:modelName[MAX_MODEL_FILE_LENGTH];
+	int oldSentryLevel = GetEntProp(sentryEntity, Prop_Send, "m_iUpgradeLevel") & 0x03;
+	char modelName[MAX_MODEL_FILE_LENGTH];
 	Format(modelName, MAX_MODEL_FILE_LENGTH, "models/buildables/sentry%d.mdl", oldSentryLevel);
 	SetEntityModel(newSentry, modelName);
 	
 	// basic ammo, health...
-	offs = FindSendPropInfo("CObjectSentrygun", "m_iAmmoShells");
-	if (offs > 0)
-		SetEntData(newSentry, offs - 4, 5000, 4, true); // my first find, max shells :D
+	
+	SetEntData(newSentry, m_iAmmoShells - 4, 5000, 4, true); // my first find, max shells :D
 	SetEntProp(newSentry, Prop_Send, "m_iAmmoShells", 5000); // more than enough
 	SetEntProp(newSentry, Prop_Send, "m_iMaxHealth", haleSentryMaxHP);
 	SetEntProp(newSentry, Prop_Send, "m_iHealth", haleSentryMaxHP);
-	SetEntProp(newSentry, Prop_Send, "m_iObjectType", _:TFObject_Sentry);
+	SetEntProp(newSentry, Prop_Send, "m_iObjectType", view_as<int>(TFObject_Sentry));
 
 	// specific to mini sentry
-	new mini = GetEntProp(sentryEntity, Prop_Send, "m_bMiniBuilding") & 0x01;
+	int mini = GetEntProp(sentryEntity, Prop_Send, "m_bMiniBuilding") & 0x01;
 	if (mini)
 	{
 		SetEntProp(newSentry, Prop_Send, "m_bMiniBuilding", mini);
@@ -2393,9 +2396,7 @@ public HijackSentry(clientIdx, sentryEntity)
 	SetEntProp(newSentry, Prop_Send, "m_iHighestUpgradeLevel", GetEntProp(sentryEntity, Prop_Send, "m_iHighestUpgradeLevel") & 0x03);
 	if (oldSentryLevel == 3)
 	{
-		offs = FindSendPropInfo("CObjectSentrygun", "m_iAmmoRockets");
-		if (offs > 0)
-			SetEntData(newSentry, offs - 4, 50, 4, true); // my second find, max rockets :D
+		SetEntData(newSentry, m_iAmmoRockets - 4, 50, 4, true); // my second find, max rockets :D
 		SetEntProp(newSentry, Prop_Send, "m_iAmmoRockets", 50);
 	}
 		
@@ -2411,12 +2412,12 @@ public HijackSentry(clientIdx, sentryEntity)
 	SetEntPropFloat(newSentry, Prop_Send, "m_flPercentageConstructed", 1.0);
 	
 	// credit for values: BuildingSpawner.sp by X3Mano with edits by FlaminSarge
-	SetEntPropVector(newSentry, Prop_Send, "m_vecBuildMaxs", Float:{ 24.0, 24.0, 66.0 });
-	SetEntPropVector(newSentry, Prop_Send, "m_vecBuildMins", Float:{ -24.0, -24.0, 0.0 });
+	SetEntPropVector(newSentry, Prop_Send, "m_vecBuildMaxs", view_as<float>({ 24.0, 24.0, 66.0 }));
+	SetEntPropVector(newSentry, Prop_Send, "m_vecBuildMins", view_as<float>({ 24.0, -24.0, 0.0 }));
 	
 	// a long time ago this fixed the sapper problem. now it does not.
 	// the offset is now -10 but it doesn't work on its own.
-	//new offs = FindSendPropInfo("CObjectSentrygun", "m_iDesiredBuildRotations");	//2608
+	//int offs = FindSendPropInfo("CObjectSentrygun", "m_iDesiredBuildRotations");	//2608
 	//if (offs > 0)
 	//	SetEntData(newSentry, offs - 12, 1, 1, true);
 	//else
@@ -2446,7 +2447,7 @@ public HijackSentry(clientIdx, sentryEntity)
 	return true;
 }
 
-public Action:BlockPDA(client, const String:command[], argc)
+public Action BlockPDA(int client, const char[] command, int argc)
 {
 	if (client > 0 && client < MAX_PLAYERS)
 	{
@@ -2463,7 +2464,9 @@ public Action:BlockPDA(client, const String:command[], argc)
 // HUGE CREDIT goes to FlaminSarge of AlliedMods for this
 // Clearly I have a crappy reverse-engineered version of the TF2 SDK...
 // because I had no sentry class to refer to to find offsets like the ones below...gah.
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weaponIdx)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!PluginActiveThisRound)
 		return Plugin_Continue;
@@ -2485,10 +2488,10 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 				// medic is the only one that needs to be explicitly checked
 				if (TF2_GetPlayerClass(clientIdx) == TFClass_Medic)
 				{
-					new medigun = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
+					int medigun = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
 					if (IsValidEntity(medigun))
 					{
-						new String:classname[MAX_ENTITY_CLASSNAME_LENGTH];
+						char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 						GetEntityClassname(medigun, classname, sizeof(classname));
 						if (!strcmp(classname, "tf_weapon_medigun"))
 							SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", RS_Medigun[clientIdx]);
@@ -2510,15 +2513,15 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 	{
 		if (!TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed))
 		{
-			new sentryEntity = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
-			new wrangler = GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon");
+			int sentryEntity = EntRefToEntIndex(SH_HaleSentryEntityRef[clientIdx]);
+			int wrangler = GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon");
 			if (IsValidEntity(sentryEntity) && IsValidEntity(wrangler))
 			{
-				new initialOffset = FindSendPropInfo("CObjectSentrygun", "m_hEnemy");
-				new hitscanOffset = initialOffset + 4;
-				new rocketOffset = initialOffset + 5;
-				new bool:canFireHitscan = GetEntPropFloat(wrangler, Prop_Send, "m_flNextPrimaryAttack") <= GetEngineTime();
-				new bool:canFireRockets = GetEntPropFloat(wrangler, Prop_Send, "m_flNextSecondaryAttack") <= GetEngineTime();
+				int initialOffset = FindSendPropInfo("CObjectSentrygun", "m_hEnemy");
+				int hitscanOffset = initialOffset + 4;
+				int rocketOffset = initialOffset + 5;
+				bool canFireHitscan = GetEntPropFloat(wrangler, Prop_Send, "m_flNextPrimaryAttack") <= GetEngineTime();
+				bool canFireRockets = GetEntPropFloat(wrangler, Prop_Send, "m_flNextSecondaryAttack") <= GetEngineTime();
 				
 				if ((buttons & IN_ATTACK) && canFireHitscan)
 					SetEntData(sentryEntity, hitscanOffset, 1, 1, true);
@@ -2544,16 +2547,16 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 	return Plugin_Continue;
 }
 
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (!PluginActiveThisRound)
 		return;
 		
-	new Float:curTime = GetEngineTime();
+	float curTime = GetEngineTime();
 		
 	if (RS_ActiveThisRound || CS_ActiveThisRound || MS_ActiveThisRound || SD_ActiveThisRound || FD_ActiveThisRound || TARDIS_ActiveThisRound)
 	{
-		for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
 				continue;
@@ -2582,7 +2585,7 @@ public OnGameFrame()
 /**
  * General helper stocks, some original, some taken/modified from other sources
  */
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -2590,30 +2593,30 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char[] soundFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
 		PrecacheSound(soundFile);
 }
 
-stock ReadModel(bossIdx, const String:ability_name[], argInt, String:modelFile[MAX_MODEL_FILE_LENGTH])
+stock void ReadModel(int bossIdx, const char[] ability_name, int argInt, char [] modelFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		PrecacheModel(modelFile);
 }
  
-stock ReadModelToInt(bossIdx, const String:ability_name[], argInt)
+stock int ReadModelToInt(int bossIdx, const char[] ability_name, int argInt)
 {
-	static String:modelFile[MAX_MODEL_FILE_LENGTH];
+	static char modelFile[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, modelFile, MAX_MODEL_FILE_LENGTH);
 	if (strlen(modelFile) > 3)
 		return PrecacheModel(modelFile);
 	return -1;
 }
 
-stock bool:IsValidBoss(clientIdx)
+stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
@@ -2621,34 +2624,25 @@ stock bool:IsValidBoss(clientIdx)
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
-stock FindRandomLivingMerc()
-{
-	for (new i = 1; i < MAX_PLAYERS; i++)
-		if (IsLivingPlayer(i) && GetClientTeam(i) != BossTeam)
-			return i;
-			
-	return -1;
-}
-
-stock SwitchWeapon(bossClient, String:weaponName[], weaponIdx, String:weaponAttributes[], visible)
+stock void SwitchWeapon(int bossClient, char[] weaponName, int weaponIdx, char[] weaponAttributes, bool visible)
 {
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Primary);
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Secondary);
 	TF2_RemoveWeaponSlot(bossClient, TFWeaponSlot_Melee);
-	new weapon;
+	int weapon;
 	weapon = SpawnWeapon(bossClient, weaponName, weaponIdx, 101, 5, weaponAttributes, visible);
 	SetEntPropEnt(bossClient, Prop_Data, "m_hActiveWeapon", weapon);
 }
 
-SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], visible = 1)
+int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, bool visible = true)
 {
-	new Handle:weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle weapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
 	TF2Items_SetItemIndex(weapon, index);
 	TF2Items_SetLevel(weapon, level);
 	TF2Items_SetQuality(weapon, quality);
-	new String:attributes[32][32];
-	new count = ExplodeString(attribute, ";", attributes, 32, 32);
+	char attributes[32][32];
+	int count = ExplodeString(attribute, ";", attributes, 32, 32);
 	if(count%2!=0)
 	{
 		count--;
@@ -2657,10 +2651,10 @@ SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], vi
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(weapon, count/2);
-		new i2 = 0;
-		for(new i = 0; i < count; i += 2)
+		int i2 = 0;
+		for(int i = 0; i < count; i += 2)
 		{
-			new attrib = StringToInt(attributes[i]);
+			int attrib = StringToInt(attributes[i]);
 			if (attrib == 0)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
@@ -2681,7 +2675,7 @@ SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], vi
 		return -1;
 	}
 
-	new entity = TF2Items_GiveNamedItem(client, weapon);
+	int entity = TF2Items_GiveNamedItem(client, weapon);
 	CloseHandle(weapon);
 	EquipPlayerWeapon(client, entity);
 	
@@ -2695,12 +2689,12 @@ SpawnWeapon(client, String:name[], index, level, quality, String:attribute[], vi
 	return entity;
 }
 
-stock GetA(c) { return abs(c>>24); }
-stock GetR(c) { return abs((c>>16)&0xff); }
-stock GetG(c) { return abs((c>>8 )&0xff); }
-stock GetB(c) { return abs((c    )&0xff); }
+stock int GetA(int c) { return abs(c>>24); }
+stock int GetR(int c) { return abs((c>>16)&0xff); }
+stock int GetG(int c) { return abs((c>>8 )&0xff); }
+stock int GetB(int c) { return abs((c    )&0xff); }
 
-stock charToHex(c)
+stock int charToHex(char c)
 {
 	if (c >= '0' && c <= '9')
 		return c - '0';
@@ -2708,13 +2702,12 @@ stock charToHex(c)
 		return c - 'a' + 10;
 	else if (c >= 'A' && c <= 'F')
 		return c - 'A' + 10;
-	
 	// this is a user error, so print this out (it won't spam)
 	PrintToServer("[sarysamods3] Invalid hex character, probably while parsing something's color. Please only use 0-9 and A-F in your color. c=%d", c);
 	return 0;
 }
 
-stock SetColorRGBA(color[4], r, g, b, a)
+stock void SetColorRGBA(int color[4], int r, int g, int b, int a)
 {
 	color[0] = abs(r)%256;
 	color[1] = abs(g)%256;
@@ -2722,9 +2715,9 @@ stock SetColorRGBA(color[4], r, g, b, a)
 	color[3] = abs(a)%256;
 }
 
-stock ParseColor(String:colorStr[])
+stock int ParseColor(char[] colorStr)
 {
-	new ret = 0;
+	int ret = 0;
 	ret |= charToHex(colorStr[0])<<20;
 	ret |= charToHex(colorStr[1])<<16;
 	ret |= charToHex(colorStr[2])<<12;
@@ -2734,23 +2727,19 @@ stock ParseColor(String:colorStr[])
 	return ret;
 }
 
-stock ColorToDecimalString(String:buffer[COLOR_BUFFER_SIZE], rgb)
-{
-	Format(buffer, COLOR_BUFFER_SIZE, "%d %d %d", GetR(rgb), GetG(rgb), GetB(rgb));
-}
 
-stock GetBossClientId(bossIdx)
+stock int GetBossClientId(int bossIdx)
 {
-	new userId = FF2_GetBossUserId(bossIdx);
+	int userId = FF2_GetBossUserId(bossIdx);
 	if (userId <= 0)
 		return -1;
 		
 	return GetClientOfUserId(userId);
 }
 
-stock Float:fixAngle(Float:angle)
+stock float fixAngle(float angle)
 {
-	new sanity = 0;
+	int sanity = 0;
 	while (angle < -180.0 && (sanity++) <= 10)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
@@ -2759,47 +2748,47 @@ stock Float:fixAngle(Float:angle)
 	return angle;
 }
 
-stock constrainDistance(const Float:startPoint[], Float:endPoint[], Float:distance, Float:maxDistance)
+stock void constrainDistance(const float[] startPoint, float[] endPoint, float distance, float maxDistance)
 {
 	if (distance <= maxDistance)
 		return; // nothing to do
 		
-	new Float:constrainFactor = maxDistance / distance;
+	float constrainFactor = maxDistance / distance;
 	endPoint[0] = ((endPoint[0] - startPoint[0]) * constrainFactor) + startPoint[0];
 	endPoint[1] = ((endPoint[1] - startPoint[1]) * constrainFactor) + startPoint[1];
 	endPoint[2] = ((endPoint[2] - startPoint[2]) * constrainFactor) + startPoint[2];
 }
 
-stock CopyVector(Float:dst[3], Float:src[3])
+stock void CopyVector(float dst[3], float src[3])
 {
 	dst[0] = src[0];
 	dst[1] = src[1];
 	dst[2] = src[2];
 }
 
-stock Float:ClampBeamWidth(Float:w) { return w > 128.0 ? 128.0 : w; }
+stock float ClampBeamWidth(float w) { return w > 128.0 ? 128.0 : w; }
 
-stock abs(x)
+stock int abs(int x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock Float:fabs(Float:x)
+stock float fabs(float x)
 {
 	return x < 0 ? -x : x;
 }
 
-stock Float:fmax(Float:x1, Float:x2)
+stock float fmax(float x1, float x2)
 {
 	return x1 > x2 ? x1 : x2;
 }
 
-stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 0.1)
+stock int ParticleEffectAt(float position[3], char[] effectName, float duration = 0.1)
 {
 	if (IsEmptyString(effectName))
 		return -1; // nothing to display
 		
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
 		TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);
@@ -2814,21 +2803,21 @@ stock ParticleEffectAt(Float:position[3], String:effectName[], Float:duration = 
 	return particle;
 }
 
-stock Float:RandomNegative(Float:val)
+stock float RandomNegative(float val)
 {
 	return val * (GetRandomInt(0, 1) == 1 ? 1.0 : -1.0);
 }
 
-stock bool:WithinBounds(Float:point[3], Float:min[3], Float:max[3])
+stock bool WithinBounds(float point[3], float min[3], float max[3])
 {
 	return point[0] >= min[0] && point[0] <= max[0] &&
 		point[1] >= min[1] && point[1] <= max[1] &&
 		point[2] >= min[2] && point[2] <= max[2];
 }
 
-public Action:RemoveGodMode(Handle:timer, any:userId)
+public Action RemoveGodMode(Handle timer, any userId)
 {
-	new clientIdx = GetClientOfUserId(userId);
+	int clientIdx = GetClientOfUserId(userId);
 	
 	if (!IsValidEntity(clientIdx))
 		return Plugin_Stop;
@@ -2843,12 +2832,10 @@ public Action:RemoveGodMode(Handle:timer, any:userId)
 /**
  * CODE BELOW WAS TAKEN STRAIGHT FROM PHATRAGES, I TAKE NO CREDIT FOR IT
  */
-stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, Float:Frequency)
+stock void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
 {
-	decl Ent;
-
 	//Initialize:
-	Ent = CreateEntityByName("env_shake");
+	int Ent = CreateEntityByName("env_shake");
 		
 	//Spawn:
 	if (IsValidEntity(Ent))
@@ -2876,24 +2863,22 @@ stock env_shake(Float:Origin[3], Float:Amplitude, Float:Radius, Float:Duration, 
 	}
 }
 
-public Action:Timer_RemoveEntity(Handle:timer, any:entid)
+public Action Timer_RemoveEntity(Handle timer, any entid)
 {
-	new entity = EntRefToEntIndex(entid);
+	int entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
 
-stock AttachParticle(entity, const String:particleType[], Float:offset=0.0, bool:attach=true)
+stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	
 	if (!IsValidEntity(particle))
 		return -1;
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2] += offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);

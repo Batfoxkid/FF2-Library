@@ -1,14 +1,13 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
-#include <tf2_stocks>
 #include <tf2attributes>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-public Plugin:myinfo=
+#pragma semicolon 1
+#pragma newdecls required
+
+public Plugin myinfo=
 {
 	name		= "Freak Fortress 2: Body Effects",
 	author		= "Deathreus",
@@ -16,32 +15,32 @@ public Plugin:myinfo=
 	version		= "1.2",
 };
 
-new BossTeam=_:TFTeam_Blue;
-new g_iParticle[MAXPLAYERS+1][3];
+int BossTeam=view_as<int>(TFTeam_Blue);
+//int g_iParticle[MAXPLAYERS+1][3];
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	AddNormalSoundHook(SoundHook);
 }
 
-public Action:FF2_OnAbility2(iBoss, const String:pluginName[], const String:abilityName[], iStatus) {
+public Action FF2_OnAbility2(int iBoss, const char[] pluginName, const char[] abilityName, int iStatus) {
 	// This will do nothing but compiler gets mad at me without it
 	return Plugin_Continue;
 }
 
-public Action:Event_RoundStart(Handle:hEvent, const String:sName[], bool:bDontBroadcast)
+public Action Event_RoundStart(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
 	BossTeam = FF2_GetBossTeam();
-	decl iBoss;
-	for (new iIndex; (iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
+	int iBoss;
+	for (int iIndex; (iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
 	{
 		ClearParticles(iBoss);
 		if(FF2_HasAbility(iIndex, this_plugin_name, "footprints"))
 		{
-			new iFootPrintType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "footprints", 1);
-			decl Float:flFootPrintId;
+			int iFootPrintType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "footprints", 1);
+			static float flFootPrintId;
 			switch(iFootPrintType)
 			{
 				case 1: flFootPrintId = 1.0;
@@ -57,19 +56,19 @@ public Action:Event_RoundStart(Handle:hEvent, const String:sName[], bool:bDontBr
 		
 		if(FF2_HasAbility(iIndex, this_plugin_name, "body_effect"))
 		{
-			decl String:sEffectType[64];
+			static char sEffectType[64];
 			FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "body_effect", 1, sEffectType, sizeof(sEffectType));
-			new iAttachType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "body_effect", 2, -1);
-			new iAttachPoint = FF2_GetAbilityArgument(iIndex, this_plugin_name, "body_effect", 3, -1);
+			int iAttachType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "body_effect", 2, -1);
+			int iAttachPoint = FF2_GetAbilityArgument(iIndex, this_plugin_name, "body_effect", 3, -1);
 			TE_ParticleToAll(sEffectType, _, _, _, iBoss, iAttachType, iAttachPoint);
 		}
 		
 		if(FF2_HasAbility(iIndex, this_plugin_name, "eye_effect"))
 		{
-			new iEyeEffectType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "eye_effect", 1);
-			new iEyeEffectColor = FF2_GetAbilityArgument(iIndex, this_plugin_name, "eye_effect", 2);
+			int iEyeEffectType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "eye_effect", 1);
+			int iEyeEffectColor = FF2_GetAbilityArgument(iIndex, this_plugin_name, "eye_effect", 2);
 			
-			decl Float:flEyeEffectId, Float:flEyeColorId;
+			static float flEyeEffectId, flEyeColorId;
 			switch(iEyeEffectType)
 			{
 				case 1: flEyeEffectId = 2002.0;
@@ -91,7 +90,7 @@ public Action:Event_RoundStart(Handle:hEvent, const String:sName[], bool:bDontBr
 				case 7: flEyeColorId = 7.0;
 			}
 			
-			new iWeapon = GetEntPropEnt(iBoss, Prop_Send, "m_hActiveWeapon");
+			int iWeapon = GetEntPropEnt(iBoss, Prop_Send, "m_hActiveWeapon");
 			TF2Attrib_SetByDefIndex(iWeapon, 2025, 3.0);
 			TF2Attrib_SetByDefIndex(iWeapon, 2013, flEyeEffectId);
 			TF2Attrib_SetByDefIndex(iWeapon, 2014, flEyeColorId);
@@ -101,10 +100,10 @@ public Action:Event_RoundStart(Handle:hEvent, const String:sName[], bool:bDontBr
 	}
 }
 
-public Action:Event_RoundEnd(Handle:hEvent, const String:sName[], bool:bDontBroadcast)
+public Action Event_RoundEnd(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
-	decl iBoss;
-	for (new iIndex = 0; (iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
+	int iBoss;
+	for (int iIndex = 0; (iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)))>0; iIndex++)
 	{
 		if(FF2_HasAbility(iIndex, this_plugin_name, "body_effect"))
 		{
@@ -113,7 +112,7 @@ public Action:Event_RoundEnd(Handle:hEvent, const String:sName[], bool:bDontBroa
 		}
 		if(FF2_HasAbility(iIndex, this_plugin_name, "eye_effect"))
 		{
-			new iWeapon = GetEntProp(iBoss, Prop_Send, "m_hActiveWeapon");
+			int iWeapon = GetEntProp(iBoss, Prop_Send, "m_hActiveWeapon");
 			TF2Attrib_RemoveByName(iWeapon, "killstreak effect");
 			TF2Attrib_RemoveByName(iWeapon, "killstreak idleeffect");
 			TF2Attrib_RemoveByName(iWeapon, "killstreak tier");
@@ -122,24 +121,26 @@ public Action:Event_RoundEnd(Handle:hEvent, const String:sName[], bool:bDontBroa
 	}
 }
 
-public Action:SoundHook(iClients[64], &numClients, String:sSound[PLATFORM_MAX_PATH], &iEntity, &iChannel, &Float:flVolume, &iLevel, &iPitch, &iFlags)
+public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char sSound[PLATFORM_MAX_PATH],
+	  int& iEntity, int& channel, float& volume, int& level, int& pitch, int& flags,
+	  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
 	if (!IsValidClient(iEntity, true, true)) return Plugin_Continue;
-	new iBoss = FF2_GetBossIndex(iEntity);
+	int iBoss = FF2_GetBossIndex(iEntity);
 	
 	if(FF2_HasAbility(iBoss, this_plugin_name, "foot_quakes"))
 	{
-		new Float:flRange = FF2_GetAbilityArgumentFloat(iBoss, this_plugin_name, "foot_quakes", 1, 500.0);
+		float flRange = FF2_GetAbilityArgumentFloat(iBoss, this_plugin_name, "foot_quakes", 1, 500.0);
 		if (StrContains(sSound, "player/footsteps/", false) != -1)
 		{
-			decl Float:bossPosition[3], Float:targetPosition[3];
+			static float bossPosition[3], targetPosition[3];
 			GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", bossPosition);
-			for(new iTarget = 0; iTarget <= MaxClients; iTarget++)
+			for(int iTarget = 0; iTarget <= MaxClients; iTarget++)
 			{
 				if(!IsValidClient(iTarget, true) || iTarget == iEntity)
 					continue;
 				GetEntPropVector(iTarget, Prop_Send, "m_vecOrigin", targetPosition);
-				new Float:flDistance = GetVectorDistance(bossPosition, targetPosition);
+				float flDistance = GetVectorDistance(bossPosition, targetPosition);
 				if(flDistance <= flRange)
 				{
 					ScreenShake(iTarget, FloatAbs((500.0 - flDistance) / (500.0 - 0.0) * 15.0), 5.0, 1.0);
@@ -152,7 +153,7 @@ public Action:SoundHook(iClients[64], &numClients, String:sSound[PLATFORM_MAX_PA
 	return Plugin_Continue;
 }
 
-stock bool:IsValidClient(iClient, bool:bAlive = false, bool:bTeam = false)
+stock bool IsValidClient(int iClient, bool bAlive = false, bool bTeam = false)
 {
 	if(iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
 		return false;
@@ -169,33 +170,36 @@ stock bool:IsValidClient(iClient, bool:bAlive = false, bool:bTeam = false)
 	return true;
 }
 
-stock ClearParticles(iClient)
+stock void ClearParticles(int iClient)
 {
 	TF2Attrib_SetByName(iClient, "SPELL: set Halloween footstep type", 0.0);
 	TF2Attrib_SetByName(iClient, "killstreak effect", 0.0);
 	TF2Attrib_SetByName(iClient, "killstreak idleeffect", 0.0);
 	TF2Attrib_SetByName(iClient, "killstreak tier", 0.0);
 	
-	for (new i = 0; i < 3; i++)
+	/*
+	for (int i = 0; i < 3; i++)
 	{
-		new iEntity = EntRefToEntIndex(g_iParticle[iClient][i]);
-		if (iEntity > MaxClients && IsValidEntity(iEntity)) AcceptEntityInput(iEntity, "Kill");
+		int iEntity = EntRefToEntIndex(g_iParticle[iClient][i]);
+		if (iEntity > MaxClients && IsValidEntity(iEntity)) RemoveEntity(iEntity);
 		g_iParticle[iClient][i] = INVALID_ENT_REFERENCE;
 	}
+	*/
 }
 
-stock MakeParticle(client, String:effect[], String:attachment[])
+/*
+stock void MakeParticle(int client, char[] effect, char[] attachment)
 {
-	decl Float:pos[3];
-	decl Float:ang[3];
-	decl String:buffer[128];
+	static float pos[3];
+	static float ang[3];
+	static char buffer[128];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
 	GetClientEyeAngles(client, ang);
 	ang[0] *= -1;
 	ang[1] += 180.0;
 	if (ang[1] > 180.0) ang[1] -= 360.0;
 	ang[2] = 0.0;
-	new particle = CreateEntityByName("info_particle_system");
+	int particle = CreateEntityByName("info_particle_system");
 	if (!IsValidEntity(particle)) return -1;
 	TeleportEntity(particle, pos, ang, NULL_VECTOR);
 	DispatchKeyValue(particle, "effect_name", effect);
@@ -214,36 +218,13 @@ stock MakeParticle(client, String:effect[], String:attachment[])
 	AcceptEntityInput(particle, "Start");
 	return particle;
 }
+*/
 
-TE_ParticleToAll(String:sName[], Float:flOrigin[3]=NULL_VECTOR, Float:flStart[3]=NULL_VECTOR, Float:flAngles[3]=NULL_VECTOR, iEntIndex=-1,iAttachType=-1,iAttachPoint=-1, bool:bResetParticles=true)
+void TE_ParticleToAll(char[] sName, float flOrigin[3]=NULL_VECTOR, float flStart[3]=NULL_VECTOR, float flAngles[3]=NULL_VECTOR, int iEntIndex=-1, int iAttachType=-1, int iAttachPoint=-1, bool bResetParticles=true)
 {
 	// find string table
-	new tblidx = FindStringTable("ParticleEffectNames");
-	if (tblidx==INVALID_STRING_TABLE) 
-	{
-		LogError("Could not find string table: ParticleEffectNames");
-		return;
-	}
-	
-	// find particle index
-	decl String:tmp[256];
-	new iCount = GetStringTableNumStrings(tblidx);
-	new stridx = INVALID_STRING_INDEX;
-	new i;
-	for (i=0; i<iCount; i++)
-	{
-		ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-		if (StrEqual(tmp, sName, false))
-		{
-			stridx = i;
-			break;
-		}
-	}
-	if (stridx==INVALID_STRING_INDEX)
-	{
-		LogError("Could not find particle: %s", sName);
-		return;
-	}
+	int tblidx = FindStringTable("ParticleEffectNames");
+	int stridx = FindStringIndex(tblidx, sName);
 	
 	TE_Start("TFParticleEffect");
 	TE_WriteFloat("m_vecOrigin[0]", flOrigin[0]);
@@ -270,15 +251,15 @@ TE_ParticleToAll(String:sName[], Float:flOrigin[3]=NULL_VECTOR, Float:flStart[3]
 	TE_SendToAll();
 }
 
-stock ScreenShake(iTarget, Float:flIntensity=30.0, Float:flDuration=10.0, Float:flFrequency=3.0)
+stock void ScreenShake(int iTarget, float flIntensity=30.0, float flDuration=10.0, float flFrequency=3.0)
 {
-	new Handle:bf; 
-	if ((bf = StartMessageOne("Shake", iTarget)) != INVALID_HANDLE)
+	BfWrite bf = null;
+	if ((bf = UserMessageToBfWrite(StartMessageOne("Shake", iTarget))) != null)
 	{
-		BfWriteByte(bf, 0);
-		BfWriteFloat(bf, flIntensity);
-		BfWriteFloat(bf, flDuration);
-		BfWriteFloat(bf, flFrequency);
+		bf.WriteByte(0);
+		bf.WriteFloat(flIntensity);
+		bf.WriteFloat(flDuration);
+		bf.WriteFloat(flFrequency);
 		EndMessage();
 	}
 }

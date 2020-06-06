@@ -1,14 +1,13 @@
 #pragma semicolon 1
 
-#include <sourcemod>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <ff2_dynamic_defaults>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma newdecls required
 
 #define MAJOR_REVISION "1"
 #define MINOR_REVISION "3"
@@ -21,22 +20,22 @@
 #endif
 
 // Movespeed
-new Float:NewSpeed[MAXPLAYERS+1];
-new Float:NewSpeedDuration[MAXPLAYERS+1];
-new bool:NewSpeed_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
-new bool:DSM_SpeedOverride[MAXPLAYERS+1];
+float NewSpeed[MAXPLAYERS+1];
+float NewSpeedDuration[MAXPLAYERS+1];
+bool NewSpeed_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+bool DSM_SpeedOverride[MAXPLAYERS+1];
 
 #define INACTIVE 100000000.0
 #define MOVESPEED "rage_movespeed"
 #define MOVESPEEDALIAS "MVS"
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
     name = "Freak Fortress 2: Move Speed",
     author = "SHADoW NiNE TR3S",
     version = PLUGIN_VERSION,
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", Event_RoundStart);
 	HookEvent("arena_win_panel", Event_WinPanel);
@@ -47,40 +46,36 @@ public OnPluginStart2()
 	}
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	PrepareAbilities();
 }
 
-public PrepareAbilities()
+public void PrepareAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
-			DSM_SpeedOverride[client]=NewSpeed_TriggerAMS[client]=false;
+			DSM_SpeedOverride[client]=false;
 			NewSpeed[client]=0.0;
 			NewSpeedDuration[client]=INACTIVE;
-			
-			new boss=FF2_GetBossIndex(client);
-			if(boss>=0)
-			{
-				if(FF2_HasAbility(boss, this_plugin_name, MOVESPEED))
-				{
-					NewSpeed_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, MOVESPEED);
-					if(NewSpeed_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, MOVESPEED, MOVESPEEDALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			}
 		}
 	}
 }
 
-public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	for(new client=1;client<=MaxClients;client++)
+	int boss=FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, MOVESPEED))
+	{
+		NewSpeed_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, MOVESPEED, MOVESPEEDALIAS);
+	}
+}
+
+public Action Event_WinPanel(Event event, const char[] name, bool dontBroadcast)
+{
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -93,16 +88,16 @@ public Action:Event_WinPanel(Handle:event, const String:name[], bool:dontBroadca
 	}
 }
 
-public bool:MVS_CanInvoke(client)
+public AMSResult MVS_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-Rage_MoveSpeed(client)
+void Rage_MoveSpeed(int client)
 {
 	if(NewSpeed_TriggerAMS[client]) // Prevent normal 100% RAGE activation if using AMS
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			NewSpeed_TriggerAMS[client]=false;
 		}
@@ -111,19 +106,27 @@ Rage_MoveSpeed(client)
 			return;
 		}
 	}
-	MVS_Invoke(client); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+	MVS_Invoke(client, -1); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
 }
 
-public MVS_Invoke(client)
+public void MVS_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	decl String:nSpeed[10], String:nDuration[10]; // Foolproof way so that args always return floats instead of ints
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, MOVESPEED, 1, nSpeed, sizeof(nSpeed));
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, MOVESPEED, 2, nDuration, sizeof(nDuration));
+	// 01Pollux: ?????? Dont convert String to float just to get a value!!! FF2_GetAbilityArgumentFloat already does that!
+	int boss=FF2_GetBossIndex(client);
+	if(!NewSpeed[client]) {
+		NewSpeed[client] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 1);
+	}
+	
+	float nDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 2);
+	
+	if(NewSpeedDuration[client] != INACTIVE) {
+		NewSpeedDuration[client] += nDuration;
+	}
+	NewSpeedDuration[client] = nDuration + (NewSpeedDuration[client] == INACTIVE ? GetGameTime():NewSpeedDuration[client]);
 	
 	if(NewSpeed_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		static char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_movespeed_start", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -131,34 +134,16 @@ public MVS_Invoke(client)
 		}		
 	}
 	
-	if(nSpeed[0]!='\0' || nDuration[0]!='\0')
-	{
-		if(nSpeed[0]!='\0')
-		{
-			NewSpeed[client]=StringToFloat(nSpeed); // Boss Move Speed
-		}
-		if(nDuration[0]!='\0')
-		{
-			if(NewSpeedDuration[client]!=INACTIVE)
-			{
-				NewSpeedDuration[client]+=StringToFloat(nDuration); // Add time if rage is active?
-			}
-			else
-			{
-				NewSpeedDuration[client]=GetEngineTime()+StringToFloat(nDuration); // Boss Move Speed Duration
-			}
-		}
-		
-		DSM_SpeedOverride[client]=FF2_HasAbility(boss, "ff2_dynamic_defaults", "dynamic_speed_management");
+	if(!DSM_SpeedOverride[client]) {
+		DSM_SpeedOverride[client] = FF2_HasAbility(boss, "ff2_dynamic_defaults", "dynamic_speed_management");
 		if(DSM_SpeedOverride[client])
 		{
 			DSM_SetOverrideSpeed(client, NewSpeed[client]);
 		}
-		
 		SDKHook(client, SDKHook_PreThink, MoveSpeed_Prethink);
 	}
-		
-	new Float:dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 3);
+	
+	float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 3, -1.0);
 	if(dist2)
 	{
 		if(dist2==-1)
@@ -166,12 +151,12 @@ public MVS_Invoke(client)
 			dist2=FF2_GetRageDist(boss, this_plugin_name, MOVESPEED);
 		}
 		
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, MOVESPEED, 4, nSpeed, sizeof(nSpeed));
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, MOVESPEED, 5, nDuration, sizeof(nDuration));
+		float speed = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 4);
+		nDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, MOVESPEED, 5);
 		
-		new Float:pos[3], Float:pos2[3], Float:dist;
+		static float pos[3], pos2[3], dist;
 		GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-		for(new target=1;target<=MaxClients;target++)
+		for(int target=1;target<=MaxClients;target++)
 		{
 			if(!IsValidClient(target))
 				continue;
@@ -181,26 +166,26 @@ public MVS_Invoke(client)
 			if (dist<dist2 && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 			{
 				SDKHook(target, SDKHook_PreThink, MoveSpeed_Prethink);
-				NewSpeed[target]=StringToFloat(nSpeed); // Victim Move Speed
+				NewSpeed[target]=speed; // Victim Move Speed
 				if(NewSpeedDuration[target]!=INACTIVE)
 				{
-					NewSpeedDuration[target]+=StringToFloat(nDuration); // Add time if rage is active?
+					NewSpeedDuration[target]+=nDuration; // Add time if rage is active?
 				}
 				else
 				{
-					NewSpeedDuration[target]=GetEngineTime()+StringToFloat(nDuration); // Victim Move Speed Duration
+					NewSpeedDuration[target]=GetGameTime()+nDuration; // Victim Move Speed Duration
 				}
 			}
 		}
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 		
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name, MOVESPEED))
 	{
 		Rage_MoveSpeed(client);
@@ -208,16 +193,16 @@ public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:abil
 	return Plugin_Continue;
 }
 
-public MoveSpeed_Prethink(client)
+public void MoveSpeed_Prethink(int client)
 {
 	if(!DSM_SpeedOverride[client])
 	{
 		SetEntPropFloat(client, Prop_Send, "m_flMaxspeed", NewSpeed[client]);
 	}
-	SpeedTick(client, GetEngineTime());
+	SpeedTick(client, GetGameTime());
 }
 
-public SpeedTick(client, Float:gameTime)
+public int SpeedTick(int client, float gameTime)
 {
 	// Move Speed
 	if(gameTime>=NewSpeedDuration[client])
@@ -228,10 +213,10 @@ public SpeedTick(client, Float:gameTime)
 			DSM_SetOverrideSpeed(client, -1.0);
 		}
 		
-		new boss=FF2_GetBossIndex(client);
+		int boss=FF2_GetBossIndex(client);
 		if(boss>=0)
 		{
-			new String:snd[PLATFORM_MAX_PATH];
+			static char snd[PLATFORM_MAX_PATH];
 			if(FF2_RandomSound("sound_movespeed_finish", snd, sizeof(snd), boss))
 			{
 				EmitSoundToAll(snd, client);
@@ -245,7 +230,7 @@ public SpeedTick(client, Float:gameTime)
 	}
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;

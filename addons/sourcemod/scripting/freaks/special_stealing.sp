@@ -1,55 +1,36 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-//#tryinclude <freak_fortress_2_extras> 
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define STEALING "rage_stealing"
-new bool:Stealing_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
+bool Stealing_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Stealing Stuff",
 	author = "M7",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_Pre);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_Pre);
 }
 
-public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	for(new client=1;client<=MaxClients;client++)
+	if(FF2_HasAbility(FF2_GetBossIndex(client), this_plugin_name, STEALING))
 	{
-		if(!IsValidClient(client))
-			continue;
-		
-		Stealing_TriggerAMS[client] = false;
-		
-		new boss=FF2_GetBossIndex(client);
-		if(boss>=0)
-		{
-			if(FF2_HasAbility(boss, this_plugin_name, STEALING))
-			{
-				Stealing_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, STEALING);
-				if(Stealing_TriggerAMS[client])
-				{
-					AMS_InitSubability(boss, client, this_plugin_name, STEALING, "STEA");
-				}
-			}
-		}
+		Stealing_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, STEALING, "STEA");
 	}
-	return Plugin_Continue;
 }
 
-public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1; client<=MaxClients; client++)
+	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client))
 		{
@@ -59,39 +40,39 @@ public Action:Event_RoundEnd(Handle:event, const String:name[], bool:dontBroadca
 }
 			
 
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	//Make sure that RAGE is only allowed to be used when a FF2 round is active
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
 		
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,STEALING))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS"))
 		{
 			Stealing_TriggerAMS[client]=false;
 		}
 		
 		if(!Stealing_TriggerAMS[client])
-			STEA_Invoke(client);
+			STEA_Invoke(client, -1);
 	}
 	return Plugin_Continue;
 }
 
-public bool:STEA_CanInvoke(client)
+public AMSResult STEA_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public STEA_Invoke(client)
+public void STEA_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	new Float:bossPosition[3], Float:targetPosition[3], Float:sentryPosition[3], Float:dispenserPosition[3], Float:teleporterPosition[3];
+	int boss=FF2_GetBossIndex(client);
+	float bossPosition[3], targetPosition[3], sentryPosition[3], dispenserPosition[3], teleporterPosition[3];
 	
 	if(Stealing_TriggerAMS[client])
 	{
-		new String:snd[PLATFORM_MAX_PATH];
+		static char snd[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_stealing", snd, sizeof(snd), boss))
 		{
 			EmitSoundToAll(snd, client);
@@ -99,22 +80,22 @@ public STEA_Invoke(client)
 		}		
 	}
 	
-	new Float:changetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 1);
-	new Float:rangetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 2);
-	new Float:changetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 3);
-	new Float:rangetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 4);
-	new Float:changetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 5);
-	new Float:rangetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 6);
+	float changetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 1);
+	float rangetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 2);
+	float changetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 3);
+	float rangetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 4);
+	float changetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 5);
+	float rangetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 6);
 	
-	new Float:changetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 7);
-	new Float:rangetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 8);
-	new Float:changetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 9);
-	new Float:rangetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 10);
-	new Float:changetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 11);
-	new Float:rangetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 12);
+	float changetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 7);
+	float rangetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 8);
+	float changetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 9);
+	float rangetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 10);
+	float changetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 11);
+	float rangetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 12);
 	
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -142,7 +123,7 @@ public STEA_Invoke(client)
 		}
 	}
 	
-	new sentry = FindEntityByClassname(sentry, "obj_sentrygun");
+	int sentry = FindEntityByClassname(sentry, "obj_sentrygun");
 	if(IsValidEntity(sentry))
 	{
 		GetEntPropVector(sentry, Prop_Send, "m_vecOrigin", sentryPosition);
@@ -150,12 +131,12 @@ public STEA_Invoke(client)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealsentry)
 			{
-				AcceptEntityInput(sentry, "Kill");
+				RemoveEntity(sentry);
 			}
 		}
 	}
 	
-	new dispenser = FindEntityByClassname(dispenser, "obj_dispenser");
+	int dispenser = FindEntityByClassname(dispenser, "obj_dispenser");
 	if(IsValidEntity(dispenser))
 	{
 		GetEntPropVector(dispenser, Prop_Send, "m_vecOrigin", dispenserPosition);
@@ -163,12 +144,12 @@ public STEA_Invoke(client)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealdispenser)
 			{
-				AcceptEntityInput(dispenser, "Kill");
+				RemoveEntity(dispenser);
 			}
 		}
 	}
 	
-	new teleporters = FindEntityByClassname(teleporters, "obj_teleporter");
+	int teleporters = FindEntityByClassname(teleporters, "obj_teleporter");
 	if(IsValidEntity(teleporters))
 	{
 		GetEntPropVector(teleporters, Prop_Send, "m_vecOrigin", teleporterPosition);
@@ -176,13 +157,13 @@ public STEA_Invoke(client)
 		{
 			if(GetRandomFloat(0.0, 1.0)<=changetostealteleporters)
 			{
-				AcceptEntityInput(teleporters, "Kill");
+				RemoveEntity(teleporters);
 			}
 		}
 	}
 }
 
-stock SwitchtoSlot(int iClient, int iSlot)
+stock void SwitchtoSlot(int iClient, int iSlot)
 {
 	if (iSlot >= 0 && iSlot <= 5 && IsClientInGame(iClient) && IsPlayerAlive(iClient))
 	{
@@ -196,7 +177,7 @@ stock SwitchtoSlot(int iClient, int iSlot)
 	}
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;

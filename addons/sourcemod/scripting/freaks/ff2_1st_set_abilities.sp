@@ -1,14 +1,9 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <morecolors>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
 #pragma newdecls required
 
 #define CBS_MAX_ARROWS 9
@@ -36,7 +31,7 @@ int CloneOwnerIndex[MAXPLAYERS+1]=-1;
 Handle SlowMoTimer;
 int oldTarget;
 
-Handle OnHaleRage=INVALID_HANDLE;
+GlobalForward OnHaleRage=null;
 
 ConVar cvarTimeScale;
 ConVar cvarCheats;
@@ -45,7 +40,7 @@ int BossTeam=view_as<int>(TFTeam_Blue);
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	OnHaleRage=CreateGlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
+	OnHaleRage=new GlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
 	return APLRes_Success;
 }
 
@@ -896,9 +891,7 @@ public Action Timer_RemoveRagdoll(Handle timer, any userid)
 	int client=GetClientOfUserId(userid);
 	int ragdoll;
 	if(client>0 && (ragdoll=GetEntPropEnt(client, Prop_Send, "m_hRagdoll"))>MaxClients)
-	{
-		AcceptEntityInput(ragdoll, "Kill");
-	}
+		RemoveEntity(ragdoll);
 }
 
 stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute)
@@ -950,9 +943,7 @@ public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity=EntRefToEntIndex(entid);
 	if(IsValidEntity(entity) && entity>MaxClients)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
 
 stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)

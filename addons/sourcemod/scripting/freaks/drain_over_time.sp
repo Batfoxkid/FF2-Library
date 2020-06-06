@@ -1,15 +1,18 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
+#pragma newdecls required
+
 /**
+ * -----------------------------------------------------------------
+ *	//01Pollux : This whole platform need a new rework... like AMS
+ *				even tho no one seems to use it besides sarysa
+ *				for now i will just update to new syntax 
+ * -----------------------------------------------------------------
+ *
  * A platform for drain over time rages. Combines all the common aspects of such rages to
  * simplify other drain over time rages' code and configuration.
  *
@@ -22,28 +25,27 @@
  */
 
 // change this to minimize console output
-new PRINT_DEBUG_INFO = true;
+int PRINT_DEBUG_INFO = true;
 
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
 
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 80
-#define MAX_WEAPON_NAME_LENGTH 40
 #define MAX_EFFECT_NAME_LENGTH 48
 
 #define FAR_FUTURE 100000000.0
 #define IsEmptyString(%1) (%1[0] == 0)
 
 // handle needed for the method shared by sub-plugins
-new Handle:Handle_OnDOTAbilityActivated;
-new Handle:Handle_OnDOTAbilityDeactivated;
-new Handle:Handle_OnDOTUserDeath; // in case cleanup is necessary
-new Handle:Handle_OnDOTAbilityTick;
-new Handle:Handle_DOTPostRoundStartInit;
+GlobalForward Handle_OnDOTAbilityActivated;
+GlobalForward Handle_OnDOTAbilityDeactivated;
+GlobalForward Handle_OnDOTUserDeath; // in case cleanup is necessary
+GlobalForward Handle_OnDOTAbilityTick;
+GlobalForward Handle_DOTPostRoundStartInit;
 
 // shared variables
-new bool:RoundInProgress = false;
+bool RoundInProgress = false;
 
 // according to the good folks at AlliedModders, this is as close as I'll get to a struct or a class
 // but this mod needs to handle multiple bosses.
@@ -53,87 +55,82 @@ new bool:RoundInProgress = false;
 #define CONDITION_DELIM " ; " // I'm going with this because people are already using this format for weapon attributes
 #define CONDITION_DELIM_SHORT ";" // one year later, I realize how stupid my logic was with the above.
 #define CONDITION_STRING_LENGTH (MAX_CONDITIONS * 3 + ((MAX_CONDITIONS - 1) * 3) + 1) // ### ; ### ; ### ; ###... (3-digit conditions will exist pretty soon, I'd think)
-new bool:DOT_ActiveThisRound = false;
-new Float:DOT_NextTick;
-new bool:DOT_CanUse[MAX_PLAYERS_ARRAY];
-new Float:DOT_TimeOfLastSound[MAX_PLAYERS_ARRAY];
-new bool:DOT_ReloadDown[MAX_PLAYERS_ARRAY];
-new bool:DOT_RageActive[MAX_PLAYERS_ARRAY];
-new DOT_ActiveTickCount[MAX_PLAYERS_ARRAY];
-new bool:DOT_OverlayVisible[MAX_PLAYERS_ARRAY];
-new bool:DOT_ActivationCancel[MAX_PLAYERS_ARRAY];
-new bool:DOT_ForceDeactivation[MAX_PLAYERS_ARRAY];
-new bool:DOT_Usable[MAX_PLAYERS_ARRAY];
-new bool:DOT_IsOnCooldown[MAX_PLAYERS_ARRAY];
-new DOT_CooldownTicksRemaining[MAX_PLAYERS_ARRAY];
-new bool:DOT_ReloadPressPending[MAX_PLAYERS_ARRAY];
-new Float:DOT_MinRage[MAX_PLAYERS_ARRAY]; // arg1
-new Float:DOT_RageDrain[MAX_PLAYERS_ARRAY]; // arg2
-new Float:DOT_EnterPenalty[MAX_PLAYERS_ARRAY]; // arg3
-new Float:DOT_ExitPenalty[MAX_PLAYERS_ARRAY]; // arg4
-new String:DOT_EntrySound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg5
-new String:DOT_ExitSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg6
-new String:DOT_EntryEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg7
-new Float:DOT_EntryEffectDuration[MAX_PLAYERS_ARRAY]; // arg8
-new String:DOT_ExitEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg9: Rage exit particle effect
-new Float:DOT_ExitEffectDuration[MAX_PLAYERS_ARRAY]; // arg10: Duration of said particle effect
-new DOT_ConditionChanges[MAX_PLAYERS_ARRAY][MAX_CONDITIONS]; // arg11: Conditions to add (and then subsequently remove) during the reload-activated rage.
-new bool:DOT_NoOverlay[MAX_PLAYERS_ARRAY]; // arg12: Don't use overlay
-new DOT_CooldownDurationTicks[MAX_PLAYERS_ARRAY]; // arg13: Tick count for cooldown
-new DOT_ActivationKey[MAX_PLAYERS_ARRAY]; // arg14: Activation key (IN_RELOAD or IN_ATTACK3)
-new bool:DOT_AllowWhileStunned[MAX_PLAYERS_ARRAY]; // arg15
+bool DOT_ActiveThisRound = false;
+float DOT_NextTick;
+bool DOT_CanUse[MAX_PLAYERS_ARRAY];
+float DOT_TimeOfLastSound[MAX_PLAYERS_ARRAY];
+bool DOT_ReloadDown[MAX_PLAYERS_ARRAY];
+bool DOT_RageActive[MAX_PLAYERS_ARRAY];
+int DOT_ActiveTickCount[MAX_PLAYERS_ARRAY];
+bool DOT_OverlayVisible[MAX_PLAYERS_ARRAY];
+bool DOT_ActivationCancel[MAX_PLAYERS_ARRAY];
+bool DOT_ForceDeactivation[MAX_PLAYERS_ARRAY];
+bool DOT_Usable[MAX_PLAYERS_ARRAY];
+bool DOT_IsOnCooldown[MAX_PLAYERS_ARRAY];
+int DOT_CooldownTicksRemaining[MAX_PLAYERS_ARRAY];
+bool DOT_ReloadPressPending[MAX_PLAYERS_ARRAY];
+float DOT_MinRage[MAX_PLAYERS_ARRAY]; // arg1
+float DOT_RageDrain[MAX_PLAYERS_ARRAY]; // arg2
+float DOT_EnterPenalty[MAX_PLAYERS_ARRAY]; // arg3
+float DOT_ExitPenalty[MAX_PLAYERS_ARRAY]; // arg4
+char DOT_EntrySound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg5
+char DOT_ExitSound[MAX_PLAYERS_ARRAY][MAX_SOUND_FILE_LENGTH]; // arg6
+char DOT_EntryEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg7
+float DOT_EntryEffectDuration[MAX_PLAYERS_ARRAY]; // arg8
+char DOT_ExitEffect[MAX_PLAYERS_ARRAY][MAX_EFFECT_NAME_LENGTH]; // arg9: Rage exit particle effect
+float DOT_ExitEffectDuration[MAX_PLAYERS_ARRAY]; // arg10: Duration of said particle effect
+int DOT_ConditionChanges[MAX_PLAYERS_ARRAY][MAX_CONDITIONS]; // arg11: Conditions to add (and then subsequently remove) during the reload-activated rage.
+bool DOT_NoOverlay[MAX_PLAYERS_ARRAY]; // arg12: Don't use overlay
+int DOT_CooldownDurationTicks[MAX_PLAYERS_ARRAY]; // arg13: Tick count for cooldown
+int DOT_ActivationKey[MAX_PLAYERS_ARRAY]; // arg14: Activation key (IN_RELOAD or IN_ATTACK3)
+bool DOT_AllowWhileStunned[MAX_PLAYERS_ARRAY]; // arg15
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Drain Over Time Platform",
 	author = "sarysa",
 	version = "1.1.0",
 }
 
-OnDOTAbilityActivated(clientIdx)
+void OnDOTAbilityActivated(int clientIdx)
 {
-	new Action:act=Plugin_Continue;	
 	Call_StartForward(Handle_OnDOTAbilityActivated);
 	Call_PushCell(clientIdx);
-	Call_Finish(act);
+	Call_Finish(); //why pushing an UNUSED REF, more expensive than byval
 }
 
-OnDOTAbilityDeactivated(clientIdx)
+void OnDOTAbilityDeactivated(int clientIdx)
 {
-	new Action:act=Plugin_Continue;	
 	Call_StartForward(Handle_OnDOTAbilityDeactivated);
 	Call_PushCell(clientIdx);
-	Call_Finish(act);
+	Call_Finish();
 }
 
-OnDOTAbilityTick(clientIdx, tickCount)
+void OnDOTAbilityTick(int clientIdx, int tickCount)
 {
-	new Action:act=Plugin_Continue;	
 	Call_StartForward(Handle_OnDOTAbilityTick);
 	Call_PushCell(clientIdx);
 	Call_PushCell(tickCount);
-	Call_Finish(act);
+	Call_Finish();
 }
 
-OnDOTUserDeath(clientIdx, isInGame)
+void OnDOTUserDeath(int clientIdx, int isInGame)
 {
 	if (isInGame)
 		RemoveDOTOverlay(clientIdx);
 
-	new Action:act=Plugin_Continue;	
 	Call_StartForward(Handle_OnDOTUserDeath);
 	Call_PushCell(clientIdx);
 	Call_PushCell(isInGame);
-	Call_Finish(act);
+	Call_Finish();
 }
 
-DOTPostRoundStartInit()
+void DOTPostRoundStartInit()
 {
-	new Action:act=Plugin_Continue;
 	Call_StartForward(Handle_DOTPostRoundStartInit);
-	Call_Finish(act);
+	Call_Finish();
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	// Make the clients download the overlays, since pretty much everyone forgot to put those in the boss' config
 	AddFileToDownloadsTable("materials/freak_fortress_2/dots/alt_fire_overlay1.vmt");
@@ -150,24 +147,24 @@ public OnMapStart()
 	AddFileToDownloadsTable("materials/freak_fortress_2/dots/reload_overlay2.vtf");
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	// handles for global forwards
-	Handle_OnDOTAbilityActivated = CreateGlobalForward("OnDOTAbilityActivatedInternal", ET_Hook, Param_Cell);
-	Handle_OnDOTAbilityDeactivated = CreateGlobalForward("OnDOTAbilityDeactivatedInternal", ET_Hook, Param_Cell);
-	Handle_OnDOTAbilityTick = CreateGlobalForward("OnDOTAbilityTickInternal", ET_Hook, Param_Cell, Param_Cell);
-	Handle_DOTPostRoundStartInit = CreateGlobalForward("DOTPostRoundStartInitInternal", ET_Hook);
-	Handle_OnDOTUserDeath = CreateGlobalForward("OnDOTUserDeathInternal", ET_Hook, Param_Cell, Param_Cell);
+	Handle_OnDOTAbilityActivated = new GlobalForward("OnDOTAbilityActivatedInternal", ET_Hook, Param_Cell);
+	Handle_OnDOTAbilityDeactivated = new GlobalForward("OnDOTAbilityDeactivatedInternal", ET_Hook, Param_Cell);
+	Handle_OnDOTAbilityTick = new GlobalForward("OnDOTAbilityTickInternal", ET_Hook, Param_Cell, Param_Cell);
+	Handle_DOTPostRoundStartInit = new GlobalForward("DOTPostRoundStartInitInternal", ET_Hook);
+	Handle_OnDOTUserDeath = new GlobalForward("OnDOTUserDeathInternal", ET_Hook, Param_Cell, Param_Cell);
 	
 	// events to listen to
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 }
 
-public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundStart(Handle event,const char[] name, bool dontBroadcast)
 {
 	// set all clients to inactive
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		DOT_CanUse[clientIdx] = false;
 		DOT_ReloadDown[clientIdx] = false;
@@ -178,7 +175,7 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 		DOT_NoOverlay[clientIdx] = false;
 		DOT_IsOnCooldown[clientIdx] = false;
 		DOT_ReloadPressPending[clientIdx] = false;
-		for (new i = 0; i < MAX_CONDITIONS; i++)
+		for (int i = 0; i < MAX_CONDITIONS; i++)
 			DOT_ConditionChanges[clientIdx][i] = -1;
 	}
 		
@@ -200,7 +197,7 @@ public Action:Event_RoundStart(Handle:event,const String:name[],bool:dontBroadca
 // not sure why that happens (it certainly isn't up to the specifications)
 // but if you ever modify this timer, make sure the second execution doesn't undermine
 // the first. in other words, don't set any negatives here -- leave that to RoundStart above.
-public Action:Timer_PostRoundStartInits(Handle:timer)
+public Action Timer_PostRoundStartInits(Handle timer)
 {
 	// edge case: user suicided
 	if (!RoundInProgress)
@@ -209,23 +206,23 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 		return Plugin_Stop;
 	}
 		
-	new dotUserCount = 0;
+	int dotUserCount = 0;
 		
 	// some things we'll be checking on for later
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++) // make no boss count assumptions, though anything above 3 is very weird
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++) // make no boss count assumptions, though anything above 3 is very weird
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
 	
-		new bossIdx = FF2_GetBossIndex(clientIdx);
+		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 			
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DOT_STRING))
 		{
 			DOT_ActiveThisRound = true; // looks like we'll start the looping timer.
-			static String:conditionStr[CONDITION_STRING_LENGTH];
-			static String:conditions[MAX_CONDITIONS][4];
+			static char conditionStr[CONDITION_STRING_LENGTH];
+			static char conditions[MAX_CONDITIONS][4];
 
 			// now lets set this user's parameters!
 			DOT_CanUse[clientIdx] = true;
@@ -242,12 +239,12 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DOT_STRING, 11, conditionStr, CONDITION_STRING_LENGTH);
 			if (!IsEmptyString(conditionStr))
 			{
-				new conditionCount = 0;
+				int conditionCount = 0;
 				if (StrContains(conditionStr, CONDITION_DELIM) < 0)
 					conditionCount = ExplodeString(conditionStr, CONDITION_DELIM_SHORT, conditions, MAX_CONDITIONS, 4);
 				else
 					conditionCount = ExplodeString(conditionStr, CONDITION_DELIM, conditions, MAX_CONDITIONS, 4);
-				for (new condIdx = 0; condIdx < conditionCount; condIdx++)
+				for (int condIdx = 0; condIdx < conditionCount; condIdx++)
 				{
 					DOT_ConditionChanges[clientIdx][condIdx] = StringToInt(conditions[condIdx]);
 					//PrintToServer("[drain_over_time] Condition: %d", DOT_ConditionChanges[clientIdx][condIdx]);
@@ -271,7 +268,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 				PrintToServer("[drain_over_time] For %d, minimum rage (%f) < rage entry cost (%f), should set minimum higher!", clientIdx, DOT_MinRage[clientIdx], DOT_EnterPenalty[clientIdx]);
 
 			// init this just in case
-			DOT_TimeOfLastSound[clientIdx] = GetEngineTime();
+			DOT_TimeOfLastSound[clientIdx] = GetGameTime();
 
 			// debug only
 			dotUserCount++;
@@ -283,7 +280,7 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[drain_over_time] DOT rage on %d boss(es) this round.", dotUserCount);
 		DOTPostRoundStartInit();
-		DOT_NextTick = GetEngineTime() + DOT_INTERVAL;
+		DOT_NextTick = GetGameTime() + DOT_INTERVAL;
 	}
 	else
 	{
@@ -294,79 +291,79 @@ public Action:Timer_PostRoundStartInits(Handle:timer)
 	return Plugin_Stop;
 }
 
-public Action:Event_RoundEnd(Handle:event,const String:name[],bool:dontBroadcast)
+public Action Event_RoundEnd(Handle event,const char[] name, bool dontBroadcast)
 {
 	// round has ended, this'll kill the looping timer
 	RoundInProgress = false;
 	
 	// remove overlays for all bosses
-	for (new clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (DOT_CanUse[clientIdx])
 			RemoveDOTOverlay(clientIdx);
 	}
 }
 
-public CancelDOTAbilityActivation(clientIdx)
+public void CancelDOTAbilityActivation(int clientIdx)
 {
-	//new clientIdx = GetNativeCell(1);
+	//int clientIdx = GetNativeCell(1);
 	DOT_ActivationCancel[clientIdx] = true;
 }
 
-public ForceDOTAbilityDeactivation(clientIdx)
+public void ForceDOTAbilityDeactivation(int clientIdx)
 {
-	//new clientIdx = GetNativeCell(1);
+	//int clientIdx = GetNativeCell(1);
 	if (DOT_RageActive[clientIdx])
 		DOT_ForceDeactivation[clientIdx] = true;
 }
 
-public SetDOTUsability(clientIdx, usability)
+public void SetDOTUsability(int clientIdx, int usability)
 {
-	//new clientIdx = GetNativeCell(1);
-	//new bool:usability = GetNativeCell(2) == 1;
+	//int clientIdx = GetNativeCell(1);
+	//bool usability = GetNativeCell(2) == 1;
 	DOT_Usable[clientIdx] = usability == 1;
 }
 
 // ensure that sounds are not spammed by user spamming R. two seconds between sounds played
-PlaySoundLocal(clientIdx, const String:soundPath[])
+void PlaySoundLocal(int clientIdx, const char[] soundPath)
 {
-	if (DOT_TimeOfLastSound[clientIdx] + 2.0 > GetEngineTime()) // two second interval check
+	if (DOT_TimeOfLastSound[clientIdx] + 2.0 > GetGameTime()) // two second interval check
 		return; // prevent spam
 	else if (strlen(soundPath) < 3)
 		return; // nothing to play
 		
 	// play a speech sound that travels normally, local from the player.
 	// I can swear that sounds are louder from eye position than origin...
-	decl Float:playerPos[3];
+	float playerPos[3];
 	//GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", playerPos);
 	GetClientEyePosition(clientIdx, playerPos);
 	EmitAmbientSound(soundPath, playerPos, clientIdx);
-	DOT_TimeOfLastSound[clientIdx] = GetEngineTime();
+	DOT_TimeOfLastSound[clientIdx] = GetGameTime();
 }
 
 // also need to ensure this one isn't spammed
-TransitionEffect(clientIdx, String:effectName[], Float:duration)
+void TransitionEffect(int clientIdx, char[] effectName, float duration)
 {
 	if (IsEmptyString(effectName))
 		return; // nothing to play
 	if (duration == 0.0)
 		duration = 0.1; // probably doesn't matter for this effect, I just don't feel comfortable passing 0 to a timer
 		
-	new Float:bossPos[3];
+	float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
-	new particle = AttachParticle(clientIdx, effectName, 75.0);
+	int particle = AttachParticle(clientIdx, effectName, 75.0);
 	if (IsValidEntity(particle))
 		CreateTimer(duration, RemoveEntityDA, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 }
 
 // repeating timers documented here: https://wiki.alliedmods.net/Timers_%28SourceMod_Scripting%29
-new overlayTickCount = 0;
-public Action:TickDOTs(Float:curTime)
+int overlayTickCount = 0;
+public void TickDOTs(float curTime)
 {
 	if (curTime >= DOT_NextTick)
 		overlayTickCount++;
 		
-	for (new clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
+	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// only bother if client is using the plugin
 		if (!DOT_CanUse[clientIdx])
@@ -387,11 +384,11 @@ public Action:TickDOTs(Float:curTime)
 				DOT_IsOnCooldown[clientIdx] = false;
 		}
 			
-		new bool:dotRageStart = false;
-		new bool:dotRageStop = false;
-		new Float:ragePenalty = 0.0;
-		new bossIdx = FF2_GetBossIndex(clientIdx);
-		new Float:rage = FF2_GetBossCharge(bossIdx, 0);
+		bool dotRageStart = false;
+		bool dotRageStop = false;
+		float ragePenalty = 0.0;
+		int bossIdx = FF2_GetBossIndex(clientIdx);
+		float rage = FF2_GetBossCharge(bossIdx, 0);
 		if (DOT_ReloadPressPending[clientIdx])
 		{
 			if (DOT_RageActive[clientIdx]) // player manually stops the DOT
@@ -437,12 +434,12 @@ public Action:TickDOTs(Float:curTime)
 				RemoveDOTOverlay(clientIdx);
 
 				// add conditions
-				for (new condIdx = 0; condIdx < MAX_CONDITIONS; condIdx++)
+				for (int condIdx = 0; condIdx < MAX_CONDITIONS; condIdx++)
 				{
 					if (DOT_ConditionChanges[clientIdx][condIdx] == -1)
 						break;
 
-					TF2_AddCondition(clientIdx, TFCond:DOT_ConditionChanges[clientIdx][condIdx], -1.0);
+					TF2_AddCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx]), -1.0);
 				}
 				
 				// cooldown
@@ -470,13 +467,13 @@ public Action:TickDOTs(Float:curTime)
 				DOT_RageActive[clientIdx] = false;
 
 				// remove conditions
-				for (new condIdx = 0; condIdx < MAX_CONDITIONS; condIdx++)
+				for (int condIdx = 0; condIdx < MAX_CONDITIONS; condIdx++)
 				{
 					if (DOT_ConditionChanges[clientIdx][condIdx] == -1)
 						break;
 					
-					if (TF2_IsPlayerInCondition(clientIdx, TFCond:DOT_ConditionChanges[clientIdx][condIdx]))
-						TF2_RemoveCondition(clientIdx, TFCond:DOT_ConditionChanges[clientIdx][condIdx]);
+					if (TF2_IsPlayerInCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx])))
+						TF2_RemoveCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx]));
 				}
 			}
 			DOT_ActivationCancel[clientIdx] = false;
@@ -507,16 +504,17 @@ public Action:TickDOTs(Float:curTime)
 	if (curTime >= DOT_NextTick)
 		DOT_NextTick += DOT_INTERVAL; // get more accuracy with these ticks
 		
-	return Plugin_Continue;
 }
 
-public OnGameFrame()
+public void OnGameFrame()
 {
 	if (DOT_ActiveThisRound && RoundInProgress)
-		TickDOTs(GetEngineTime());
+		TickDOTs(GetGameTime());	//01Pollux: if you are going to return just one value then not use, then perhaps DONT and make it void!
 }
 
-public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!DOT_ActiveThisRound || !RoundInProgress || !IsLivingPlayer(clientIdx) || !DOT_CanUse[clientIdx])
 		return Plugin_Continue;
@@ -543,12 +541,12 @@ public Action:OnPlayerRunCmd(clientIdx, &buttons, &impulse, Float:vel[3], Float:
 }
 
 // unused, but required
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], status) { return Plugin_Continue; }
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int status) { }
 
 /**
  * READ THE LONG-WINDED COMMENTS BEFORE COPYING WHAT I DID.
  */
-DisplayDOTOverlay(clientIdx)
+void DisplayDOTOverlay(int clientIdx)
 {
 	// ohai
 	// So you may be wondering how I got this overlay to show up, when you don't even need to be a coder
@@ -566,12 +564,12 @@ DisplayDOTOverlay(clientIdx)
 	// And vice versa.
 	// Server operators (who code) have it easy. :P Getting to pick and choose what HUDs are worth it and fixing the overuse in the FF2 code...
 	// oh yeah, this isn't localized. Sorry about that.
-	new bool:shouldExecute = (overlayTickCount % 5 == 0) || !DOT_OverlayVisible[clientIdx];
+	bool shouldExecute = (overlayTickCount % 5 == 0) || !DOT_OverlayVisible[clientIdx];
 	shouldExecute = shouldExecute && !DOT_NoOverlay[clientIdx];
 	if (!shouldExecute)
 		return;
 	
-	new flags = GetCommandFlags("r_screenoverlay");
+	int flags = GetCommandFlags("r_screenoverlay");
 	SetCommandFlags("r_screenoverlay", flags & ~FCVAR_CHEAT);
 	if ((overlayTickCount / 5) % 2 == 0)
 	{
@@ -596,12 +594,12 @@ DisplayDOTOverlay(clientIdx)
 	DOT_OverlayVisible[clientIdx] = true;
 }
 
-RemoveDOTOverlay(clientIdx)
+void RemoveDOTOverlay(int clientIdx)
 {
 	if (!IsClientInGame(clientIdx) || DOT_NoOverlay[clientIdx])
 		return;
 	
-	new flags = GetCommandFlags("r_screenoverlay");
+	int flags = GetCommandFlags("r_screenoverlay");
 	SetCommandFlags("r_screenoverlay", flags & ~FCVAR_CHEAT);
 	ClientCommand(clientIdx, "r_screenoverlay \"\"");
 	SetCommandFlags("r_screenoverlay", flags);
@@ -612,7 +610,7 @@ RemoveDOTOverlay(clientIdx)
 /**
  * Stocks
  */
-stock bool:IsLivingPlayer(clientIdx)
+stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
@@ -620,7 +618,7 @@ stock bool:IsLivingPlayer(clientIdx)
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
-stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[MAX_SOUND_FILE_LENGTH])
+stock void ReadSound(int bossIdx, const char[] ability_name, int argInt, char[] soundFile)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, soundFile, MAX_SOUND_FILE_LENGTH);
 	if (strlen(soundFile) > 3)
@@ -630,23 +628,21 @@ stock ReadSound(bossIdx, const String:ability_name[], argInt, String:soundFile[M
 /**
  * CODE BELOW TAKEN FROM default_abilities, I CLAIM NO CREDIT
  */
-public Action:RemoveEntityDA(Handle:timer, any:entid)
+public Action RemoveEntityDA(Handle timer, any entid)
 {
-	new entity=EntRefToEntIndex(entid);
+	int entity=EntRefToEntIndex(entid);
 	if(IsValidEdict(entity) && entity>MAX_PLAYERS)
-	{
-		AcceptEntityInput(entity, "Kill");
-	}
+		RemoveEntity(entity);
 }
 
-AttachParticle(entity, String:particleType[], Float:offset=0.0, bool:attach=true)
+int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
 	if (!IsValidEntity(particle))
 		return -1;
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[2]+=offset;
 	TeleportEntity(particle, position, NULL_VECTOR, NULL_VECTOR);

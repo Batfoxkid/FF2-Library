@@ -1,13 +1,11 @@
-#pragma semicolon 1
-
-#include <sourcemod>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define MAJOR_REVISION "1"
 #define MINOR_REVISION "1"
@@ -19,23 +17,23 @@
 	#define PLUGIN_VERSION MAJOR_REVISION..."."...MINOR_REVISION..."."...PATCH_REVISION
 #endif
 
-new bool:bEnableSuperDuperJump[MAXPLAYERS+1];
-new bool:HasTFCondTweak[MAXPLAYERS+1];
-new bool:TFCond_TriggerAMS[MAXPLAYERS+1];
-new String:TFCondTweakConditions[MAXPLAYERS+1][768];
-new String:SpecialTFCondTweakConditions[MAXPLAYERS+1][768];
-new Handle:chargeHUD;
+bool bEnableSuperDuperJump[MAXPLAYERS+1];
+bool HasTFCondTweak[MAXPLAYERS+1];
+bool TFCond_TriggerAMS[MAXPLAYERS+1];
+char TFCondTweakConditions[MAXPLAYERS+1][768];
+char SpecialTFCondTweakConditions[MAXPLAYERS+1][768];
+Handle chargeHUD;
 
-new buttonmode[MAXPLAYERS+1];
-new Float:dotCost[MAXPLAYERS+1], Float:minCost[MAXPLAYERS+1], Float:curRage[MAXPLAYERS+1];
+int buttonmode[MAXPLAYERS+1];
+float dotCost[MAXPLAYERS+1], minCost[MAXPLAYERS+1], curRage[MAXPLAYERS+1];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
     name = "Freak Fortress 2: TFConditions",
     author = "SHADoW NiNE TR3S",
     version = PLUGIN_VERSION,
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_ArenaRoundStart);
 	HookEvent("arena_win_panel", Event_ArenaWinPanel);
@@ -46,31 +44,51 @@ public OnPluginStart2()
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name, "rage_tfcondition"))
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS")) // Fail state?
 		{
 			TFCond_TriggerAMS[client]=false;
 		}
 		
 		if(!TFCond_TriggerAMS[client])
-			TFC_Invoke(client);
+			TFC_Invoke(client, -1);
 	}
 	if(!strcmp(ability_name, "charge_tfcondition"))
 	{
-		new slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
+		int slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
 		Charge_TFCondition(ability_name, boss, slot, status, client);
 	}
 	return Plugin_Continue;
 }
 
-public Action:Event_ArenaRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int bossClient)
+{
+	int bossIdx = FF2_GetBossIndex(bossClient);
+	static char condName[96], condShort[96];
+	for(int abilityNum=0; abilityNum<=9;abilityNum++)
+	{
+		Format(condName, sizeof(condName), "ams_tfcond_%i", abilityNum);
+		if(FF2_HasAbility(bossIdx, this_plugin_name, condName))
+		{
+			Format(condShort, sizeof(condShort), "TC%i", abilityNum);
+			FF2AMS_PushToAMS(bossClient, this_plugin_name, condName, condShort);
+		}
+	}
+	if(FF2_HasAbility(bossIdx, this_plugin_name, "rage_tfcondition"))
+	{
+		TFCond_TriggerAMS[bossClient] = true;
+		FF2AMS_PushToAMS(bossClient, this_plugin_name, "rage_tfcondition", "TFC");
+	}
+}
+
+public Action Event_ArenaRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -78,46 +96,13 @@ public Action:Event_ArenaRoundStart(Handle:event, const String:name[], bool:dont
 	PrepareAbilities();
 }
 
-public PrepareAbilities()
+public void PrepareAbilities()
 {
-	for(new client=1;client<=MaxClients;client++)
-	{
-		if(!IsValidClient(client))
-			continue;
-		TFCond_TriggerAMS[client]=false;
-		HasTFCondTweak[client]=false;
-		bEnableSuperDuperJump[client]=false;
-	}
-	
-	decl bossClient;
-	for(new bossIdx=0;(bossClient=GetClientOfUserId(FF2_GetBossUserId(bossIdx)))>0;bossIdx++)
+	int bossClient;
+	for(int bossIdx=0;(bossClient=GetClientOfUserId(FF2_GetBossUserId(bossIdx)))>0;bossIdx++)
 	{
 		if(!IsValidClient(bossClient))
 			continue;
-			
-			
-		// AMS-exclusive version
-		decl String:condName[96], String:condShort[96];
-		for(new abilityNum=0; abilityNum<=9;abilityNum++)
-		{
-			Format(condName, sizeof(condName), "ams_tfcond_%i", abilityNum);
-			if(FF2_HasAbility(bossIdx, this_plugin_name, condName))
-			{
-				Format(condShort, sizeof(condShort), "TC%i", abilityNum);
-				AMS_InitSubability(bossIdx, bossClient, this_plugin_name, condName, condShort);
-			}
-		}
-	
-		// Legacy			
-		if(FF2_HasAbility(bossIdx, this_plugin_name, "rage_tfcondition"))
-		{
-			if(AMS_IsSubabilityReady(bossIdx, this_plugin_name, "rage_tfcondition"))
-			{
-				TFCond_TriggerAMS[bossClient] = true;
-				AMS_InitSubability(bossIdx, bossClient, this_plugin_name, "rage_tfcondition", "TFC");
-			}
-		}
-			
 		if(FF2_HasAbility(bossIdx, this_plugin_name, "tfconditions"))
 		{
 			HasTFCondTweak[bossClient]=true;
@@ -126,7 +111,7 @@ public PrepareAbilities()
 			{
 				SetCondition(bossClient, TFCondTweakConditions[bossClient]);
 			}
-			for(new targetIdx;targetIdx<=MaxClients;targetIdx++)
+			for(int targetIdx;targetIdx<=MaxClients;targetIdx++)
 			{
 				if(!IsValidClient(targetIdx))
 					continue;
@@ -150,9 +135,9 @@ public PrepareAbilities()
 	}
 }
 
-public Action:Event_ArenaWinPanel(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_ArenaWinPanel(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if(IsValidClient(client))
 		{
@@ -170,7 +155,7 @@ public Action:Event_ArenaWinPanel(Handle:event, const String:name[], bool:dontBr
 	}
 }
 
-public PersistentTFCondition_PreThink(client)
+public void PersistentTFCondition_PreThink(int client)
 {
 	if(FF2_GetRoundState()!=1 || !IsPlayerAlive(client) || !IsValidClient(client, false)) // Round ended or boss was defeated?
 	{
@@ -178,7 +163,7 @@ public PersistentTFCondition_PreThink(client)
 		return;
 	}
 	
-	new bossIdx=FF2_GetBossIndex(client);
+	int bossIdx=FF2_GetBossIndex(client);
 	if(FF2_HasAbility(bossIdx, this_plugin_name, "special_tfcondition"))
 	{
 		curRage[client]=FF2_GetBossCharge(bossIdx, 0);
@@ -198,18 +183,18 @@ public PersistentTFCondition_PreThink(client)
 }
 
 
-Charge_TFCondition(const String:ability_name[], boss, slot, action, bClient)
+void Charge_TFCondition(const char[] ability_name, int boss, int slot, int action, int bClient)
 {
-	new String:VictimCond[768], String:BossCond[768], String:cHUDText[512], String:cHUDText2[512], String:cSDJHUDText[512], String:cRCOSTHUDTXT[512];
-	new Float:charge = FF2_GetBossCharge(boss,slot), Float:bCharge = FF2_GetBossCharge(boss,0);
-	new Float:rCost = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 3);
+	char VictimCond[768], BossCond[768], cHUDText[512], cHUDText2[512], cSDJHUDText[512], cRCOSTHUDTXT[512];
+	float charge = FF2_GetBossCharge(boss,slot), bCharge = FF2_GetBossCharge(boss,0);
+	float rCost = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 3);
 
 	// HUD Strings
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 7, cHUDText, sizeof(cHUDText));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 8, cHUDText2, sizeof(cHUDText2));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 9, cSDJHUDText, sizeof(cSDJHUDText));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 10, cRCOSTHUDTXT, sizeof(cRCOSTHUDTXT));
-	new override=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 11);
+	int override=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 11);
 
 	if(rCost && !bEnableSuperDuperJump[boss])
 	{
@@ -264,7 +249,7 @@ Charge_TFCondition(const String:ability_name[], boss, slot, action, bClient)
 		{
 			if (bEnableSuperDuperJump[boss] && slot == 1)
 			{
-				new Float:vel[3], Float: rot[3];
+				static float vel[3], rot[3];
 				GetEntPropVector(bClient, Prop_Data, "m_vecVelocity", vel);
 				GetClientEyeAngles(bClient, rot);
 				vel[2]=750.0+500.0*charge/70+2000;
@@ -296,14 +281,14 @@ Charge_TFCondition(const String:ability_name[], boss, slot, action, bClient)
 				
 				if(VictimCond[0]!='\0')
 				{
-					new Float:pos[3], Float:pos2[3], Float:dist;
-					new Float:dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 6, FF2_GetRageDist(boss, this_plugin_name, ability_name));
+					static float pos[3], pos2[3], dist;
+					float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 6, FF2_GetRageDist(boss, this_plugin_name, ability_name));
 					if(!dist2)
 					{
 						dist2=FF2_GetRageDist(boss, this_plugin_name, ability_name); // Use Ragedist if range is not set
 					}
 					GetEntPropVector(bClient, Prop_Send, "m_vecOrigin", pos);
-					for(new target=1; target<=MaxClients; target++)
+					for(int target=1; target<=MaxClients; target++)
 					{
 						if(IsValidClient(target) && IsPlayerAlive(target) && GetClientTeam(target)!= FF2_GetBossTeam())
 						{
@@ -318,14 +303,14 @@ Charge_TFCondition(const String:ability_name[], boss, slot, action, bClient)
 				}
 				
 
-				new Float:position[3];
-				new String:sound[PLATFORM_MAX_PATH];
+				float position[3];
+				char sound[PLATFORM_MAX_PATH];
 				if(FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, boss, slot))
 				{
 					EmitSoundToAll(sound, bClient, _, _, _, _, _, boss, position);
 					EmitSoundToAll(sound, bClient, _, _, _, _, _, boss, position);
 	
-					for(new target=1; target<=MaxClients; target++)
+					for(int target=1; target<=MaxClients; target++)
 					{
 						if(IsClientInGame(target) && target!=boss)
 						{
@@ -356,7 +341,7 @@ Charge_TFCondition(const String:ability_name[], boss, slot, action, bClient)
 	}
 }
 
-public Action:FF2_OnTriggerHurt(boss, triggerhurt, &Float:damage)
+public Action FF2_OnTriggerHurt(int boss, int triggerhurt, float& damage)
 {
 	if(!bEnableSuperDuperJump[boss])
 	{
@@ -367,85 +352,85 @@ public Action:FF2_OnTriggerHurt(boss, triggerhurt, &Float:damage)
 	return Plugin_Continue;
 }
 
-public Action:ResetCharge(Handle:timer, any:boss)
+public Action ResetCharge(Handle timer, any boss)
 {
-	new slot=boss%10000;
+	int slot=boss%10000;
 	boss/=1000;
 	FF2_SetBossCharge(boss, slot, 0.0);
 }
 
-stock bool:IsBoss(client)
+stock bool IsBoss(int client)
 {
 	if(FF2_GetBossIndex(client)==-1) return false;
 	if(GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	return true;
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(isPlayerAlive) return IsClientInGame(client) && IsPlayerAlive(client);
 	return IsClientInGame(client);
 }
 
-stock SetCondition(client, String:cond[])
+stock void SetCondition(int client, const char[] cond)
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i+=2)
+		for (int i = 0; i < count; i+=2)
 		{
-			if(!TF2_IsPlayerInCondition(client, TFCond:StringToInt(conds[i])))
+			if(!TF2_IsPlayerInCondition(client, view_as<TFCond>(StringToInt(conds[i]))))
 			{
-				TF2_AddCondition(client, TFCond:StringToInt(conds[i]), StringToFloat(conds[i+1]));
+				TF2_AddCondition(client, view_as<TFCond>(StringToInt(conds[i])), StringToFloat(conds[i+1]));
 			}
 		}
 	}
 }
 
-stock SetPersistentCondition(client, String:cond[])
+stock void SetPersistentCondition(int client, char[] cond)
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i++)
+		for (int i = 0; i < count; i++)
 		{
-			if(TFCond:StringToInt(conds[i])==TFCond_Charging)
+			if(view_as<TFCond>(StringToInt(conds[i]))==TFCond_Charging)
 			{
 				SetEntPropFloat(client, Prop_Send, "m_flChargeMeter", 100.0);
 			}
-			TF2_AddCondition(client, TFCond:StringToInt(conds[i]), 0.2);
+			TF2_AddCondition(client, view_as<TFCond>(StringToInt(conds[i])), 0.2);
 		}
 	}
 }
 
-stock bool:IsPlayerInSpecificConditions(client, String:cond[])
+stock bool IsPlayerInSpecificConditions(int client, char[] cond)
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i++)
+		for (int i = 0; i < count; i++)
 		{
-			return TF2_IsPlayerInCondition(client, TFCond:StringToInt(conds[i]));
+			return TF2_IsPlayerInCondition(client, view_as<TFCond>(StringToInt(conds[i])));
 		}
 	}
 	return false;
 }
 
-stock RemoveCondition(client, String:cond[])
+stock void RemoveCondition(int client, char[] cond)
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		for (new i = 0; i < count; i+=2)
+		for (int i = 0; i < count; i+=2)
 		{
-			if(TF2_IsPlayerInCondition(client, TFCond:StringToInt(conds[i])))
+			if(TF2_IsPlayerInCondition(client, view_as<TFCond>(StringToInt(conds[i]))))
 			{
-				TF2_RemoveCondition(client, TFCond:StringToInt(conds[i]));
+				TF2_RemoveCondition(client, view_as<TFCond>(StringToInt(conds[i])));
 			}
 		}
 	}
@@ -455,14 +440,14 @@ stock RemoveCondition(client, String:cond[])
 // Combo RAGE & AMS TFConditions Version //
 ///////////////////////////////////////////
 
-public bool:TFC_CanInvoke(client)
+public AMSResult TFC_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TFC_Invoke(client)
+public void TFC_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, -1);
 }
 
@@ -470,119 +455,119 @@ public TFC_Invoke(client)
 // AMS-exclusive TFConditions Version //
 ////////////////////////////////////////
 
-public bool:TC0_CanInvoke(client)
+public AMSResult TC0_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC0_Invoke(client)
+public void TC0_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 0);
 }
 
-public bool:TC1_CanInvoke(client)
+public AMSResult TC1_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC1_Invoke(client)
+public void TC1_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 1);
 }
 
-public bool:TC2_CanInvoke(client)
+public AMSResult TC2_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC2_Invoke(client)
+public void TC2_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 2);
 }
 
-public bool:TC3_CanInvoke(client)
+public AMSResult TC3_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC3_Invoke(client)
+public void TC3_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 3);
 }
 
-public bool:TC4_CanInvoke(client)
+public AMSResult TC4_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC4_Invoke(client)
+public void TC4_Invoke(int client, int index)//////
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 4);
 }
 
-public bool:TC5_CanInvoke(client)
+public AMSResult TC5_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC5_Invoke(client)
+public void TC5_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 5);
 }
 
-public bool:TC6_CanInvoke(client)
+public AMSResult TC6_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC6_Invoke(client)
+public void TC6_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 6);
 }
 
-public bool:TC7_CanInvoke(client)
+public AMSResult TC7_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC7_Invoke(client)
+public void TC7_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 7);
 }
 
-public bool:TC8_CanInvoke(client)
+public AMSResult TC8_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC8_Invoke(client)
+public void TC8_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 8);
 }
 
-public bool:TC9_CanInvoke(client)
+public AMSResult TC9_CanInvoke(int client, int index)
 {
-	return true; // no special conditions will prevent this ability
+	return AMS_Accept; // no special conditions will prevent this ability
 }
 
-public TC9_Invoke(client)
+public void TC9_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	InvokeCondition(boss, client, 9);
 }
 
-public InvokeCondition(boss, client, tfcnum)
+public void InvokeCondition(int boss, int client, int tfcnum)
 {
-	decl String:amsCond[96], String:abilitySound[PLATFORM_MAX_PATH];
+	static char amsCond[96], abilitySound[PLATFORM_MAX_PATH];
 	
 	if(tfcnum<0)
 	{
@@ -595,7 +580,7 @@ public InvokeCondition(boss, client, tfcnum)
 		Format(abilitySound,sizeof(abilitySound), "sound_tfcondition_%i", tfcnum);
 	}
 	
-	new String:PlayerCond[768], String:BossCond[768], String:snd[PLATFORM_MAX_PATH];
+	char PlayerCond[245], BossCond[245], snd[PLATFORM_MAX_PATH];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, amsCond, 1, BossCond, sizeof(BossCond)); // client TFConds
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, amsCond, 2, PlayerCond, sizeof(PlayerCond)); // Player TFConds
 
@@ -610,14 +595,14 @@ public InvokeCondition(boss, client, tfcnum)
 	}
 	if(PlayerCond[0]!='\0')
 	{
-		new Float:pos[3], Float:pos2[3], Float:dist;
-		new Float:dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, amsCond, 3, FF2_GetRageDist(boss, this_plugin_name, amsCond));
+		float pos[3], pos2[3], dist;
+		float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, amsCond, 3, FF2_GetRageDist(boss, this_plugin_name, amsCond));
 		if(!dist2)
 		{
 			dist2=FF2_GetRageDist(boss, this_plugin_name, amsCond); // Use Ragedist if range is not set
 		}
 		GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-		for(new target=1; target<=MaxClients; target++)
+		for(int target=1; target<=MaxClients; target++)
 		{
 			if(IsValidClient(target) && IsPlayerAlive(target) && GetClientTeam(target)!= FF2_GetBossTeam())
 			{
