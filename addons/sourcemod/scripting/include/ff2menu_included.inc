@@ -1,13 +1,25 @@
-#if defined FF2_MENU_INCLUDED
+#if defined _FF2MenuRage_INCLUDED
 	#endinput
 #endif
-#define FF2_MENU_INCLUDED
+#define _FF2MenuRage_INCLUDED
+
+#include <ff2ability>
+
+/**
+ * Called right before round start
+ *
+ * @param boss				client index
+ *
+ * @noreturn
+ */
+forward Action FF2MenuRage_PreRoundStart(int client);
 
 /**
  * Called whenever a boss triggers a menu rage
  *
  * @param boss				boss' index
  * @param pts				current points
+ * @param cd				cooldown that will soon be applied
  * @param Plugin_Name	
  * @param Ability_Name
  *
@@ -16,7 +28,7 @@
  *					Plugin_Continue to ignore everything and let the ability execute by itself
  *
  */
-forward Action FF2MenuRage_OnStartRage(int boss, int &pts, const char[] Plugin_Name, const char[] Ability_Name);
+forward Action FF2MenuRage_OnStartRage(int boss, int& pts, int& cd, const char[] Plugin_Name, const char[] Ability_Name);
 
 /**
  * Called whenever a boss takes Damage
@@ -28,7 +40,7 @@ forward Action FF2MenuRage_OnStartRage(int boss, int &pts, const char[] Plugin_N
  * @return				Any value higher than Plugin_Continue to handle the call
  *
  */
-forward Action FF2MenuRage_OnTakeDamageAlive(int client, int victim, float damage);
+forward Action FF2MenuRage_OnTakeDamageAlive(int client, int victim, int damage);
 
 /**
  * Called whenever a victim dies 
@@ -41,14 +53,25 @@ forward Action FF2MenuRage_OnTakeDamageAlive(int client, int victim, float damag
  */
 forward Action FF2MenuRage_OnPlayerDeath(int victim, int attacker);
 
+
+/**
+ * Gets player's MenuMap 
+ *
+ * @param client			client's index
+ *
+ * @return					Hashmap, null on failure
+ * @error					Invalid client index
+ */
+native FF2Parse FF2MenuRage_GetHashMap(int client);
+
 /**
  * Retreive a StringMap value for a client 
  *
  * @param client			client's index
  * @param context			Key String 
  *
- * @return				the value inside the key. negative/false for failure
- *
+ * @return					the value inside the key. negative/false for failure
+ * @error					Invalid client index or context
  */
 native any FF2MenuRage_PeekValue(int client, const char[] context);
 
@@ -59,8 +82,8 @@ native any FF2MenuRage_PeekValue(int client, const char[] context);
  * @param context			Key String 
  * @param newVal			value to set 
  *
- * @return				true on success, false otherwise.
- *
+ * @return					true on success, false otherwise.
+ * @error					Invalid client index or context
  */
 native bool FF2MenuRage_SetValue(int client, const char[] context, any newVal);
 
@@ -72,21 +95,9 @@ native bool FF2MenuRage_SetValue(int client, const char[] context, any newVal);
  * @param newVal			value to set 
  *
  * @noreturn
- *
+ * @error					Invalid client index or rage
  */
 native void FF2MenuRage_SetCooldown(int client, int index, float newVal);
-
-/**
- * Search for an ability index 
- *
- * @param boss				boss' index
- * @param Plugin_Name			rage's index
- * @param Ability_Name			value to set 
- *
- * @return				ability's index, -1 otherwise
- *
- */
-native int FF2MenuRage_FindIndex(int boss = 0, const char[] Plugin_Name, const char[] Ability_Name);
 
 /**
  * @return					true if any boss with menu rage is active. false otherwise
@@ -110,9 +121,33 @@ native bool FF2MenuRage_HasAbility(int client);
  * @param Plugin_Name			
  * @param Ability_Name			
  * @param slot					rage slot 
- * @param buttonmode				button mode
  *
- * @return					true on success, false otherwise
- *
+ * @return						true on success, false otherwise
+ * @error						Invalid client index or string
  */
-native bool FF2MenuRage_DoAbiltiy(int client, int pts, const char[] Plugin_Name, const char[] Ability_Name, int slot, int buttonmode = 0);
+native bool FF2MenuRage_DoAbiltiy(int client, int pts, const char[] Plugin_Name, const char[] Ability_Name, int slot);
+
+
+#if !defined REQUIRE_PLUGIN
+public __pl_FF2MenuRage_SetNTVOptional()
+{
+	MarkNativeAsOptional("FF2MenuRage_GetHashMap");
+	MarkNativeAsOptional("FF2MenuRage_PeekValue");
+	MarkNativeAsOptional("FF2MenuRage_SetValue");
+	MarkNativeAsOptional("FF2MenuRage_SetCooldown");
+	MarkNativeAsOptional("FF2MenuRage_IsActive");
+	MarkNativeAsOptional("FF2MenuRage_HasAbility");
+	MarkNativeAsOptional("FF2MenuRage_DoAbiltiy");
+}
+#endif
+
+public SharedPlugin __pl_FF2MenuRage =
+{
+	name = "FF2MenuRage",
+	file = "menurage_platform.smx",
+	#if defined REQUIRE_PLUGIN
+	required = 1,
+	#else
+	required = 0,
+	#endif
+};
