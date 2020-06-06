@@ -36,7 +36,7 @@ public void Handle_UpgradeThink(int client)
 		}
 		
 		if(!!Boss.GetArgI(this_plugin_name, UPGRADE, "pts regen", 6, 1)) {
-			int max = Boss.GetArgI("menurage_platform", "menu_platform", "max pts", 9, 9999);
+			int max = FF2MenuRage_GetHashMap(client).GetInt("max pts", 9999);
 			int pts = FF2MenuRage_PeekValue(client, "points") + Boss.GetArgI(this_plugin_name, UPGRADE, "points", 7, 5);
 			if(max <= pts)
 				pts = max;
