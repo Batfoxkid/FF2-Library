@@ -78,6 +78,11 @@
 				"linux"		"271"
 				"windows"	"265"
 			}
+			"CEconItemDefinition::m_pszItemIconClassname"
+			{
+				"linux"		"216"
+				"windows"	"216"
+			}
 		}
 	}
 }
