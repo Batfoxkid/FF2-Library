@@ -1,69 +1,42 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
-#include <ff2_ams>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define INACTIVE 100000000.0
 #define SEXINESS "rage_staring_at_sexiness"
 #define SEXINESSALIAS "SEXI"
-new bool:Sexiness_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Outline)
-new Float:SexiRageTime;
-new Float:SexinessSpeed[MAXPLAYERS+1];
+bool Sexiness_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (for Rage_Outline)
+float SexiRageTime;
+float SexinessSpeed[MAXPLAYERS+1];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "Freak Fortress 2: Ability for Sexy Hoovy",
 	author	= "M7",
 	version = "1.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
-		return;
-		
-	PrepareAbilities();
-}
-
-public PrepareAbilities()
-{
-	for(new client=1;client<=MaxClients;client++)
+	if(FF2_HasAbility(FF2_GetBossIndex(client), this_plugin_name, SEXINESS))
 	{
-		if (IsValidClient(client))
-		{
-			Sexiness_TriggerAMS[client] = false;
-			SexinessSpeed[client]=0.0;
-			
-			new boss=FF2_GetBossIndex(client);
-			if(boss>=0)
-			{
-				if(FF2_HasAbility(boss, this_plugin_name, SEXINESS))
-				{
-					Sexiness_TriggerAMS[client]=AMS_IsSubabilityReady(boss, this_plugin_name, SEXINESS);
-					if(Sexiness_TriggerAMS[client])
-					{
-						AMS_InitSubability(boss, client, this_plugin_name, SEXINESS, SEXINESSALIAS); // Important function to tell AMS that this subplugin supports it
-					}
-				}
-			}
-		}
+		Sexiness_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, SEXINESS, SEXINESSALIAS);
 	}
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+
+public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -73,40 +46,39 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
 	
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,SEXINESS))	// Defenses
 	{
-		if(!FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability")) // Fail state?
+		if(!LibraryExists("FF2AMS"))
 		{
 			Sexiness_TriggerAMS[client]=false;
 		}
 		
 		if(!Sexiness_TriggerAMS[client])
-			SEXI_Invoke(client);
+			SEXI_Invoke(client, -1);
 	}
 	return Plugin_Continue;
 }
 
-public bool:SEXI_CanInvoke(client)
+public AMSResult SEXI_CanInvoke(int client, int index)
 {
-	return true;
+	return AMS_Accept;
 }
 
-public SEXI_Invoke(client)
+public void SEXI_Invoke(int client, int index)
 {
-	new boss=FF2_GetBossIndex(client);
-	new Float:dist2 = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 1);
-	decl String:SexiSpeed[10]; // Foolproof way so that args always return floats instead of ints
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, SEXINESS, 3, SexiSpeed, sizeof(SexiSpeed));
+	int boss=FF2_GetBossIndex(client);
+	float dist2 = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 1);
+	float SexiSpeed = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 3);
 	
 	if(Sexiness_TriggerAMS[client])
 	{
-		new String:sound[PLATFORM_MAX_PATH];
+		static char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_time_to_stare", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
@@ -114,9 +86,9 @@ public SEXI_Invoke(client)
 		}
 	}
 	
-	new Float:pos[3], Float:pos2[3], Float:dist;
+	float pos[3], pos2[3], dist;
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
-	for(new i = 1; i <= MaxClients; i++)
+	for(int i = 1; i <= MaxClients; i++)
 	{
 		if(IsValidLivingPlayer(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
@@ -127,20 +99,20 @@ public SEXI_Invoke(client)
 				TF2_RemoveAllWeapons(i);
 				SpawnWeapon(i, "tf_weapon_shovel", 5, 100, 5, "1 ; 0.0 ; 259 ; 1.0 ; 5 ; 9999");
 			
-				CreateTimer(0.1, Timer_NoAttacking, i);
+				CreateTimer(0.1, Timer_NoAttacking, GetClientSerial(i));
 				
-				CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 2), RefreshPlayer, i);
+				CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 2), RefreshPlayer, GetClientSerial(i));
 				
 				SexiRageTime = GetEngineTime() + FF2_GetAbilityArgumentFloat(boss, this_plugin_name, SEXINESS, 2);
 				SDKHook(i, SDKHook_PreThinkPost, SexiThink);
 				
-				SexinessSpeed[i]=StringToFloat(SexiSpeed); // Victim Move Speed
+				SexinessSpeed[i]=SexiSpeed; // Victim Move Speed
 			}
 		}
 	}
 }
 
-public void SexiThink(iClient)
+public void SexiThink(int iClient)
 {
 	int iClosest = GetClosestBoss(iClient);
 	if(!IsValidClient(iClosest))
@@ -169,10 +141,11 @@ public void SexiThink(iClient)
 	}
 }
 
-public Action:Timer_NoAttacking(Handle:timer, any:i)
+public Action Timer_NoAttacking(Handle timer, int serial)
 {
-	new weapon=GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
-	if(weapon && IsValidEdict(weapon))
+	int i = GetClientFromSerial(i);
+	int weapon=GetEntPropEnt(i, Prop_Send, "m_hActiveWeapon");
+	if(IsValidEntity(weapon))
 	{
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime()+FF2_GetAbilityArgumentFloat(0, this_plugin_name, "rage_staring_at_sexiness", 2));
 	}
@@ -181,15 +154,16 @@ public Action:Timer_NoAttacking(Handle:timer, any:i)
 	return Plugin_Continue;
 }
 
-public Action:RefreshPlayer(Handle:timer, any:i)
+public Action RefreshPlayer(Handle timer, int serial)
 {
+	int i = GetClientFromSerial(i);
 	if(!IsValidLivingPlayer(i))
 		return Plugin_Stop;
 	TF2_RegeneratePlayer(i);
 	return Plugin_Continue;
 }
 
-stock bool:IsValidLivingPlayer(client)
+stock bool IsValidLivingPlayer(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
@@ -197,20 +171,20 @@ stock bool:IsValidLivingPlayer(client)
 	return IsClientInGame(client) && IsPlayerAlive(client);
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, char[] att)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, " ; ", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, " ; ", atts, 32, 32);
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 		 TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 		 i2++;
@@ -220,13 +194,13 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 		return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
-	CloseHandle(hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
+	delete hWeapon;
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
 
-stock bool:IsValidClient(client)
+stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if (!IsClientInGame(client) || !IsClientConnected(client)) return false;
