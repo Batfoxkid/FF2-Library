@@ -172,7 +172,7 @@ public Action FF2_OnAbility2(int boss, const char[] Plugin_Name, const char[] Ab
 	return Plugin_Continue;
 }
 
-public Action FF2MenuRage_OnStartRage(int boss, int &points, const char[] Plugin_Name, const char[] Ability_Name)
+public Action FF2MenuRage_OnStartRage(int boss, int& points, int& cooldown, const char[] Plugin_Name, const char[] Ability_Name)
 {
 	if(!IsBRSAcitve)
 		return Plugin_Continue;
