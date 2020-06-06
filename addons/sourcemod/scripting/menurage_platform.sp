@@ -432,7 +432,7 @@ public any Native_GetHashMap(Handle pContext, int Params)
 	if(!BossMap[client]) {
 		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index \"%i\", user doesn't have a menu rage.", client);
 	}
-	return view_as<StringMap>(BossMap[client]);
+	return BossMap[client];
 }
 
 public any Native_PeekValue(Handle pContext, int Params)
