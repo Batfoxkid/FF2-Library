@@ -33,7 +33,7 @@ public void OnPluginStart2()
 	HookEvent("player_hurt", event_hurt, EventHookMode_Pre);
 	
 	for (int client = 1; client <= MaxClients; client++)
-		if (IsValidEdict(client))
+		if (IsValidEntity(client))
 			OnClientPutInServer(client);
 }
 
@@ -71,7 +71,7 @@ public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 {
 	int userid = FF2_GetBossUserId(index);
 	int client=GetClientOfUserId(userid);
-	if(index==-1 || !IsValidEdict(client) || !FF2_HasAbility(index, this_plugin_name, "rage_reincarnation"))
+	if(index==-1 || !IsValidEntity(client) || !FF2_HasAbility(index, this_plugin_name, "rage_reincarnation"))
 		return Plugin_Continue;
 		
 	if (canNotReincarnate[index])
@@ -159,7 +159,7 @@ public Action FF2_OnTriggerHurt(int index, int triggerhurt, float& damage)
 	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
 	for(int target=1; target<=MaxClients; target++)
 	{
-		if(IsValidEdict(target) && IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
+		if(IsValidEntity(target) && IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
 		{
 			otherTeamIsAlive=true;
 			break;
@@ -177,10 +177,10 @@ public Action FF2_OnTriggerHurt(int index, int triggerhurt, float& damage)
 				return Plugin_Continue;
 			}
 		}
-		while((!IsValidEdict(target) || target==boss || !IsPlayerAlive(target)));
+		while((!IsValidEntity(target) || target==boss || !IsPlayerAlive(target)));
 			
 		static float position[3];
-		if(IsValidEdict(target))
+		if(IsValidEntity(target))
 		{
 			GetEntPropVector(target, Prop_Send, "m_vecOrigin", position);
 			if(GetEntProp(target, Prop_Send, "m_bDucked"))
