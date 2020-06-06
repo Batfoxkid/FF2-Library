@@ -1,12 +1,10 @@
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <tf2items>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define EF_BONEMERGE			(1 << 0)
 #define EF_NODRAW				(1 << 5)
@@ -14,18 +12,18 @@
 
 #define TURRET_FIREANGLE	20.0			// halved viewangle for targetting players
 
-new g_boss;
-new g_BossTeam = _:TFTeam_Blue;
+int g_boss;
+int g_BossTeam = view_as<int>(TFTeam_Blue);
 
-new Float:gf_CannonDamage = 25.0;
-new Float:gf_CannonDistance = 2250000.0;
-new Float:gf_CannonSpeed = 900.0;
+float gf_CannonDamage = 25.0;
+float gf_CannonDistance = 2250000.0;
+float gf_CannonSpeed = 900.0;
 
-new Float:gf_rageTime;
+float gf_rageTime;
 
-new g_effectsOffset;					// Effects offset for viewmodel
+int g_effectsOffset;					// Effects offset for viewmodel
 
-new Handle:g_hArrayHoming;
+ArrayList g_hArrayHoming;
 #define HOMING_ENTREF		 0
 #define HOMING_LOCK_TYPE	 1
 #define HOMING_SPEED		 2
@@ -52,17 +50,17 @@ new Handle:g_hArrayHoming;
 
 #define SPRITE_RENDERAMT "200"
 
-new bool:gb_predator;
+bool gb_predator;
 
-new Float:gf_TrophyTime = 10.0;
-new Float:gf_TrophyPct = 33.3;
+float gf_TrophyTime = 10.0;
+float gf_TrophyPct = 33.3;
 
-new g_sprite[MAXPLAYERS+1];
+int g_sprite[MAXPLAYERS+1];
 
-new g_TargetSprite;
-new g_CannonSprite;
+int g_TargetSprite;
+int g_CannonSprite;
 
-new Float:gf_diedPredCannon[MAXPLAYERS+1];
+float gf_diedPredCannon[MAXPLAYERS+1];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////	Doom
@@ -78,7 +76,7 @@ new Float:gf_diedPredCannon[MAXPLAYERS+1];
 #define EMOTION_HAPPY		3
 #define EMOTION_INVULN	4
 
-#define ITEM_RESPAWN_DELAY		2.0		// multiplier for how long it takes before destroying an item and creating a new one if doom hasn't found it
+#define ITEM_RESPAWN_DELAY		2.0		// multiplier for how long it takes before destroying an item and creating a int one if doom hasn't found it
 #define LOOK_CHANCE			5		// larger number = less chance he'll look to the side :/
 #define HAPPY_DURATION		1.0		// how long doom will smile for in the ui
 #define LOOK_DURATION			1.0		// how long doom will look to the left or right in the UI
@@ -93,59 +91,59 @@ new Float:gf_diedPredCannon[MAXPLAYERS+1];
 #define SPRITE_INVULN			"materials/freak_fortress_2/doom/item_invuln.vmt"
 #define SPRITE_ROCKETLAUNCHER	"materials/freak_fortress_2/doom/item_rocketlauncher.vmt"
 
-new bool:gb_Doom;
+bool gb_Doom;
 
-new Float:gf_ItemRespawn = 30.0;
-new Float:gf_PowerupDuration = 10.0;
-new String:g_ShotgunAtt[128];
-new g_ShotGunAmmo[2];
-new String:g_RocketAtt[128];
-new g_RocketAmmo[2];
-new gb_CanRage;
-new g_doomRandomChance;
+float gf_ItemRespawn = 30.0;
+float gf_PowerupDuration = 10.0;
+char g_ShotgunAtt[128];
+int g_ShotGunAmmo[2];
+char g_RocketAtt[128];
+int g_RocketAmmo[2];
+int gb_CanRage;
+int g_doomRandomChance;
 
-new g_ItemArray[4];
-new g_NumItems;
+int g_ItemArray[4];
+int g_NumItems;
 
-new Handle:gh_ItemLocations;
-new Float:gf_NextEmotion[MAXPLAYERS+1];
+ArrayList gh_ItemLocations;
+float gf_NextEmotion[MAXPLAYERS+1];
 
-new g_iOffsetClip;
-new g_iOffsetAmmo;
+int g_iOffsetClip;
+int g_iOffsetAmmo;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////	Skulls
 
-static const String:gs_booms[][] = {"weapons/mortar/mortar_explode1.wav", "weapons/mortar/mortar_explode2.wav", "weapons/mortar/mortar_explode3.wav"}; 
+static const char gs_booms[][] = {"weapons/mortar/mortar_explode1.wav", "weapons/mortar/mortar_explode2.wav", "weapons/mortar/mortar_explode3.wav"}; 
 #define SPRITE_RED		"materials/Sprites/redglow2.vmt"
 #define MODEL_ROCKET		"models/props_mvm/mvm_human_skull.mdl"
 
 #define SOUND_CHAINSAW	"freak_fortress_2/ashwilliams/chainsaw.mp3"
 
-new bool:gb_Skulls;
-new g_flameEnt[3];
-new Float:gf_diedFireball[MAXPLAYERS+1];
-new Float:gf_IgniteTime = 5.0;
+bool gb_Skulls;
+int g_flameEnt[3];
+float gf_diedFireball[MAXPLAYERS+1];
+float gf_IgniteTime = 5.0;
 
-new g_bossuserid;
+int g_bossuserid;
 
-new gs_RedSprite;
+int gs_RedSprite;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////	Ash Williams
 
-static const String:gs_saws[][] = {"ambient/sawblade_impact1.wav", "ambient/sawblade_impact1.wav"}; 
+static const char gs_saws[][] = {"ambient/sawblade_impact1.wav", "ambient/sawblade_impact1.wav"}; 
 #define MODEL_CHAINSAW		"models/props_swamp/chainsaw.mdl"
 
 #define SAW_REHIT_INTERVAL		0.3
 
-new bool:gb_Ash;
-new g_chainsawmodel;
+bool gb_Ash;
+int g_chainsawmodel;
 
-new String:gs_bossweaponclassname[32];
-new String:gs_bossweaponattribs[256];
-new g_bossweaponindex;
-new g_chainsawref = INVALID_ENT_REFERENCE;
+char gs_bossweaponclassname[32];
+char gs_bossweaponattribs[256];
+int g_bossweaponindex;
+int g_chainsawref = INVALID_ENT_REFERENCE;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////	The Hidden
@@ -156,30 +154,30 @@ new g_chainsawref = INVALID_ENT_REFERENCE;
 #define HIDDEN_ATTACHING		3
 
 #define MIN_CLOAKATTACH		10.0
-new Float:gf_MinAttach = 10.0;
-new Float:gf_ReattachDelay = 1.0;
-new Float:gf_WallDist = 3600.0;
+float gf_MinAttach = 10.0;
+float gf_ReattachDelay = 1.0;
+float gf_WallDist = 3600.0;
 #define MAXDISTWALL_SQD		3600.0
 
-new bool:gb_Hidden;
-new g_OnWall;
+bool gb_Hidden;
+int g_OnWall;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-stock SDK_RemoveWearable(client, wearable)
+stock void SDK_RemoveWearable(int client, int wearable)
 {
-	static Handle:h_RemoveWearable = INVALID_HANDLE;
-	if(h_RemoveWearable == INVALID_HANDLE)
+	static Handle h_RemoveWearable = null;
+	if(!h_RemoveWearable)
 	{
-		new Handle:hGameConfigtemp = LoadGameConfigFile("equipwearable");
-		if(hGameConfigtemp == INVALID_HANDLE)
+		GameData hGameConfigtemp = new GameData("equipwearable");
+		if(!hGameConfigtemp)
 		{
 			LogError("Equipwearable Gamedata could not be found");
 			return;
 		}
 		StartPrepSDKCall(SDKCall_Player);
 		PrepSDKCall_SetFromConf(hGameConfigtemp, SDKConf_Virtual, "RemoveWearable");
-		CloseHandle(hGameConfigtemp);
+		delete hGameConfigtemp;
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 		if ((h_RemoveWearable = EndPrepSDKCall()) == INVALID_HANDLE)
 		{
@@ -191,20 +189,20 @@ stock SDK_RemoveWearable(client, wearable)
 	SDKCall(h_RemoveWearable, client, wearable);
 }
 
-stock SDK_EquipWearable(client, wearable)
+stock void SDK_EquipWearable(int client, int wearable)
 {
-	static Handle:h_EquipWearable = INVALID_HANDLE;
-	if(h_EquipWearable == INVALID_HANDLE)
+	static Handle h_EquipWearable = null;
+	if(!h_EquipWearable)
 	{
-		new Handle:hGameConfigtemp = LoadGameConfigFile("equipwearable");
-		if(hGameConfigtemp == INVALID_HANDLE)
+		GameData hGameConfigtemp = new GameData("equipwearable");
+		if(!hGameConfigtemp)
 		{
 			LogError("Equipwearable Gamedata could not be found");
 			return;
 		}
 		StartPrepSDKCall(SDKCall_Player);
 		PrepSDKCall_SetFromConf(hGameConfigtemp, SDKConf_Virtual, "EquipWearable");
-		CloseHandle(hGameConfigtemp);
+		delete hGameConfigtemp;
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 		if ((h_EquipWearable = EndPrepSDKCall()) == INVALID_HANDLE)
 		{
@@ -216,7 +214,7 @@ stock SDK_EquipWearable(client, wearable)
 	SDKCall(h_EquipWearable, client, wearable);
 }
 
-public Plugin:myinfo = 
+public Plugin myinfo = 
 {
 	name = "Freak Fortress 2: Halloween 2013 Boss Pack",
 	author = "Friagram",
@@ -225,7 +223,7 @@ public Plugin:myinfo =
 	url = "http://steamcommunity.com/groups/poniponiponi"
 };
 
-public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:ability_name[],action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if (!strcmp(ability_name,"special_predator"))
 	{
@@ -243,7 +241,7 @@ public Action:FF2_OnAbility2(index,const String:plugin_name[],const String:abili
 	return Plugin_Continue;
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);			// I guess this is for noaml maps?
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy); 
@@ -259,13 +257,13 @@ public OnPluginStart2()
 	{
 		SetFailState("Could not find offset for CTFWeaponBase::m_iClip1");
 	}
-	if ((g_effectsOffset = FindSendPropOffs("CBaseViewModel","m_fEffects"))	 == -1)
+	if ((g_effectsOffset = FindSendPropInfo("CBaseViewModel","m_fEffects"))	 == -1)
 	{	
 		SetFailState("could not locate CBaseViewModel:m_fEffects");
 	}
 
 	g_sprite[0] = INVALID_ENT_REFERENCE;
-	for(new i=1; i<=MaxClients; i++)
+	for(int i=1; i<=MaxClients; i++)
 	{
 		g_sprite[i] = INVALID_ENT_REFERENCE;		// just in case.
 		if(IsClientInGame(i))
@@ -274,12 +272,12 @@ public OnPluginStart2()
 		}
 	}
 
-	gh_ItemLocations = CreateArray();
+	gh_ItemLocations = new ArrayList();
 	
-	g_hArrayHoming = CreateArray(3);
+	g_hArrayHoming = new ArrayList(3);
 } 
 
-public OnMapStart()
+public void OnMapStart()
 {
 	PrecacheModel(TRAIL_SPRITE, true);
 	PrecacheModel(MODEL_TROPHY, true);
@@ -301,13 +299,13 @@ public OnMapStart()
 	PrecacheModel(SPRITE_INVULN, true);
 	PrecacheModel(SPRITE_ROCKETLAUNCHER, true);
 	
-	for(new i; i<sizeof(gs_booms); i++)
+	for(int i; i<sizeof(gs_booms); i++)
 	{
 		PrecacheSound(gs_booms[i], true);
 	}
 	gs_RedSprite = PrecacheModel(SPRITE_RED, true);
 
-	for(new i; i<sizeof(gs_saws); i++)
+	for(int i; i<sizeof(gs_saws); i++)
 	{
 		PrecacheSound(gs_saws[i], true);
 	}
@@ -315,18 +313,18 @@ public OnMapStart()
 	PrecacheSound(SOUND_CHAINSAW, true);
 }
 
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Event event, const char[] name, bool dontBroadcast)
 {
 	g_boss = 0;
 	gb_predator = gb_Doom = gb_Skulls = gb_Ash = gb_Hidden = false;
 
-	decl Boss;
-	for(new Index = 0; (Boss=GetClientOfUserId(FF2_GetBossUserId(Index)))>0; Index++)
+	int Boss;
+	for(int Index = 0; (Boss=GetClientOfUserId(FF2_GetBossUserId(Index)))>0; Index++)
 	{
 		if(FF2_HasAbility( Index, this_plugin_name, "special_predator" ))
 		{
@@ -373,7 +371,7 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 
 				gf_CannonDamage = FF2_GetAbilityArgumentFloat(Index, this_plugin_name, "special_ash", 2, 150.0);		// saw damage?
 
-				new Handle:kv = FF2_GetSpecialKV(Index);
+				Handle kv = FF2_GetSpecialKV(Index);
 				KvRewind(kv);
 				if(KvJumpToKey(kv, "weapon1"))
 				{
@@ -408,12 +406,12 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 				g_BossTeam = GetClientTeam(Boss);								// could do getff2bossteam but we have this already anyways.
 				gb_Doom = true;
 
-				new itemflags = FF2_GetAbilityArgument(Index, this_plugin_name, "special_doom", 1, ITEM_SHOTGUN|ITEM_ROCKETLAUNCHER|ITEM_INVULNERABILITY|ITEM_BERSERK);				// 1, 2, 4, 8, 16
+				int itemflags = FF2_GetAbilityArgument(Index, this_plugin_name, "special_doom", 1, ITEM_SHOTGUN|ITEM_ROCKETLAUNCHER|ITEM_INVULNERABILITY|ITEM_BERSERK);				// 1, 2, 4, 8, 16
 
 				if(itemflags)
 				{
-					decl String:stuff[6];
-					decl String:morestuff[2][3];
+					static char stuff[6];
+					static char morestuff[2][3];
 
 					g_NumItems = 0;
 					if(itemflags & ITEM_SHOTGUN)
@@ -451,16 +449,16 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 						g_NumItems++;
 					}
 
-					gf_ItemRespawn = FF2_GetAbilityArgumentFloat(Index, this_plugin_name, "special_doom", 2, 30.0);		// time before new one pops once grabbed
+					gf_ItemRespawn = FF2_GetAbilityArgumentFloat(Index, this_plugin_name, "special_doom", 2, 30.0);		// time before int one pops once grabbed
 					gf_PowerupDuration = FF2_GetAbilityArgumentFloat(Index, this_plugin_name, "special_doom", 3, 10.0);	// length of invuln or berserk
 
 					CacheItemSpawnLocations();
 				
-					gb_CanRage = bool:FF2_GetAbilityArgument(Index, this_plugin_name, "special_doom", 8, 0);				// block boss from raging?
+					gb_CanRage = FF2_GetAbilityArgument(Index, this_plugin_name, "special_doom", 8, 0) != 0;				// block boss from raging?
 					g_doomRandomChance = FF2_GetAbilityArgument(Index, this_plugin_name, "special_doom", 9, 5);			// random chance to get a drop
 				}
 
-				for(new i=1; i<=MaxClients; i++)
+				for(int i=1; i<=MaxClients; i++)
 				{
 					if(FF2_GetBossIndex(i) != -1)																	// find all the boss!
 					{
@@ -472,7 +470,7 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
 	if(gb_predator)						// should use a switch enum for this shit, oh well.
 	{
@@ -491,7 +489,7 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 		if(g_boss && IsClientInGame(g_boss) && IsPlayerAlive(g_boss))
 		{
 			SetEntityMoveType(g_boss, MOVETYPE_WALK);
-			TeleportEntity(g_boss, NULL_VECTOR, NULL_VECTOR, Float:{0.0, 0.0, 0.0});
+			TeleportEntity(g_boss, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 		}
 
 		TerminateHidden();
@@ -500,11 +498,11 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	g_boss = 0;		// just in case somone suicides or someshit and the timer is still going :/
 }
 
-public Action:event_player_death(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+public Action event_player_death(Handle hEvent, const char[] strEventName, bool bDontBroadcast)
 {
 	if(gb_predator)
 	{
-		new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));					// predator died :*(
+		int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));					// predator died :*(
 		
 		if(client == g_boss)
 		{
@@ -514,10 +512,10 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 		{
 			if(!(GetEventInt(hEvent, "death_flags") & TF_DEATHFLAG_DEADRINGER))			// if spies actually die, remove their trails
 			{
-				new ent = EntRefToEntIndex(g_sprite[client]);
+				int ent = EntRefToEntIndex(g_sprite[client]);
 				if(ent != INVALID_ENT_REFERENCE)
 				{
-					AcceptEntityInput(ent, "Kill");
+					RemoveEntity(ent);
 				}
 			}
 			
@@ -532,7 +530,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 				{
 					if(GetEngineTime() - gf_diedPredCannon[client] <= 0.1)
 					{			
-						new iDamageBits = GetEventInt(hEvent, "damagebits");
+						int iDamageBits = GetEventInt(hEvent, "damagebits");
 						SetEventInt(hEvent, "damagebits",  iDamageBits |= DMG_CRIT);
 						SetEventString(hEvent, "weapon_logclassname", "predator_cannon");
 						SetEventString(hEvent, "weapon", "obj_sentrygun");
@@ -549,10 +547,10 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 	}
 	else if(gb_Doom)
 	{
-		new attacker = GetClientOfUserId(GetEventInt(hEvent,"attacker"));
+		int attacker = GetClientOfUserId(GetEventInt(hEvent,"attacker"));
 		if(attacker > 0 && attacker <= MaxClients && IsClientInGame(attacker) && GetClientTeam(attacker) == g_BossTeam)
 		{
-			new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+			int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 			if(client > 0 && client <= client && IsClientInGame(client) && GetClientTeam(client) != g_BossTeam)
 			{
 				SetDoomUI(attacker, EMOTION_HAPPY);									// death is good
@@ -565,7 +563,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 	}
 	else if(gb_Skulls)
 	{
-		new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+		int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 
 		if(client == g_boss)
 		{
@@ -579,7 +577,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 				{
 					if(GetEngineTime() - gf_diedFireball[client] <= 0.1)
 					{			
-						new iDamageBits = GetEventInt(hEvent, "damagebits");
+						int iDamageBits = GetEventInt(hEvent, "damagebits");
 						SetEventInt(hEvent, "damagebits",  iDamageBits |= DMG_CRIT);
 						SetEventString(hEvent, "weapon_logclassname", "rage_fireball");
 						SetEventString(hEvent, "weapon", "taunt_pyro");
@@ -596,7 +594,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 	}
 	else if(gb_Ash)
 	{
-		new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+		int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 
 		if(client == g_boss)
 		{
@@ -606,7 +604,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 		{
 			if(client && IsClientInGame(client) && EntRefToEntIndex(g_chainsawref) == GetEventInt(hEvent, "inflictor_entindex"))
 			{		
-				new iDamageBits = GetEventInt(hEvent, "damagebits");
+				int iDamageBits = GetEventInt(hEvent, "damagebits");
 				SetEventInt(hEvent, "damagebits",  iDamageBits |= DMG_NERVEGAS);
 				SetEventString(hEvent, "weapon_logclassname", "ash_chainsaw");
 				SetEventString(hEvent, "weapon", "worldspawn");				// something environmental ??!! 
@@ -631,7 +629,7 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 	return Plugin_Continue;
 }
 
-public OnClientDisconnect(client)
+public void OnClientDisconnect(int client)
 {
 	if(client == g_boss)
 	{
@@ -657,7 +655,7 @@ public OnClientDisconnect(client)
 	gf_diedFireball[client] = 0.0;
 }
 
-public TF2_OnConditionAdded(client, TFCond:condition)
+public void TF2_OnConditionAdded(int client, TFCond condition)
 {
 	if(gb_predator && condition == TFCond_Cloaked && client == g_boss)
 	{
@@ -670,7 +668,7 @@ public TF2_OnConditionAdded(client, TFCond:condition)
 	}
 }
 
-public TF2_OnConditionRemoved(client, TFCond:condition)
+public void TF2_OnConditionRemoved(int client, TFCond condition)
 {
 	if(gb_predator)
 	{
@@ -690,7 +688,9 @@ public TF2_OnConditionRemoved(client, TFCond:condition)
 	}
 }
 
-public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
+public void OnTakeDamagePost(int victim, int attacker, int inflictor, 
+					float damage, int damagetype, int weapon,
+				const float damageForce[3], const float damagePosition[3], int damagecustom)
 {
 	if(gb_Doom && victim != attacker && attacker > 0 && attacker <= MaxClients && IsClientInGame(attacker) && GetClientTeam(attacker) == g_BossTeam && TF2_IsPlayerInCondition(attacker, TFCond_CritHype))
 	{
@@ -698,7 +698,7 @@ public OnTakeDamagePost(victim, attacker, inflictor, Float:damage, damagetype)
 	}
 }
 
-public Action:TF2_CalcIsAttackCritical(client, weapon, String:weaponname[], &bool:result)
+public Action TF2_CalcIsAttackCritical(int client, int weapon, char[] weaponname, bool& result)
 {
 	if(gb_Skulls && client == g_boss && gf_rageTime > GetEngineTime())
 	{
@@ -710,17 +710,17 @@ public Action:TF2_CalcIsAttackCritical(client, weapon, String:weaponname[], &boo
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Skulls Passive Stuff
 
-public Action:Timer_CreateFire(Handle:timer, any:userid)	// Creates and caches the particle systems used for fire
+public Action Timer_CreateFire(Handle timer, any userid)	// Creates and caches the particle systems used for fire
 {
 	if(gb_Skulls)
 	{
-		new client = GetClientOfUserId(userid);
+		int client = GetClientOfUserId(userid);
 		if(client && IsClientInGame(client) && client == g_boss)
 		{
-			decl Float:origin[3];
+			static float origin[3];
 			GetClientAbsOrigin(client, origin);
 
-			new ent = CreateEntityByName("info_particle_system");
+			int ent = CreateEntityByName("info_particle_system");
 			if(ent != -1)
 			{
 				DispatchKeyValueVector(ent, "origin", origin);
@@ -775,7 +775,7 @@ public Action:Timer_CreateFire(Handle:timer, any:userid)	// Creates and caches t
 	}
 }
 
-TerminateSkullsEffects()								// Prevent rage from bleeding over into warmup, and stop skulls from homing, etc.
+void TerminateSkullsEffects()								// Prevent rage from bleeding over into warmup, and stop skulls from homing, etc.
 {
 	gb_Skulls = false;
 	g_boss = 0;
@@ -785,46 +785,35 @@ TerminateSkullsEffects()								// Prevent rage from bleeding over into warmup, 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Doom Passive Stuff
 
-CacheItemSpawnLocations()								// Finds pickups around the map, and stores their entities. (Better than vecs, we can use them in timers)
+void CacheItemSpawnLocations()								// Finds pickups around the map, and stores their entities. (Better than vecs, we can use them in timers)
 {
-	ClearArray(gh_ItemLocations);
+	gh_ItemLocations.Clear();
 
-	new ent = MaxClients+1;
+	int ent = MaxClients+1;
 	while ((ent = FindEntityByClassname2(ent, "item_ammopack_small")) != -1)
 	{
-		PushArrayCell(gh_ItemLocations, EntIndexToEntRef(ent));
+		gh_ItemLocations.Push(EntIndexToEntRef(ent));
 	}
 	ent = MaxClients+1;
-	while ((ent = FindEntityByClassname2(ent, "item_healthkit_small")) != -1)
+	while ((ent = FindEntityByClassname2(ent, "item_healthkit*")) != -1)
 	{
-		PushArrayCell(gh_ItemLocations, EntIndexToEntRef(ent));
+		gh_ItemLocations.Push(EntIndexToEntRef(ent));
 	}
-	ent = MaxClients+1;
-	while ((ent = FindEntityByClassname2(ent, "item_healthkit_medium")) != -1)
-	{
-		PushArrayCell(gh_ItemLocations, EntIndexToEntRef(ent));
-	}
-	ent = MaxClients+1;
-	while ((ent = FindEntityByClassname2(ent, "item_healthkit_full")) != -1)
-	{
-		PushArrayCell(gh_ItemLocations, EntIndexToEntRef(ent));
-	}
-
-	new size = GetArraySize(gh_ItemLocations);
+	int size = gh_ItemLocations.Length;
 	if(size)											// spawn the first item, and continue for as the round lasts.
 	{
-		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, size-1)), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, size-1)), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public Action:Timer_SpawnItem(Handle:timer, any:ref)		// Spawns a sprite on a random pickup item (will not work on multistage maps well..)
+public Action Timer_SpawnItem(Handle timer, any ref)		// Spawns a sprite on a random pickup item (will not work on multistage maps well..)
 {
 	if(gb_Doom)										// should also fail if the round resets and the ent ref is invalid, but whatever.
 	{
-		new ent = EntRefToEntIndex(ref);
+		int ent = EntRefToEntIndex(ref);
 		if(ent != INVALID_ENT_REFERENCE)
 		{
-			decl Float:origin[3];
+			static float origin[3];
 			GetEntPropVector(ent, Prop_Send, "m_vecOrigin", origin);
 			origin[2] += 30.0;
 			
@@ -849,7 +838,7 @@ public Action:Timer_SpawnItem(Handle:timer, any:ref)		// Spawns a sprite on a ra
 
 				SetEntPropFloat(ent, Prop_Send, "m_flModelScale", 0.001);	// color and alpha and nodraw do not seem to always work.
 				
-				new ent2 = CreateEntityByName("env_sprite");			// if I could make models follow people, that would be ideal.
+				int ent2 = CreateEntityByName("env_sprite");			// if I could make models follow people, that would be ideal.
 				if(ent2 != -1)
 				{
 					DispatchKeyValueVector(ent2, "origin", origin);
@@ -909,22 +898,22 @@ public Action:Timer_SpawnItem(Handle:timer, any:ref)		// Spawns a sprite on a ra
 	}
 }
 
-public Action:Timer_ReSpawnItem(Handle:timer, any:ref)		// Spawns a new item chain, if doom hasn't picked up the previous item in a long time
+public Action Timer_ReSpawnItem(Handle timer, any ref)		// Spawns a int item chain, if doom hasn't picked up the previous item in a long time
 {
-	new ent = EntRefToEntIndex(ref);
+	int ent = EntRefToEntIndex(ref);
 	if(ent != INVALID_ENT_REFERENCE)
 	{
-		CreateTimer(0.0, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, GetArraySize(gh_ItemLocations)-1)), TIMER_FLAG_NO_MAPCHANGE);	// next frame.
+		CreateTimer(0.1, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, gh_ItemLocations.Length - 1)), TIMER_FLAG_NO_MAPCHANGE);	// next frame.
 		KillWithoutMayhem(ent);
 	}
 }
 
-public Action:OnShotgunTouch( prop, entity )
+public Action OnShotgunTouch( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam  && !TF2_IsPlayerInCondition(entity, TFCond_CritHype))
 	{
 		TF2_RemoveWeaponSlot(entity, 1);
-		new weapon = SpawnWeapon(entity, "tf_weapon_shotgun_soldier", 10, 100, 5, g_ShotgunAtt);
+		int weapon = SpawnWeapon(entity, "tf_weapon_shotgun_soldier", 10, 100, 5, g_ShotgunAtt);
 		if(IsValidEntity(weapon))
 		{
 			SetEntPropEnt(entity, Prop_Send, "m_hActiveWeapon", weapon);
@@ -935,16 +924,16 @@ public Action:OnShotgunTouch( prop, entity )
 		}
 
 		KillWithoutMayhem(prop);
-		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, GetArraySize(gh_ItemLocations)-1)), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, gh_ItemLocations.Length - 1)), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public Action:OnRocketLauncherTouch( prop, entity )
+public Action OnRocketLauncherTouch( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam && !TF2_IsPlayerInCondition(entity, TFCond_CritHype))
 	{
 		TF2_RemoveWeaponSlot(entity, 0);
-		new weapon = SpawnWeapon(entity, "tf_weapon_rocketlauncher", 18, 100, 5, g_RocketAtt);
+		int weapon = SpawnWeapon(entity, "tf_weapon_rocketlauncher", 18, 100, 5, g_RocketAtt);
 		if(IsValidEntity(weapon))
 		{
 			SetEntPropEnt(entity, Prop_Send, "m_hActiveWeapon", weapon);
@@ -955,11 +944,11 @@ public Action:OnRocketLauncherTouch( prop, entity )
 		}
 
 		KillWithoutMayhem(prop);
-		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, GetArraySize(gh_ItemLocations)-1)), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, gh_ItemLocations.Length - 1)), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public Action:OnInvulnerabilityTouch( prop, entity )
+public Action OnInvulnerabilityTouch( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam)
 	{
@@ -970,18 +959,18 @@ public Action:OnInvulnerabilityTouch( prop, entity )
 		SetDoomUI(entity, EMOTION_INVULN);
 		
 		KillWithoutMayhem(prop);
-		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, GetArraySize(gh_ItemLocations)-1)), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, gh_ItemLocations.Length - 1)), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-public Action:OnBerserkTouch( prop, entity )
+public Action OnBerserkTouch( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam)
 	{
-		new weapon = GetPlayerWeaponSlot(entity, TFWeaponSlot_Melee);					// this will probably never fail, but whatever.
+		int weapon = GetPlayerWeaponSlot(entity, TFWeaponSlot_Melee);					// this will probably never fail, but whatever.
 		if (weapon != -1)
 		{
-			decl String:classname[32];
+			static char classname[32];
 			if(GetEntityClassname(weapon, classname, 64))
 			{
 				TF2_RemoveWeaponSlot(entity, 0);
@@ -999,17 +988,17 @@ public Action:OnBerserkTouch( prop, entity )
 		}
 
 		KillWithoutMayhem(prop);
-		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, GetArrayCell(gh_ItemLocations, GetRandomInt(0, GetArraySize(gh_ItemLocations)-1)), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(gf_ItemRespawn, Timer_SpawnItem, gh_ItemLocations.Get(GetRandomInt(0, gh_ItemLocations.Length - 1)), TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
 
-SpawnItem(client)		// Spawns a sprite on a client's death location (will not work on multistage maps well..)
+void SpawnItem(int client)		// Spawns a sprite on a client's death location (will not work on multistage maps well..)
 {
-	decl Float:origin[3];
+	static float origin[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", origin);
 	origin[2] += 30.0;
 	
-	new ent = CreateEntityByName("prop_physics_override");
+	int ent = CreateEntityByName("prop_physics_override");
 	if(ent != -1)
 	{
 		DispatchKeyValueVector(ent, "origin", origin);
@@ -1030,7 +1019,7 @@ SpawnItem(client)		// Spawns a sprite on a client's death location (will not wor
 
 		SetEntPropFloat(ent, Prop_Send, "m_flModelScale", 0.001);// color and alpha and nodraw do not seem to always work.
 
-		new ent2 = CreateEntityByName("env_sprite");			// if I could make models follow people, that would be ideal.
+		int ent2 = CreateEntityByName("env_sprite");			// if I could make models follow people, that would be ideal.
 		if(ent2 != -1)
 		{
 			DispatchKeyValueVector(ent2, "origin", origin);
@@ -1088,12 +1077,12 @@ SpawnItem(client)		// Spawns a sprite on a client's death location (will not wor
 	}
 }
 
-public Action:OnShotgunTouchOnce( prop, entity )
+public Action OnShotgunTouchOnce( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam && !TF2_IsPlayerInCondition(entity, TFCond_CritHype))
 	{
 		TF2_RemoveWeaponSlot(entity, 1);
-		new weapon = SpawnWeapon(entity, "tf_weapon_shotgun_soldier", 10, 100, 5, g_ShotgunAtt);
+		int weapon = SpawnWeapon(entity, "tf_weapon_shotgun_soldier", 10, 100, 5, g_ShotgunAtt);
 		if(IsValidEntity(weapon))
 		{
 			SetEntPropEnt(entity, Prop_Send, "m_hActiveWeapon", weapon);
@@ -1107,12 +1096,12 @@ public Action:OnShotgunTouchOnce( prop, entity )
 	}
 }
 
-public Action:OnRocketLauncherTouchOnce( prop, entity )
+public Action OnRocketLauncherTouchOnce( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam && !TF2_IsPlayerInCondition(entity, TFCond_CritHype))
 	{
 		TF2_RemoveWeaponSlot(entity, 0);
-		new weapon = SpawnWeapon(entity, "tf_weapon_rocketlauncher", 18, 100, 5, g_RocketAtt);
+		int weapon = SpawnWeapon(entity, "tf_weapon_rocketlauncher", 18, 100, 5, g_RocketAtt);
 		if(IsValidEntity(weapon))
 		{
 			SetEntPropEnt(entity, Prop_Send, "m_hActiveWeapon", weapon);
@@ -1126,7 +1115,7 @@ public Action:OnRocketLauncherTouchOnce( prop, entity )
 	}
 }
 
-public Action:OnInvulnerabilityTouchOnce( prop, entity )
+public Action OnInvulnerabilityTouchOnce( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam)
 	{
@@ -1140,14 +1129,14 @@ public Action:OnInvulnerabilityTouchOnce( prop, entity )
 	}
 }
 
-public Action:OnBerserkTouchOnce( prop, entity )
+public Action OnBerserkTouchOnce( int prop, int entity )
 {
 	if(entity > 0 && entity <= MaxClients && GetClientTeam(entity) == g_BossTeam)
 	{
-		new weapon = GetPlayerWeaponSlot(entity, TFWeaponSlot_Melee);					// this will probably never fail, but whatever.
+		int weapon = GetPlayerWeaponSlot(entity, TFWeaponSlot_Melee);					// this will probably never fail, but whatever.
 		if (weapon != -1)
 		{
-			decl String:classname[32];
+			static char classname[32];
 			if(GetEntityClassname(weapon, classname, 64))
 			{
 				TF2_RemoveWeaponSlot(entity, 0);
@@ -1169,18 +1158,18 @@ public Action:OnBerserkTouchOnce( prop, entity )
 }
 
 
-public Action:Timer_DoomguyThink(Handle:timer, any:userid)	// powers the hud ai
+public Action Timer_DoomguyThink(Handle timer, any userid)	// powers the hud ai
 {
 	if(gb_Doom)
 	{
-		new client = GetClientOfUserId(userid);
+		int client = GetClientOfUserId(userid);
 		if(client && IsClientInGame(client))
 		{
 			if(IsPlayerAlive(client) && GetClientTeam(client) == g_BossTeam)
 			{
 				if(!gb_CanRage)
 				{
-					new bossidx = FF2_GetBossIndex(client);
+					int bossidx = FF2_GetBossIndex(client);
 					if(bossidx != -1)
 					{
 						FF2_SetBossCharge( bossidx, 0, 0.0 );
@@ -1217,7 +1206,7 @@ public Action:Timer_DoomguyThink(Handle:timer, any:userid)	// powers the hud ai
 	return Plugin_Stop;
 }
 
-SetDoomUI(client, emotion)								// draws the hud
+void SetDoomUI(int client, int emotion)								// draws the hud
 {
 	switch(emotion)
 	{
@@ -1252,9 +1241,9 @@ SetDoomUI(client, emotion)								// draws the hud
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Hidden Passive Stuff
 
-public Action:Timer_CreateHidden(Handle:timer, any:userid)
+public Action Timer_CreateHidden(Handle timer, any userid)
 {
-	new client = GetClientOfUserId(userid);
+	int client = GetClientOfUserId(userid);
 	if(gb_Hidden && client && g_boss == client && IsClientInGame(client) && IsPlayerAlive(client))
 	{
 		g_OnWall = HIDDEN_DETATCHED;
@@ -1262,11 +1251,11 @@ public Action:Timer_CreateHidden(Handle:timer, any:userid)
 		SDKHook(client, SDKHook_PreThink, OnPreThink);
 		
 /**
-		new team = GetClientTeam(client) == 3 ? 2 : 3;
+		int team = GetClientTeam(client) == 3 ? 2 : 3;
 
 		if(FF2_GetAbilityArgument(0, this_plugin_name, "special_hidden", 4, 1))
 		{
-			for(new player=1; player<=MaxClients; player++)
+			for(int player=1; player<=MaxClients; player++)
 			{
 				if(player != client && IsClientInGame(player) && IsPlayerAlive(player))
 				{
@@ -1279,11 +1268,11 @@ public Action:Timer_CreateHidden(Handle:timer, any:userid)
 	}
 }
 
-public OnPreThink(client)
+public void OnPreThink(int client)
 {
 	if(g_boss == client) // meh. not the best way, but a surefire way
 	{
-		new buttons = GetClientButtons(client);
+		int buttons = GetClientButtons(client);
 		if(buttons & IN_ATTACK)
 		{
 			if(g_OnWall == HIDDEN_ATTACHED)
@@ -1332,10 +1321,10 @@ public OnPreThink(client)
 	}
 }
 
-AttachToWall(client)														// based on Mecha's Khopesh Climber
+void AttachToWall(int client)														// based on Mecha's Khopesh Climber
 {
-	decl Float:clientpos[3];
-	decl Float:angles[3];
+	static float clientpos[3];
+	static float angles[3];
 	GetClientEyePosition(client, clientpos);										// Get the position of the player's eyes
 	GetClientEyeAngles(client, angles);											// Get the angle the player is looking
 
@@ -1343,7 +1332,7 @@ AttachToWall(client)														// based on Mecha's Khopesh Climber
 
 	if (TR_DidHit(INVALID_HANDLE))
 	{
-		decl String:classname[11];
+		static char classname[11];
 		if(GetEntityClassname(TR_GetEntityIndex(INVALID_HANDLE), classname, 11) && StrEqual(classname, "worldspawn"))
 		{
 			TR_GetPlaneNormal(INVALID_HANDLE, angles);
@@ -1352,7 +1341,7 @@ AttachToWall(client)														// based on Mecha's Khopesh Climber
 			if (angles[0] >= 30.0 && angles[0] <= 330.0) return;
 			if (angles[0] <= -30.0) return;
 
-			decl Float:endpos[3];
+			static float endpos[3];
 			TR_GetEndPosition(endpos);
 
 			if (GetVectorDistance(clientpos, endpos, true) < gf_WallDist)
@@ -1364,10 +1353,10 @@ AttachToWall(client)														// based on Mecha's Khopesh Climber
 	}
 }
 
-DetatchFromWall(client)
+void DetatchFromWall(int client)
 {
 	SetEntityMoveType(client, MOVETYPE_WALK);
-	TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, Float:{0.0, 0.0, 0.0});
+	TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
 
 	TF2_RemoveCondition(client, TFCond_Cloaked);
 
@@ -1375,12 +1364,12 @@ DetatchFromWall(client)
 	CreateTimer(gf_ReattachDelay, Timer_Detatch);
 }
 
-public Action:Timer_Detatch(Handle:timer)
+public Action Timer_Detatch(Handle timer)
 {
 	g_OnWall = HIDDEN_DETATCHED;
 }
 
-TerminateHidden()
+void TerminateHidden()
 {
 	g_boss = 0;
 	gb_Hidden = false;
@@ -1389,7 +1378,7 @@ TerminateHidden()
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Predator Passive Stuff
 
-SetVisionMode(client, mode)								// handles setting predator's vision modes (cloak, rage, normal)
+void SetVisionMode(int client, int mode)								// handles setting predator's vision modes (cloak, rage, normal)
 {
 	switch(mode)
 	{
@@ -1420,17 +1409,17 @@ SetVisionMode(client, mode)								// handles setting predator's vision modes (c
 	}
 }
 
-CreateSprites(client)									// gonna show spies in stealth and stuff, sorry spies :3
+void CreateSprites(int client)									// gonna show spies in stealth and stuff, sorry spies :3
 {
-	decl particle;
-	decl Float:pos[3];
+	int particle;
+	static float pos[3];
 
-	for (new target = 1; target<=MaxClients; target++)
+	for (int target = 1; target<=MaxClients; target++)
 	{
 		particle = EntRefToEntIndex(g_sprite[target]);
 		if(particle != INVALID_ENT_REFERENCE)
 		{
-			AcceptEntityInput(particle, "Kill");					// just in case.
+			RemoveEntity(particle);
 		}
 		
 		if(target != client && IsClientInGame(target) && IsPlayerAlive(target))
@@ -1465,12 +1454,12 @@ CreateSprites(client)									// gonna show spies in stealth and stuff, sorry sp
 	}
 }
 
-HideSprites(bool:hide)									// shows or hides sprite trails
+void HideSprites(bool hide)									// shows or hides sprite trails
 {
 	if(hide)
 	{
-		decl ent;
-		for(new client=1; client<=MaxClients; client++)
+		int ent;
+		for(int client=1; client<=MaxClients; client++)
 		{
 			ent = EntRefToEntIndex(g_sprite[client]);
 			if(ent != INVALID_ENT_REFERENCE)
@@ -1482,8 +1471,8 @@ HideSprites(bool:hide)									// shows or hides sprite trails
 	}
 	else
 	{
-		decl ent;
-		for(new client=1; client<=MaxClients; client++)
+		int ent;
+		for(int client=1; client<=MaxClients; client++)
 		{
 			ent = EntRefToEntIndex(g_sprite[client]);
 			if(ent != INVALID_ENT_REFERENCE)
@@ -1495,7 +1484,7 @@ HideSprites(bool:hide)									// shows or hides sprite trails
 	}
 }
 
-public Action:TransmitBossOnly(particle, client)
+public Action TransmitBossOnly(int particle, int client)
 {
 	if(client != g_boss)
 	{
@@ -1504,20 +1493,20 @@ public Action:TransmitBossOnly(particle, client)
 	return Plugin_Continue;
 }
 
-TerminatePredatorEffects()								// ends predator as the boss, removes overlays, cleans up sprites
+void TerminatePredatorEffects()								// ends predator as the boss, removes overlays, cleans up sprites
 {
 	if(IsClientInGame(g_boss))
 	{
 		SetOverlay(g_boss, "");
 	}
 
-	decl ent;
-	for(new client=1; client<=MaxClients; client++)
+	int ent;
+	for(int client=1; client<=MaxClients; client++)
 	{
 		ent = EntRefToEntIndex(g_sprite[client]);
 		if(ent != INVALID_ENT_REFERENCE)
 		{
-			AcceptEntityInput(ent, "Kill");
+			RemoveEntity(ent);
 		}
 	}
 	
@@ -1526,12 +1515,12 @@ TerminatePredatorEffects()								// ends predator as the boss, removes overlays
 	g_boss = 0;
 }
 
-SpawnTrophy(client)										// Spawns a grabbable physprop
+void SpawnTrophy(int client)										// Spawns a grabbable physprop
 {
-	new ent = CreateEntityByName("prop_physics_override");
+	int ent = CreateEntityByName("prop_physics_override");
 	if(ent != -1)
 	{
-		decl Float:origin[3];
+		static float origin[3];
 		GetClientEyePosition(client, origin);
 		origin[2] += 2.0;
 
@@ -1553,7 +1542,7 @@ SpawnTrophy(client)										// Spawns a grabbable physprop
 		
 		SetEntPropFloat(ent, Prop_Send, "m_flModelScale", 0.001);	// color and alpha and nodraw do not seem to always work.
 		
-		new ent2 = CreateEntityByName("prop_dynamic");
+		int ent2 = CreateEntityByName("prop_dynamic");
 		if(ent2 != -1)
 		{
 			DispatchKeyValueVector(ent2, "origin", origin);
@@ -1580,11 +1569,11 @@ SpawnTrophy(client)										// Spawns a grabbable physprop
 	}
 }
 
-public Action:OnTrophyTouch( prop, entity )				// Refunds stealth to boss on pickup
+public Action OnTrophyTouch( int prop, int entity )				// Refunds stealth to boss on pickup
 {
 	if(entity == g_boss)
 	{
-		new Float:cloakmeter = GetEntPropFloat(entity, Prop_Send, "m_flCloakMeter");
+		float cloakmeter = GetEntPropFloat(entity, Prop_Send, "m_flCloakMeter");
 		cloakmeter += gf_TrophyPct;
 		if(cloakmeter > 100.0)
 		{
@@ -1601,17 +1590,17 @@ public Action:OnTrophyTouch( prop, entity )				// Refunds stealth to boss on pic
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Predator Active Rage
 
-Rage_UsePredator(const String:ability_name[],index)
+void Rage_UsePredator(const char[] ability_name, int index)
 {
-	new userid = FF2_GetBossUserId(index);
-	new client = GetClientOfUserId(userid);
-	new Float:time = GetEngineTime();
-	new Float:duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 15.0);
+	int userid = FF2_GetBossUserId(index);
+	int client = GetClientOfUserId(userid);
+	float time = GetEngineTime();
+	float duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 15.0);
 	if(gf_rageTime > time)			// old rage, add time
 	{
 		gf_rageTime += duration;
 	}
-	else								// new rage, make stuff
+	else								// int rage, make stuff
 	{
 		gf_rageTime = time + duration;
 		SetVisionMode(client, VISION_RAGE);
@@ -1620,18 +1609,18 @@ Rage_UsePredator(const String:ability_name[],index)
 	}
 }
 
-public Action:Timer_Predator(Handle:timer, any:userid)
+public Action Timer_Predator(Handle timer, any userid)
 {
-	new boss = GetClientOfUserId(userid);
+	int boss = GetClientOfUserId(userid);
 	if(boss == g_boss && IsClientInGame(boss))
 	{
 		if(gb_predator && IsPlayerAlive(boss))
 		{
 			if(gf_rageTime > GetEngineTime())					// rage is active
 			{
-				decl Float:clientpos[3];
+				static float clientpos[3];
 
-				for(new target=1;target<=MaxClients;target++)
+				for(int target=1;target<=MaxClients;target++)
 				{
 					if(boss != target && IsClientInGame(target) && IsPlayerAlive(target))
 					{
@@ -1668,12 +1657,12 @@ public Action:Timer_Predator(Handle:timer, any:userid)
 	return Plugin_Stop;
 }
 
-TurretThink(client)										// Shoulder cannon AI
+void TurretThink(int client)										// Shoulder cannon AI
 {
-	decl Float:turretpos[3], Float:playerpos[3], Float:anglevector[3], Float:targetvector[3], Float:angles[3], Float:vecrt[3], Float:ang;
-	new bossteam = GetClientTeam(client);
-	decl playerarray[MAXPLAYERS+1];
-	new playercount;
+	static float turretpos[3], playerpos[3], anglevector[3], targetvector[3], angles[3], vecrt[3], ang;
+	int bossteam = GetClientTeam(client);
+	int playerarray[MAXPLAYERS+1];
+	int playercount;
 
 	GetClientEyePosition(client, turretpos);
 	GetClientEyeAngles(client, angles);
@@ -1689,7 +1678,7 @@ TurretThink(client)										// Shoulder cannon AI
 
 	NormalizeVector(anglevector, anglevector);
 
-	for(new player = 1; player <= MaxClients; player++)
+	for(int player = 1; player <= MaxClients; player++)
 	{
 		if(player != client && IsClientInGame(player) && IsPlayerAlive(player))
 		{
@@ -1712,7 +1701,7 @@ TurretThink(client)										// Shoulder cannon AI
 
 	if(playercount)
 	{
-		new target = playerarray[GetRandomInt(0, playercount-1)];
+		int target = playerarray[GetRandomInt(0, playercount-1)];
 		CreateProjectile(client, target, turretpos, angles, anglevector);
 		
 		EmitSoundToAll(SOUND_TURRET_FIRE, 0, SNDCHAN_WEAPON, SNDLEVEL_NORMAL, SND_NOFLAGS, SNDVOL_NORMAL, SNDPITCH_NORMAL, -1, turretpos);
@@ -1724,9 +1713,9 @@ TurretThink(client)										// Shoulder cannon AI
 	}
 }
 
-CreateProjectile(client, target, Float:origin[3], Float:eyeangles[3], Float:anglevector[3])	// Fires a single projectile
+void CreateProjectile(int client, int target, float origin[3], float eyeangles[3], float anglevector[3])	// Fires a single projectile
 {
-	new entity = CreateEntityByName("tf_projectile_energy_ball");				// because bison particles == blue balls of light on blue team
+	int entity = CreateEntityByName("tf_projectile_energy_ball");				// because bison particles == blue balls of light on blue team
 	if(entity != -1)
 	{
 		DispatchSpawn(entity);
@@ -1736,8 +1725,8 @@ CreateProjectile(client, target, Float:origin[3], Float:eyeangles[3], Float:angl
 		SetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity", client);				// store attacker
 		SetEntPropEnt(entity, Prop_Send, "m_nForceBone", target);				// store intended target
 		SetEntProp(entity, Prop_Data, "m_takedamage", 0);						// don't want them to be shot down/destroyed
-		SetEntPropVector(entity, Prop_Send, "m_vecMins", Float:{0.0,0.0,0.0});	// the pellet size should be tiny... they will still collide normally
-		SetEntPropVector(entity, Prop_Send, "m_vecMaxs", Float:{0.0,0.0,0.0});
+		SetEntPropVector(entity, Prop_Send, "m_vecMins", view_as<float>({0.0, 0.0, 0.0}));	// the pellet size should be tiny... they will still collide normally
+		SetEntPropVector(entity, Prop_Send, "m_vecMaxs", view_as<float>({0.0, 0.0, 0.0}));
 		
 		NormalizeVector(anglevector, anglevector);
 		ScaleVector(anglevector, gf_CannonSpeed);
@@ -1750,11 +1739,11 @@ CreateProjectile(client, target, Float:origin[3], Float:eyeangles[3], Float:angl
 	}
 }
 
-public Action:ProjectileTouchHook(entity, other)			// Wat happens when this projectile touches something
+public Action ProjectileTouchHook(int entity, int other)			// Wat happens when this projectile touches something
 {
 	if(other > 0 && other <= MaxClients)
 	{
-		new client = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+		int client = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 		if(client > 0 && client <= MaxClients && IsClientInGame(client))			// will probably just be -1, but whatever.
 		{
 			gf_diedPredCannon[other] = GetEngineTime();
@@ -1766,16 +1755,16 @@ public Action:ProjectileTouchHook(entity, other)			// Wat happens when this proj
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Skulls Active Rage
 
-Rage_UseSkulls(const String:ability_name[],index)
+void Rage_UseSkulls(const char[] ability_name, int index)
 {
-	new userid = FF2_GetBossUserId(index);
-	new Float:time = GetEngineTime();
-	new Float:duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 15.0);
+	int userid = FF2_GetBossUserId(index);
+	float time = GetEngineTime();
+	float duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 15.0);
 	if(gf_rageTime > time)			// old rage, add time
 	{
 		gf_rageTime += duration;
 	}
-	else								// new rage, make stuff
+	else								// int rage, make stuff
 	{
 		gf_rageTime = time + duration;
 		
@@ -1785,9 +1774,9 @@ Rage_UseSkulls(const String:ability_name[],index)
 	}
 }
 
-public Action:Timer_Skulls(Handle:timer, any:userid)			// Updates boss rage stuffs
+public Action Timer_Skulls(Handle timer, any userid)			// Updates boss rage stuffs
 {
-	new boss = GetClientOfUserId(userid);
+	int boss = GetClientOfUserId(userid);
 	if(boss == g_boss && IsClientInGame(boss))
 	{
 		if(gb_Skulls && IsPlayerAlive(boss))
@@ -1808,11 +1797,11 @@ public Action:Timer_Skulls(Handle:timer, any:userid)			// Updates boss rage stuf
 	return Plugin_Stop;
 }
 
-ActivateFlame(bool:enable)									// Sets head/eye glow on or off
+void ActivateFlame(bool enable)									// Sets head/eye glow on or off
 {
 	if(enable)
 	{
-		new ent = EntRefToEntIndex(g_flameEnt[0]);
+		int ent = EntRefToEntIndex(g_flameEnt[0]);
 		if(ent != INVALID_ENT_REFERENCE)
 		{
 			AcceptEntityInput(ent, "start");
@@ -1830,7 +1819,7 @@ ActivateFlame(bool:enable)									// Sets head/eye glow on or off
 	}
 	else
 	{
-		new ent = EntRefToEntIndex(g_flameEnt[0]);
+		int ent = EntRefToEntIndex(g_flameEnt[0]);
 		if(ent != INVALID_ENT_REFERENCE)
 		{
 			AcceptEntityInput(ent, "stop");
@@ -1848,12 +1837,12 @@ ActivateFlame(bool:enable)									// Sets head/eye glow on or off
 	}
 }
 
-ThrowFireBall(client)										// Creates a single projectile
+void ThrowFireBall(int client)										// Creates a single projectile
 {
-	decl Float:turretpos[3], Float:playerpos[3], Float:anglevector[3], Float:targetvector[3], Float:angles[3], Float:vecrt[3], Float:ang;
-	new bossteam = GetClientTeam(client);
-	decl playerarray[MAXPLAYERS+1];
-	new playercount;
+	static float turretpos[3], playerpos[3], anglevector[3], targetvector[3], angles[3], vecrt[3], ang;
+	int bossteam = GetClientTeam(client);
+	int playerarray[MAXPLAYERS+1];
+	int playercount;
 
 	GetClientEyePosition(client, turretpos);
 	GetClientEyeAngles(client, angles);
@@ -1869,7 +1858,7 @@ ThrowFireBall(client)										// Creates a single projectile
 
 	NormalizeVector(anglevector, anglevector);
 
-	for(new player = 1; player <= MaxClients; player++)
+	for(int player = 1; player <= MaxClients; player++)
 	{
 		if(player != client && IsClientInGame(player) && IsPlayerAlive(player))
 		{
@@ -1892,7 +1881,7 @@ ThrowFireBall(client)										// Creates a single projectile
 
 	if(playercount)		// found a target to home in on
 	{
-		new target = playerarray[GetRandomInt(0, playercount-1)];
+		int target = playerarray[GetRandomInt(0, playercount-1)];
 		CreateFireballProjectile(client, target, turretpos, angles, anglevector);
 	}
 	else					// just do it
@@ -1905,9 +1894,9 @@ ThrowFireBall(client)										// Creates a single projectile
 	TE_SendToAll();
 }
 
-CreateFireballProjectile(client, target, Float:origin[3], Float:eyeangles[3], Float:anglevector[3])
+void CreateFireballProjectile(int client, int target, float origin[3], float eyeangles[3], float anglevector[3])
 {
-	new entity = CreateEntityByName("tf_projectile_rocket");					// because fire particles
+	int entity = CreateEntityByName("tf_projectile_rocket");					// because fire particles
 	if(entity != -1)
 	{
 		DispatchSpawn(entity);
@@ -1918,8 +1907,8 @@ CreateFireballProjectile(client, target, Float:origin[3], Float:eyeangles[3], Fl
 		SetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity", client);			// store attacker
 		SetEntPropEnt(entity, Prop_Send, "m_nForceBone", target);				// store intended target
 		SetEntProp(entity, Prop_Data, "m_takedamage", 0);						// don't want them to be shot down/destroyed
-		SetEntPropVector(entity, Prop_Send, "m_vecMins", Float:{0.0,0.0,0.0});	// the pellet size should be tiny... they will still collide normally
-		SetEntPropVector(entity, Prop_Send, "m_vecMaxs", Float:{0.0,0.0,0.0});
+		SetEntPropVector(entity, Prop_Send, "m_vecMins", view_as<float>({0.0, 0.0, 0.0}));	// the pellet size should be tiny... they will still collide normally
+		SetEntPropVector(entity, Prop_Send, "m_vecMaxs", view_as<float>({0.0, 0.0, 0.0}));
 		
 		NormalizeVector(anglevector, anglevector);
 		ScaleVector(anglevector, gf_CannonSpeed);
@@ -1936,9 +1925,9 @@ CreateFireballProjectile(client, target, Float:origin[3], Float:eyeangles[3], Fl
 	}
 }
 
-public Action:Timer_IgniteEntity(Handle:timer, any:ref)		// Re-ignites the projectile, since it doesn't want to stay aflame...
+public Action Timer_IgniteEntity(Handle timer, any ref)		// Re-ignites the projectile, since it doesn't want to stay aflame...
 {
-	new ent = EntRefToEntIndex(ref);
+	int ent = EntRefToEntIndex(ref);
 	if(ent != INVALID_ENT_REFERENCE)
 	{
 		ExtinguishEntity(ent);
@@ -1951,11 +1940,11 @@ public Action:Timer_IgniteEntity(Handle:timer, any:ref)		// Re-ignites the proje
 	return Plugin_Stop;
 }
 
-public Action:FireProjectileTouchHook(entity, other)
+public Action FireProjectileTouchHook(int entity, int other)
 {
 	if(other > 0 && other <= MaxClients)
 	{
-		new client = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+		int client = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
 		if(client > 0 && client <= MaxClients && IsClientInGame(client))			// will probably just be -1, but whatever.
 		{
 			gf_diedFireball[other] = GetEngineTime();
@@ -1972,16 +1961,16 @@ public Action:FireProjectileTouchHook(entity, other)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Skulls Active Rage
 
-Rage_UseAsh(const String:ability_name[],index)
+void Rage_UseAsh(const char[] ability_name, int index)
 {
-	new userid = FF2_GetBossUserId(index);
-	new Float:time = GetEngineTime();
-	new Float:duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 10.0);
+	int userid = FF2_GetBossUserId(index);
+	float time = GetEngineTime();
+	float duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1, 10.0);
 	if(gf_rageTime > time)			// old rage, add time
 	{
 		gf_rageTime += duration;
 	}
-	else								// new rage, make stuff
+	else								// int rage, make stuff
 	{
 		gf_rageTime = time + duration;
 		ActivateChainsaw(GetClientOfUserId(userid));
@@ -1989,9 +1978,9 @@ Rage_UseAsh(const String:ability_name[],index)
 	}
 }
 
-public Action:Timer_Ash(Handle:timer, any:userid)					// Updates boss rage stuffs
+public Action Timer_Ash(Handle timer, any userid)					// Updates boss rage stuffs
 {
-	new boss = GetClientOfUserId(userid);
+	int boss = GetClientOfUserId(userid);
 	if(boss && IsClientInGame(boss))
 	{
 		if(gb_Ash && boss == g_boss && IsPlayerAlive(boss))
@@ -2003,14 +1992,14 @@ public Action:Timer_Ash(Handle:timer, any:userid)					// Updates boss rage stuff
 				return Plugin_Continue;
 			}
 
-			new trigger = EntRefToEntIndex(g_chainsawref);
+			int trigger = EntRefToEntIndex(g_chainsawref);
 			if(trigger != INVALID_ENT_REFERENCE)
 			{
-				AcceptEntityInput(trigger, "Kill");
+				RemoveEntity(trigger);
 			}
 
 			TF2_RemoveWeaponSlot(boss, TFWeaponSlot_Melee);		// just incase incase
-			new weapon = SpawnWeapon(boss, gs_bossweaponclassname, g_bossweaponindex , 101, 5, gs_bossweaponattribs);
+			int weapon = SpawnWeapon(boss, gs_bossweaponclassname, g_bossweaponindex , 101, 5, gs_bossweaponattribs);
 			if(IsValidEntity(weapon))
 			{
 				SetEntPropFloat(weapon, Prop_Send, "m_flModelScale", 0.001);
@@ -2022,7 +2011,7 @@ public Action:Timer_Ash(Handle:timer, any:userid)					// Updates boss rage stuff
 			{
 				StopSound(boss, SNDCHAN_AUTO, SOUND_CHAINSAW);
 				
-				new viewmodel = GetEntPropEnt(weapon, Prop_Send, "m_hExtraWearableViewModel");
+				int viewmodel = GetEntPropEnt(weapon, Prop_Send, "m_hExtraWearableViewModel");
 				if(IsValidEntity(viewmodel))
 				{
 					SDK_RemoveWearable(boss, viewmodel);
@@ -2038,19 +2027,19 @@ public Action:Timer_Ash(Handle:timer, any:userid)					// Updates boss rage stuff
 	return Plugin_Stop;
 }
 
-CreateChainsaw(client)
+void CreateChainsaw(int client)
 {
-	new trigger = EntRefToEntIndex(g_chainsawref);
+	int trigger = EntRefToEntIndex(g_chainsawref);
 	if(trigger != INVALID_ENT_REFERENCE)
 	{
-		AcceptEntityInput(trigger, "kill");
+		RemoveEntity(trigger);
 	}
 	
 	trigger = CreateEntityByName("trigger_hurt");
 	if(trigger != -1)
 	{
-		decl Float:origin[3];
-		decl Float:ang[3];
+		static float origin[3];
+		static float ang[3];
 		GetClientAbsOrigin(client, origin);
 		GetClientAbsAngles(client, ang);
 
@@ -2070,8 +2059,8 @@ CreateChainsaw(client)
 
 		SetEntityModel(trigger, MODEL_ITEM_DUMMY);
 		
-		SetEntPropVector(trigger, Prop_Send, "m_vecMins", Float:{-15.0, -15.0, -15.0});
-		SetEntPropVector(trigger, Prop_Send, "m_vecMaxs", Float:{15.0, 15.0, 15.0});
+		SetEntPropVector(trigger, Prop_Send, "m_vecMins", view_as<float>({-15.0, -15.0, -15.0}));
+		SetEntPropVector(trigger, Prop_Send, "m_vecMaxs", view_as<float>({15.0, 15.0, 15.0}));
 
 		SetEntProp(trigger, Prop_Send, "m_nSolidType", 2);
 
@@ -2081,17 +2070,17 @@ CreateChainsaw(client)
 		SetVariantString("chainsaw_blade");
 		AcceptEntityInput(trigger, "SetParentAttachmentMaintainOffset", client);
 
-		new ref = EntIndexToEntRef(trigger);
+		int ref = EntIndexToEntRef(trigger);
 		g_chainsawref = ref;
 	}
 }
 
-ActivateChainsaw(client)
+void ActivateChainsaw(int client)
 {
 	CreateChainsaw(client);
 
 	TF2_RemoveWeaponSlot(client, TFWeaponSlot_Secondary);		// just incase incase
-	new weapon = SpawnWeapon(client,"tf_weapon_raygun", 442, 100, 5, "2; 0.0; 551 ; 1");
+	int weapon = SpawnWeapon(client,"tf_weapon_raygun", 442, 100, 5, "2; 0.0; 551 ; 1");
 	TF2_RemoveWeaponSlot(client, TFWeaponSlot_Melee);
 	if(IsValidEntity(weapon))
 	{
@@ -2101,7 +2090,7 @@ ActivateChainsaw(client)
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", 999999.0);
 		SetEntPropFloat(weapon, Prop_Send, "m_flNextSecondaryAttack", 999999.0);
 
-		new vm = -1;
+		int vm = -1;
 		while( ( vm = FindEntityByClassname2( vm, "tf_viewmodel" ) ) != -1 )	// hide the view model
 		{ 
 			if(client == GetEntPropEnt(vm, Prop_Send, "m_hOwner"))
@@ -2123,58 +2112,58 @@ ActivateChainsaw(client)
 	}
 }
 
-TerminateAshe()
+void TerminateAshe()
 {
 	gb_Ash = false;
 	gf_rageTime = 0.0;
 	g_boss = 0;
 
-	new trigger = EntRefToEntIndex(g_chainsawref);
+	int trigger = EntRefToEntIndex(g_chainsawref);
 	if(trigger != INVALID_ENT_REFERENCE)
 	{
-		AcceptEntityInput(trigger, "Kill");
+		RemoveEntity(trigger);
 	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////	 Stocks
 
-SetOverlay(client, const String:overlay[])						// changes a client's screen overlay (requires clientcommand, they could disable so, enforce with smac or something if you care.)
+void SetOverlay(int client, const char[] overlay)						// changes a client's screen overlay (requires clientcommand, they could disable so, enforce with smac or something if you care.)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	ClientCommand(client, "r_screenoverlay \"%s\"", overlay); 
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") | FCVAR_CHEAT);
 }
 
-public Action:Timer_RemoveEntityWithoutMayhem(Handle:timer, any:ref)			// removes an entity
+public Action Timer_RemoveEntityWithoutMayhem(Handle timer, any ref)			// removes an entity
 {
-	new ent = EntRefToEntIndex(ref);
+	int ent = EntRefToEntIndex(ref);
 	if(ent != INVALID_ENT_REFERENCE)
 	{
 		KillWithoutMayhem(ent);
 	}
 }
 
-stock FindEntityByClassname2(startEnt, const String:classname[])	// because legacy
+stock int FindEntityByClassname2(int startEnt, const char[] classname)	// because legacy
 {
 	while (startEnt > -1 && !IsValidEntity(startEnt)) startEnt--;
 	return FindEntityByClassname(startEnt, classname);
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual,char[] att)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, ";", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, ";", atts, 32, 32);
 	if (count > 1)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 			TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 			i2++;
@@ -2184,42 +2173,42 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
 	TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 	return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
 	CloseHandle(hWeapon);
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
 
-stock SetAmmo(client, weapon, ammo, clip = 0)
+stock void SetAmmo(int client, int weapon, int ammo, int clip = 0)
 {
 	if(clip)
 	{
-		new iClip = GetEntData(weapon, g_iOffsetClip);
+		int iClip = GetEntData(weapon, g_iOffsetClip);
 		if(iClip != -1)
 		{
 			SetEntData(weapon, g_iOffsetClip, clip, _, true);
 		}
 	}
 	
-	new iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+	int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
 	SetEntData(client, g_iOffsetAmmo+iOffset, ammo, 4, true);
 }
 
-public Action:Timer_ExtinguishPlayer(Handle:timer, any:userid)		// stops a player from burning early
+public Action Timer_ExtinguishPlayer(Handle timer, any userid)		// stops a player from burning early
 {
-	new client = GetClientOfUserId(userid);
+	int client = GetClientOfUserId(userid);
 	if(client && IsClientInGame(client) && IsPlayerAlive(client))
 	{
 		TF2_RemoveCondition(client, TFCond_OnFire);
 	}
 }
 
-public bool:TraceRayDontHitSelf(entity, mask, any:data)
+public bool TraceRayDontHitSelf(int entity, int mask, any data)
 {
 	return entity != data;
 }
 
-public bool:TraceRayFilterClients(entity, mask, any:data)
+public bool TraceRayFilterClients(int entity, int mask, any data)
 {
 	if(entity > 0 && entity <=MaxClients)					// only hit the client we're aiming at
 	{
@@ -2236,7 +2225,7 @@ public bool:TraceRayFilterClients(entity, mask, any:data)
 	return true;
 }
 
-bool:CanSeeTarget(Float:startpos[3], Float:targetpos[3], target, bossteam)		// Tests to see if vec1 > vec2 can "see" target
+bool CanSeeTarget(float startpos[3], float targetpos[3], int target, int bossteam)		// Tests to see if vec1 > vec2 can "see" target
 {
 	TR_TraceRayFilter(startpos, targetpos, MASK_SOLID, RayType_EndPoint, TraceRayFilterClients, target);
 
@@ -2271,9 +2260,9 @@ bool:CanSeeTarget(Float:startpos[3], Float:targetpos[3], target, bossteam)		// T
 	return false;
 }
 
-stock CreateVM(client, model)
+stock int CreateVM(int client, int model)
 {
-	new ent = CreateEntityByName("tf_wearable_vm");
+	int ent = CreateEntityByName("tf_wearable_vm");
 	if (!IsValidEntity(ent)) return -1;
 
 	SetEntProp(ent, Prop_Send, "m_nModelIndex", model);
@@ -2291,20 +2280,20 @@ stock CreateVM(client, model)
 	return ent;
 }
 
-stock bool:IsEntityWearable(entity)
+stock bool IsEntityWearable(int entity)
 {
 	if (entity > MaxClients && IsValidEdict(entity))
 	{
-		new String:strClassname[32]; GetEdictClassname(entity, strClassname, sizeof(strClassname));
+		char strClassname[32]; GetEdictClassname(entity, strClassname, sizeof(strClassname));
 		return (strncmp(strClassname, "tf_wearable", 11, false) == 0 || strncmp(strClassname, "tf_powerup", 10, false) == 0);
 	}
 
 	return false;
 }
 
-KillWithoutMayhem(entity)		// will ensure that props are not in different collision groups and at the same place :/
+void KillWithoutMayhem(int entity)		// will ensure that props are not in different collision groups and at the same place :/
 {
-	decl Float:randomvec[3];
+	static float randomvec[3];
 	randomvec[0] = GetRandomFloat(-5000.0,5000.0);
 	randomvec[1] = GetRandomFloat(-5000.0,5000.0);
 	randomvec[2] = -5000.0;
@@ -2312,43 +2301,43 @@ KillWithoutMayhem(entity)		// will ensure that props are not in different collis
 	TeleportEntity(entity, randomvec, NULL_VECTOR, NULL_VECTOR); 
 	SetEntProp(entity, Prop_Send, "m_CollisionGroup", 0);
 	
-	AcceptEntityInput(entity, "Kill");
+	RemoveEntity(entity);
 }
 
 
-public MakeProjectileHoming(iProjectile, target, bool:lockon, Float:newspeed)
+public void MakeProjectileHoming(int iProjectile, int target, bool lockon, float newspeed)
 {
 	SetEntProp(iProjectile, Prop_Send, "m_nForceBone", target);		  // target to seek
 
-	decl array[3];
+	int array[3];
 	array[HOMING_ENTREF] = EntIndexToEntRef(iProjectile);
 	array[HOMING_LOCK_TYPE] = lockon;
-	array[HOMING_SPEED] = _:newspeed;
-	PushArrayArray(g_hArrayHoming, array);							// add to homing array
+	array[HOMING_SPEED] = view_as<int>(newspeed);
+	g_hArrayHoming.PushArray(array);
 }
 
-public OnGameFrame()
+public void OnGameFrame()
 {
-	for(new i=GetArraySize(g_hArrayHoming)-1; i>=0; i--)
+	for(int i=g_hArrayHoming.Length-1; i>=0; i--)
 	{
-		decl iData[3];
-		GetArrayArray(g_hArrayHoming, i, iData);
+		int iData[3];
+		g_hArrayHoming.GetArray(i, iData);
 
-		new iProjectile = EntRefToEntIndex(iData[HOMING_ENTREF]);
+		int iProjectile = EntRefToEntIndex(iData[HOMING_ENTREF]);
 		if(iProjectile != INVALID_ENT_REFERENCE)
 		{
-			HomingProjectile_Think(iProjectile, iData[HOMING_LOCK_TYPE], i, Float:(iData[HOMING_SPEED]));
+			HomingProjectile_Think(iProjectile, iData[HOMING_LOCK_TYPE], i, float (iData[HOMING_SPEED]));
 		}
 		else
 		{
-			RemoveFromArray(g_hArrayHoming, i);
+			g_hArrayHoming.Erase(i);
 		}
 	}
 }
 
-public HomingProjectile_Think(iProjectile, homing, index, Float:speed)
+public void HomingProjectile_Think(int iProjectile, int homing, int index, float speed)
 {	
-	new iCurrentTarget = GetEntProp(iProjectile, Prop_Send, "m_nForceBone");
+	int iCurrentTarget = GetEntProp(iProjectile, Prop_Send, "m_nForceBone");
 
 	if(!HomingProjectile_IsValidTarget(iCurrentTarget, iProjectile, GetEntProp(iProjectile, Prop_Send, "m_iTeamNum")))
 	{
@@ -2358,7 +2347,7 @@ public HomingProjectile_Think(iProjectile, homing, index, Float:speed)
 		}
 		else
 		{
-			RemoveFromArray(g_hArrayHoming, index);
+			g_hArrayHoming.Erase(index);
 		}
 	}
 	else
@@ -2367,7 +2356,7 @@ public HomingProjectile_Think(iProjectile, homing, index, Float:speed)
 	}
 }
 
-bool:HomingProjectile_IsValidTarget(client, iProjectile, iTeam)
+bool HomingProjectile_IsValidTarget(int client, int iProjectile, int iTeam)
 {
 	if(client > 0 && client <= MaxClients && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) != iTeam)
 	{
@@ -2377,12 +2366,12 @@ bool:HomingProjectile_IsValidTarget(client, iProjectile, iTeam)
 			return false;
 		}
 		
-		decl Float:flStart[3];
+		static float flStart[3];
 		GetClientEyePosition(client, flStart);
-		decl Float:flEnd[3];
+		static float flEnd[3];
 		GetEntPropVector(iProjectile, Prop_Send, "m_vecOrigin", flEnd);
 		
-		new Handle:hTrace = TR_TraceRayFilterEx(flStart, flEnd, MASK_SOLID, RayType_EndPoint, TraceFilterHoming, iProjectile);
+		Handle hTrace = TR_TraceRayFilterEx(flStart, flEnd, MASK_SOLID, RayType_EndPoint, TraceFilterHoming, iProjectile);
 		if(hTrace != INVALID_HANDLE)
 		{
 			if(TR_DidHit(hTrace))
@@ -2399,7 +2388,7 @@ bool:HomingProjectile_IsValidTarget(client, iProjectile, iTeam)
 	return false;
 }
 
-public bool:TraceFilterHoming(entity, contentsMask, any:iProjectile)
+public bool TraceFilterHoming(int entity, int contentsMask, any iProjectile)
 {
 	if(entity == iProjectile || (entity >= 1 && entity <= MaxClients))
 	{
@@ -2409,21 +2398,21 @@ public bool:TraceFilterHoming(entity, contentsMask, any:iProjectile)
 	return true;
 }
 
-HomingProjectile_FindTarget(iProjectile, Float:speed)
+void HomingProjectile_FindTarget(int iProjectile, float speed)
 {
-	decl Float:flPos1[3];
+	static float flPos1[3];
 	GetEntPropVector(iProjectile, Prop_Send, "m_vecOrigin", flPos1);
 	
-	new iBestTarget;
-	new Float:flBestLength = 99999.9;
-	for(new i=1; i<=MaxClients; i++)
+	int iBestTarget;
+	float flBestLength = 99999.9;
+	for(int i=1; i<=MaxClients; i++)
 	{
 		if(HomingProjectile_IsValidTarget(i, iProjectile, GetEntProp(iProjectile, Prop_Send, "m_iTeamNum")))
 		{
-			decl Float:flPos2[3];
+			static float flPos2[3];
 			GetClientEyePosition(i, flPos2);
 			
-			new Float:flDistance = GetVectorDistance(flPos1, flPos2);			
+			float flDistance = GetVectorDistance(flPos1, flPos2);			
 			if(flDistance < flBestLength)
 			{
 				iBestTarget = i;
@@ -2443,21 +2432,21 @@ HomingProjectile_FindTarget(iProjectile, Float:speed)
 	}
 }
 
-HomingProjectile_TurnToTarget(client, iProjectile, Float:speed)					// update projectile position
+void HomingProjectile_TurnToTarget(int client, int iProjectile, float speed)					// update projectile position
 {
-	new Float:flTargetPos[3];
+	float flTargetPos[3];
 	GetClientAbsOrigin(client, flTargetPos);
-	new Float:flRocketPos[3];
+	float flRocketPos[3];
 	GetEntPropVector(iProjectile, Prop_Send, "m_vecOrigin", flRocketPos);
 
 	//flTargetPos[2] += 30 + Pow(GetVectorDistance(flTargetPos, flRocketPos), 2.0) / 10000;
 	flTargetPos[2] += 30;
 	
-	new Float:flNewVec[3];
+	float flNewVec[3];
 	SubtractVectors(flTargetPos, flRocketPos, flNewVec);
 	NormalizeVector(flNewVec, flNewVec);
 	
-	new Float:flAng[3];
+	float flAng[3];
 	GetVectorAngles(flNewVec, flAng);
 
 	if(speed)
@@ -2466,7 +2455,7 @@ HomingProjectile_TurnToTarget(client, iProjectile, Float:speed)					// update pr
 	}
 	else
 	{
-		decl Float:flRocketVel[3];
+		static float flRocketVel[3];
 		GetEntPropVector(iProjectile, Prop_Data, "m_vecAbsVelocity", flRocketVel);
 /**		// should not need smooth velocity implementation here
 		if(flRocketVel[0] == 0.0 && gb_SV)
