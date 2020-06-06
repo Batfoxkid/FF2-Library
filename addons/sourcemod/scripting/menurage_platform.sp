@@ -8,7 +8,7 @@
 #define MAXABILITIES 20
 
 bool MenuRage_Available;
-bool IsMenuRage[MAXABILITIES];
+bool BlockRage[MAXCLIENTS] = { true, ... };
 
 int button[MAXCLIENTS];
 int max[MAXCLIENTS];
@@ -39,6 +39,7 @@ public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
 	Forwards[OnTakeDamage] = new GlobalForward("FF2MenuRage_OnTakeDamageAlive", ET_Hook, Param_Cell, Param_Cell, Param_Cell);
 	Forwards[OnPlayerDeath] = new GlobalForward("FF2MenuRage_OnPlayerDeath", ET_Hook, Param_Cell, Param_Cell);
 	
+	CreateNative("FF2MenuRage_GetHashMap", Native_GetHashMap);
 	CreateNative("FF2MenuRage_PeekValue", Native_PeekValue);
 	CreateNative("FF2MenuRage_SetValue", Native_SetValue);
 	CreateNative("FF2MenuRage_SetCooldown", Native_SetCooldown);
@@ -49,7 +50,7 @@ public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
 	RegPluginLibrary("FF2MenuRage");
 }
 
-public void OnPluginStart2()
+public void OnPluginStart()
 {
 	HookEvent("player_death", Post_PlayerDeath, EventHookMode_Post);
 	HookEvent("player_hurt", Post_PlayerHurt, EventHookMode_Post);
@@ -57,15 +58,13 @@ public void OnPluginStart2()
 	HookEvent("arena_win_panel", Post_RoundEnd, EventHookMode_Post);
 	
 	PointsHud = CreateHudSynchronizer();
-	
-	if(IsRoundActive())
-		Post_RoundStart(null, "arena_round_start", false);
 }
 
 public void Post_RoundStart(Event hEvent, const char[] Name, bool broadcast)
 {
-	if(!IsRoundActive())
+	if(!IsRoundActive()) {
 		return;
+	}
 	
 	FF2Prep player;
 	int client;
@@ -99,6 +98,7 @@ public void Post_RoundEnd(Event hEvent, const char[] Name, bool broadcast)
 			if(Points[x]) {
 				Points[x].Purge();
 				delete BossMap[x];
+				SDKUnhook(x, SDKHook_PostThinkPost, Post_ClientThinkPost);
 			}
 		}
 		MenuRage_Available = false;
@@ -287,7 +287,7 @@ public int OnRageSelect(Menu Main, MenuAction action, int client, int option)
 			
 			Main.GetItem(option, item, sizeof(item));
 			
-			for (int x ; x < size; x++)
+			for (int x ; x <= size; x++)
 			{
 				IntToString(x, num, sizeof(num));
 				if(!strcmp(item, num, false))
@@ -296,18 +296,18 @@ public int OnRageSelect(Menu Main, MenuAction action, int client, int option)
 					
 					Panel Mini = new Panel();
 					
-					FormatEx(key, 48, "hook->%i->rage title");
+					FormatEx(key, 48, "hook->%i->rage title", x);
 					BossMap[client].GetString(key, buffer, sizeof(buffer));
 					Mini.SetTitle(buffer);
 					
-					FormatEx(key, 48, "hook->%i->rage info");
+					FormatEx(key, 48, "hook->%i->rage info", x);
 					BossMap[client].GetString(key, buffer, sizeof(buffer));
 					ReplaceString(buffer, sizeof(buffer), "\\n", "\n");
 					Mini.DrawText(buffer);
 					
 					int cur = Points[client].points;
 					
-					FormatEx(key, 48, "hook->%i->rage cost");
+					FormatEx(key, 48, "hook->%i->rage cost", x);
 					Mini.DrawItem("Activate", cur >= BossMap[client].GetInt(key) ? ITEMDRAW_DEFAULT:ITEMDRAW_DISABLED);
 					Mini.DrawItem("Cancel");
 					Mini.Send(client, On_RageActivate, 30);
@@ -337,17 +337,17 @@ public int On_RageActivate(Menu Mini, MenuAction action, int client, int option)
 					FF2Prep player = FF2Prep(client);
 					int boss = player.boss;
 					char[] key = new char[48];
-					
+					int idx = Points[client].stack;
 					int pts = Points[client].points;
-					FormatEx(key, 48, "hook->%i->rage cost");
+					FormatEx(key, 48, "hook->%i->rage cost", idx);
 					int cost = BossMap[client].GetInt(key);
-					FormatEx(key, 48, "hook->%i->rage cooldown");
+					FormatEx(key, 48, "hook->%i->rage cooldown", idx);
 					float cd = BossMap[client].GetFloat(key);
 					
-					FormatEx(key, 48, "hook->%i->name");
+					FormatEx(key, 48, "hook->%i->name", idx);
 					BossMap[client].GetString(key, AbilityInfo[0], sizeof(AbilityInfo[]));
 					
-					FormatEx(key, 48, "hook->%i->plugin_name");
+					FormatEx(key, 48, "hook->%i->plugin_name", idx);
 					BossMap[client].GetString(key, AbilityInfo[1], sizeof(AbilityInfo[]));
 					
 					Call_StartForward(Forwards[OnProvokeRage]);
@@ -364,7 +364,7 @@ public int On_RageActivate(Menu Mini, MenuAction action, int client, int option)
 					}
 					
 					Cooldown[client][Points[client].stack] = cd + GetGameTime();
-					IsMenuRage[boss] = true;
+					BlockRage[boss] = false;
 					CreateTimer(0.205, Timer_ResetRage, boss, TIMER_FLAG_NO_MAPCHANGE);
 					
 					Points[client].points = pts - cost;
@@ -387,7 +387,7 @@ public int On_RageActivate(Menu Mini, MenuAction action, int client, int option)
 
 public Action Timer_ResetRage(Handle Timer, int boss)
 {
-	IsMenuRage[boss] = false;
+	BlockRage[boss] = true;
 }
 
 public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
@@ -406,12 +406,19 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse,
 
 public void FF2_PreAbility(int boss, const char[] Plugin_Name, const char[] Ability_Name, int slot, bool &enabled)
 {
-	if(IsMenuRage[boss])
+	if(!MenuRage_Available) {
 		return;
+	}
+	int client = BossToClient(boss);
+	if(!Points[client]) {
+		return;
+	}
+	if(BlockRage[boss]) {
+		return;
+	}
 	
 	FF2_SetBossCharge(boss, 0, 0.0);
 	enabled = false;
-	int client = BossToClient(boss);
 	int calcpts = Points[client].points + BossMap[client].GetInt("gain per rage");
 	if(calcpts >= Points[client].max)
 		calcpts = Points[client].max;
@@ -419,7 +426,16 @@ public void FF2_PreAbility(int boss, const char[] Plugin_Name, const char[] Abil
 }
 
 
-public any Native_PeekValue(Handle Plugin, int Params)
+public any Native_GetHashMap(Handle pContext, int Params)
+{
+	int client = GetNativeCell(1);
+	if(!BossMap[client]) {
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index \"%i\", user doesn't have a menu rage.", client);
+	}
+	return view_as<StringMap>(BossMap[client]);
+}
+
+public any Native_PeekValue(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(!Points[client]) {
@@ -433,7 +449,7 @@ public any Native_PeekValue(Handle Plugin, int Params)
 	return Points[client].GetValue(context, val) ? val:ThrowNativeError(SP_ERROR_NATIVE, "Invalid context name : \"%s\"", context);
 }
 
-public int Native_SetValue(Handle Plugin, int Params)
+public int Native_SetValue(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(!Points[client]) {
@@ -449,7 +465,7 @@ public int Native_SetValue(Handle Plugin, int Params)
 	return Points[client].SetValue(context, GetNativeCell(3));
 }
 
-public int Native_SetCooldown(Handle Plugin, int Params)
+public int Native_SetCooldown(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(!Points[client]) {
@@ -463,12 +479,12 @@ public int Native_SetCooldown(Handle Plugin, int Params)
 	return 0;
 }
 
-public int Native_IsActive(Handle Plugin, int Params)
+public int Native_IsActive(Handle pContext, int Params)
 {
 	return MenuRage_Available;
 }
 
-public int Native_HasAbiltiy(Handle Plugin, int Params)
+public int Native_HasAbiltiy(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(!BossMap[client])
@@ -476,7 +492,7 @@ public int Native_HasAbiltiy(Handle Plugin, int Params)
 	return Points[client] != null;
 }
 
-public any Native_DoAbiltiy(Handle Plugin, int Params)
+public any Native_DoAbiltiy(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(!Points[client] || !BossMap[client]) {
@@ -501,7 +517,7 @@ public any Native_DoAbiltiy(Handle Plugin, int Params)
 	
 	Points[client].points -= pts;
 	
-	IsMenuRage[boss] = true;
+	BlockRage[boss] = false;
 	CreateTimer(0.205, Timer_ResetRage, boss, TIMER_FLAG_NO_MAPCHANGE);
 	
 	return player.ForceAbility(Plugin_Name, Ability_Name, slot);
