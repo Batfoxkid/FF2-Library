@@ -31,11 +31,15 @@
 			"2"
 			{
 				"name"		"ability_name"
+				...
+				..
 				"plugin_name"	"plugin_name"
 			}
 			"3"
 			{
 				"name"		"ability_name"
+				...
+				..
 				"plugin_name"	"plugin_name"
 			}
 		}
