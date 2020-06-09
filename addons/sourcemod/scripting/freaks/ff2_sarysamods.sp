@@ -1,6 +1,5 @@
-#include <tf2_stocks>
 #include <sdkhooks>
-#include <freak_fortress_2>
+#include <ff2_helper>
 #include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
@@ -39,6 +38,11 @@ bool PRINT_DEBUG_INFO = true;
 
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
+enum struct iPlayerInfo {
+	int iAlives;
+	int iBosses;
+}
+iPlayerInfo infos;
 
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 128
@@ -63,7 +67,7 @@ float AI_EndsAt[MAX_PLAYERS_ARRAY];
 
 // for delayable damage
 #define DD_STRING "rage_delayable_damage"
-bool DD_ActiveThisRound;
+bool DDActive;
 bool DD_CanUse[MAX_PLAYERS_ARRAY];
 float DD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
@@ -90,12 +94,10 @@ float DPE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
 
 // for rage gain with few players
 #define SERG_STRING "ff2_scaled_endgame_rage_gain"
-#define SERG_INTERVAL 1.0
-bool SERG_ActiveThisRound = false;
-float SERG_NextCheckAt;
-bool SERG_CanUse[MAX_PLAYERS_ARRAY];
+bool SERGActive;
 int SERG_PlayersAliveToStart[MAX_PLAYERS_ARRAY];
 float SERG_OnePlayerRPS[MAX_PLAYERS_ARRAY];
+float SERG_flNextThink[MAXCLIENTS];
 
 public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods",
@@ -112,45 +114,53 @@ public void OnPluginStart2()
 public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast)
 {
 	// various non-array inits
-	PluginActiveThisRound = false;
-	SERG_ActiveThisRound = false;
 	AI_ActiveThisRound = false;
-	DD_ActiveThisRound = false;
 	DE_ActiveThisRound = false;
 	DBD_ActiveThisRound = false;
 	DPE_ActiveThisRound = false;
 	
+	FF2Prep player;
+	int client;
+	for(int i; ; i++) {
+		player = FF2Prep(i, false);
+		client = player.Index;
+		if(!client) {
+			break;
+		}
+		
+		if(player.HasAbility(this_plugin_name, SERG_STRING)) {
+			SERGActive = true;
+			SERG_PlayersAliveToStart[client] = player.GetArgI(this_plugin_name, SERG_STRING, "alive to start", 1, 5);
+			SERG_OnePlayerRPS[client] = player.GetArgF(this_plugin_name, SERG_STRING, "player rage per sec", 2, 5.0);
+			SDKHook(client, SDKHook_PostThinkPost, Post_SERGThinkPost);
+		}
+		
+		if(player.HasAbility(this_plugin_name, DD_STRING)) {
+			DDActive = true;
+		}
+		
+		
+	}
+	
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
-		// various array inits
+		
+		if(!ValidatePlayer(clientIdx, Any)) {
+			continue;
+		}
+		
+		
+
 		AI_CanUse[clientIdx] = false;
-		SERG_CanUse[clientIdx] = false;
 		DD_CanUse[clientIdx] = false;
 		DE_CanUse[clientIdx] = false;
 		DBD_CanUse[clientIdx] = false;
 		DPE_CanUse[clientIdx] = false;
-
-		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
-			continue;
+		
 		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
 
-		if ((SERG_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, SERG_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			SERG_ActiveThisRound = true;
-			SERG_PlayersAliveToStart[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, SERG_STRING, 1);
-			SERG_OnePlayerRPS[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SERG_STRING, 2);
-		}
-
-		if ((DD_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DD_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			DD_ActiveThisRound = true;
-			DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
-		}
-		
 		if ((DE_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DE_STRING)) == true)
 		{
 			PluginActiveThisRound = true;
@@ -196,14 +206,34 @@ public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast
 	// allow game frame rages to execute
 	RoundInProgress = true;
 
-	if (SERG_ActiveThisRound)
-		SERG_NextCheckAt = GetEngineTime() + SERG_INTERVAL;
 }
 
 public Action Event_RoundEnd(Event event,const char[] name, bool dontBroadcast)
 {
 	// don't activate timed rages anymore
 	RoundInProgress = false;
+	if(SERGActive || DDActive) {
+		FF2Prep player;
+		int client;
+		for(int i; ; i++) {
+			player = FF2Prep(i, false);
+			client = player.Index;
+			if(!client) {
+				break;
+			}
+			
+			if(SERGActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, Post_SERGThinkPost);
+				SERGActive = false;
+			}
+			
+			if(DDActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, Post_ClientThinkPost);
+				DDActive = false;
+			}
+			
+		}
+	}
 }
 
 public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
@@ -211,26 +241,22 @@ public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[]
 	// I'm allowing this to happen after hale wins. playing rage sounds after winning is a time-honored tradition. :D
 	if (!strcmp(ability_name, MWS_STRING))
 	{
+		FF2Prep player = FF2Prep(bossIdx, false);
 		static char soundFile[MAX_SOUND_FILE_LENGTH];
-		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MWS_STRING, 1, soundFile, MAX_SOUND_FILE_LENGTH);
+		player.GetArgS(this_plugin_name, MWS_STRING, "sound", 1, soundFile, MAX_SOUND_FILE_LENGTH);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods1] Playing important sound: %s", soundFile);
 		
-		if (strlen(soundFile) > 3)
+		if (!IsEmptyString(soundFile))
 			EmitSoundToAll(soundFile);
 	}
 
-	if (!RoundInProgress)
-		return Plugin_Continue;
-
-	// strictly enforce the correct plugin is specified.
-	// these were working earlier with no specification...eep.
-	if (strcmp(plugin_name, this_plugin_name))
+	if (!IsRoundActive())
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, DD_STRING))
-		Rage_DelayableDamage(ability_name, bossIdx);
+		Rage_DelayableDamage(bossIdx);
 	else if (!strcmp(ability_name, DE_STRING))
 		Rage_DelayableEarthquake(ability_name, bossIdx);
 	else if (!strcmp(ability_name, DBD_STRING))
@@ -241,6 +267,12 @@ public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[]
 		Rage_AirblastImmunity(ability_name, bossIdx);
 		
 	return Plugin_Continue;
+}
+
+public void FF2_OnAlivePlayersChanged(int players, int bosses)
+{
+	infos.iAlives = players;
+	infos.iBosses = bosses;
 }
 
 /**
@@ -455,108 +487,92 @@ void Rage_DelayableEarthquake(const char[] ability_name, int bossIdx)
 /**
  * Delayable Damage
  */
-void DelayableDamage(int clientIdx)
-{
-	int bossIdx = FF2_GetBossIndex(clientIdx);
-	if (bossIdx < 0)
-		return;
-		
-	float damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 2);
-	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 3);
-	//int weapon = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 4); // useless, but I can't reclaim this prop since it's an old old boss :P
-	float knockback = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 5);
-	bool scaleByDistance = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 6) == 1;
-	bool liftLowZ = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 7) == 1;
 
-	if (PRINT_DEBUG_INFO)
-		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, damage=%f, radius=%i, knockback=%f, scaleByDistance=%i, liftLowZ=%i", DD_STRING, clientIdx, damage, radius, knockback, scaleByDistance, liftLowZ);
+public void Post_ClientThinkPost(int client)
+{
+	if(DD_ExecuteRageAt[client] >= GetGameTime()) {
+		DelayableDamage(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, Post_ClientThinkPost);
+	}
+}
+
+void DelayableDamage(int client)
+{
+	FF2Prep player = FF2Prep(client);
 	
+	float damage = player.GetArgF(this_plugin_name, DD_STRING, "damage", 2, 150.0);
+	float radius = player.GetArgF(this_plugin_name, DD_STRING, "radius", 3, 1200.0);
+	float knockback = player.GetArgF(this_plugin_name, DD_STRING, "knockback", 4, 1200.0);
+	bool scaleByDistance = player.GetArgI(this_plugin_name, DD_STRING, "scale by dist", 6, 1) == 1;
+	bool liftLowZ = player.GetArgI(this_plugin_name, DD_STRING, "z-lift", 7, 1) == 1;
+
 	static float bossPos[3];
-	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
+	GetClientAbsOrigin(client, bossPos);
 	static float victimPos[3];
 	static float kbTarget[3];
+	float dist;
 	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
-		if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
+		if (ValidatePlayer(victim, AnyAlive) && GetClientTeam(victim) != FF2_GetBossTeam())
 		{
+			GetClientAbsOrigin(victim, victimPos);
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
-			float distance = GetVectorDistance(bossPos, victimPos);
-			if (distance < radius && !TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
+			dist = GetVectorDistance(bossPos, victimPos);
+			if (dist < radius && !TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
 			{
-				SDKHooks_TakeDamage(victim, clientIdx, clientIdx, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
+				SDKHooks_TakeDamage(victim, client, client, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
 				
-				// this seems to be how the cool kids are doing knockback...and subsequently how I do it for a zillion packs. hasn't gone wrong yet.
-				// dear god. early work. even at my age I still cringe at it.
-				if (knockback > 0.0)
+				if (knockback)
 				{
 					MakeVectorFromPoints(bossPos, victimPos, kbTarget);
 					NormalizeVector(kbTarget, kbTarget);
 					
-					// replace low Z values to give some lift, and give the hale designer more flexibility with the knockback.
 					if (kbTarget[2] < 0.1 && !(kbTarget[2] < 0 && liftLowZ))
 						kbTarget[2] = 0.1;
 					
-					ScaleVector(kbTarget, (scaleByDistance ? knockback : (knockback * (((radius - distance) * 2) / radius)))); // can opt to factor distance
+					ScaleVector(kbTarget, (scaleByDistance ? knockback : (knockback * (((radius - dist) * 2) / radius))));
 
 					TeleportEntity(victim, NULL_VECTOR, NULL_VECTOR, kbTarget);
 				}
 			}
 		}
 	}
-	
-	DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-void Rage_DelayableDamage(const char[] ability_name, int bossIdx)
+void Rage_DelayableDamage(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float delay = player.GetArgF(this_plugin_name, DD_STRING, "delay", 1, 2.5);
+	int client = BossToClient(bossIdx);
 	
-	// everything looks good
-	if (delay > 0)
-		DD_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
-	else
-		DelayableDamage(clientIdx);
+	if(delay) {
+		DD_ExecuteRageAt[client] = GetGameTime() + delay;
+		SDKHook(client, SDKHook_PostThinkPost, Post_ClientThinkPost);
+		return;
+	}
+	DelayableDamage(client);
 }
 
 /**
  * Scaled Endgame Rage Gain (SERG)
  */
-public void SERG_GiveRageIfNecessary()
+
+public void Post_SERGThinkPost(int client)
 {
-	// get a living red team count first of all
-	int clientCount = 0;
-	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-	{
-		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != FF2_GetBossTeam())
-			clientCount++;
+	if(SERG_flNextThink[client] > GetGameTime()) {
+		return;
 	}
-	
-	// now see if any of the hales get rage
-	if (clientCount > 0)
-	{
-		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-		{
-			if (!IsLivingPlayer(clientIdx))
-				continue;
-
-			if (SERG_CanUse[clientIdx] && SERG_PlayersAliveToStart[clientIdx] >= clientCount)
-			{
-				int bossIdx = FF2_GetBossIndex(clientIdx);
-				if (bossIdx < 0) // wtf?
-					continue;
-
-				float rageToGive = (SERG_OnePlayerRPS[clientIdx] * ((SERG_PlayersAliveToStart[clientIdx] - clientCount) + 1)) / SERG_PlayersAliveToStart[clientIdx];
-				float rage = FF2_GetBossCharge(bossIdx, 0);
-				rage += rageToGive;
-				if (rage > 100.0)
-					rage = 100.0;
-				FF2_SetBossCharge(bossIdx, 0, rage);
-			}
+	SERG_flNextThink[client] = GetGameTime() + 1.0;
+	int count = TF2_GetClientTeam(client) == view_as<TFTeam>(FF2_GetBossTeam()) ? infos.iAlives:infos.iBosses;
+	if(SERG_PlayersAliveToStart[client] >= count) {
+		int boss = FF2_GetBossIndex(client);
+		float rtg = (SERG_OnePlayerRPS[client] * ((SERG_PlayersAliveToStart[client] - count) + 1)) / SERG_PlayersAliveToStart[client];
+		float rage = FF2_GetBossCharge(boss, 0) + rtg;
+		if(rage > 100.0) {
+			rage = 100.0;
 		}
+		FF2_SetBossCharge(boss, 0, rage);
 	}
-	
-	SERG_NextCheckAt += SERG_INTERVAL;
 }
 
 /**
@@ -569,19 +585,13 @@ public void OnGameFrame()
 	
 	float curTime = GetEngineTime();
 	
-	if (SERG_ActiveThisRound && curTime >= SERG_NextCheckAt)
-		SERG_GiveRageIfNecessary();
-
 	// combining things that need to loop through clients, for efficiency
-	if (DD_ActiveThisRound || DE_ActiveThisRound || DBD_ActiveThisRound || DPE_ActiveThisRound || AI_ActiveThisRound)
 	{
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
 				continue;
 				
-			if (DD_CanUse[clientIdx] && curTime >= DD_ExecuteRageAt[clientIdx])
-				DelayableDamage(clientIdx);
 			if (DE_CanUse[clientIdx] && curTime >= DE_ExecuteRageAt[clientIdx])
 				DelayableEarthquake(clientIdx);
 			if (DBD_CanUse[clientIdx] && curTime >= DBD_ExecuteRageAt[clientIdx])
@@ -671,10 +681,8 @@ public Action RemoveEntityTimer(Handle Timer, any entRef)
 public Action RemoveEntityDA(Handle timer, any entid)
 {
 	int entity=EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MAX_PLAYERS)
-	{
+	if(IsValidEntity(entity) && entity>MAX_PLAYERS)
 		RemoveEntity(entity);
-	}
 }
 
 stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
