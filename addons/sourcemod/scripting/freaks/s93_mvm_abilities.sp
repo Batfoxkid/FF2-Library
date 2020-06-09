@@ -148,6 +148,12 @@ static const String:EngyAlert[][] = {
 	"vo/announcer_mvm_engbot_another02.mp3"
 };
 
+public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
+{
+	strcopy(err, err_max, "[FF2] There is no point in using this old plugin.\nUse BatFoxKid's MVM Abilities instead");
+	return APLRes_Failure;
+}
+
 public OnPluginStart2()
 {
 	HookEvent("arena_round_start", Event_RoundStart);
