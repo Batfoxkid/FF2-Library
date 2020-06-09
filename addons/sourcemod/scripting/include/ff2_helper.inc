@@ -126,7 +126,6 @@ methodmap FF2Prep {
 		char name[64];
 		
 		kv.GetString("name", name, sizeof(name));
-		delete kv;
 		BuildPath(Path_SM, path, maxlen, "configs/freak_fortress_2/%s.cfg", name);
 		return FileExists(path);
 	}
