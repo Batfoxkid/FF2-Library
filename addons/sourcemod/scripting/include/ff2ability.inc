@@ -181,17 +181,9 @@ public SMCResult SMC_OnLeaveSection(SMCParser smc)
 	return SMCParse_Continue;
 }
 
-static void RemoveLastString(char[] src, int maxlen, int len)
+static void RemoveLastString(char[] src, int len)
 {
-	if(len <= 0) {
-		return;
-	}
-	int pos;
-	while(pos < maxlen) {
-		if(src[++pos]=='\0')
-			break;
-	}
-	int nul = pos - len - 2;
+	int nul = strlen(src) - len - 2;
 	if(nul < 0) {
 		nul = 0;
 	}
