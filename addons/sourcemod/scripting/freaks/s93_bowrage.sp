@@ -1,75 +1,56 @@
-#pragma semicolon 1
-#include <sourcemod>
-#include <tf2items>
+
+#include <ff2_ams2>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <ff2_ams>
 #include <freak_fortress_2_subplugin>
 
-public Plugin:myinfo = {
+#pragma semicolon 1
+#pragma newdecls required
+
+bool AMSOnly[MAXPLAYERS+1]=false;
+int alives = 0;
+
+public Plugin myinfo = {
 	name = "Freak Fortress 2: Simple Custom Bowrage",
 	author = "Koishi",
 	version = "1.2"
 };
 
-public OnPluginStart2()
+public void OnPluginStart2() {	
+}
+
+public void FF2AMS_PreRoundStart(int client)
 {
-	HookEvent("arena_round_start", Event_RoundStart);
-	if(FF2_GetRoundState()==1)
-	{
-		HookAbilities();
+	int boss = FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, "rage_new_bowrage")) {
+		AMSOnly[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_new_bowrage", "BOW");
 	}
 }
 
-new bool:AMSOnly[MAXPLAYERS+1]=false;
-
-HookAbilities()
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
-	for(new client=MaxClients;client;client--)
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	if(strcmp(ability_name, "rage_new_bowrage") && !AMSOnly[client])
 	{
-		if(client<=0 || client>MaxClients || !IsClientInGame(client))
-		{
-			continue;
-		}
-		AMSOnly[client]=false;
-		new boss=FF2_GetBossIndex(client);
-		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, "rage_new_bowrage") && FF2_HasAbility(boss, "ff2_sarysapub3", "ability_management_system"))
-		{
-			AMSOnly[client]=true;
-			AMS_InitSubability(boss, client, this_plugin_name, "rage_new_bowrage", "BOW");
-		}
-	}
-}
-
-public Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	HookAbilities();
-}
-
-public Action:FF2_OnAbility2(boss,const String:plugin_name[],const String:ability_name[],action)
-{
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
-	if(StrEqual(ability_name, "rage_new_bowrage", false) && !AMSOnly[client])
-	{
-		BOW_Invoke(client);						// Standard Bowrage
+		BOW_Invoke(client, -1);						// Standard Bowrage
 	}
 	return Plugin_Continue;
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, char[] att)
 {
-	new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(hWeapon, name);
 	TF2Items_SetItemIndex(hWeapon, index);
 	TF2Items_SetLevel(hWeapon, level);
 	TF2Items_SetQuality(hWeapon, qual);
-	new String:atts[32][32];
-	new count = ExplodeString(att, " ; ", atts, 32, 32);
+	char atts[32][32];
+	int count = ExplodeString(att, " ; ", atts, 32, 32);
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
-		new i2 = 0;
-		for (new i = 0; i < count; i+=2)
+		int i2 = 0;
+		for (int i = 0; i < count; i+=2)
 		{
 			TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
 			i2++;
@@ -79,42 +60,40 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
 		TF2Items_SetNumAttributes(hWeapon, 0);
 	if (hWeapon==INVALID_HANDLE)
 		return -1;
-	new entity = TF2Items_GiveNamedItem(client, hWeapon);
-	CloseHandle(hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
+	delete hWeapon;
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
 
-stock SetAmmo(client, slot, ammo)
+stock void SetAmmo(int client, int slot, int ammo)
 {
-	new weapon = GetPlayerWeaponSlot(client, slot);
+	int weapon = GetPlayerWeaponSlot(client, slot);
 	if (IsValidEntity(weapon))
 	{
-		new iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
-		new iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		int iOffset = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType", 1)*4;
+		static int iAmmoTable = 0;
+		if(!iAmmoTable) {
+			iAmmoTable = FindSendPropInfo("CTFPlayer", "m_iAmmo");
+		}
 		SetEntData(client, iAmmoTable+iOffset, ammo, 4, true);
 	}
 }
 
-public bool:BOW_CanInvoke(client)
+public void BOW_Invoke(int client, int index)
 {
-	return true;
-}
-
-public BOW_Invoke(client)
-{
-	new weapon;
-	new String:attributes[256];
-	new boss=FF2_GetBossIndex(client);
-	new bowtype=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 1);	// Bow type? (0: Huntsman, 1: Festive Huntsman, 2: Fortified Compound, 3: Crusader's Crossbow, 4: Festive Crusader's crossbow)
-	new kson=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 2);	// Killstreaks? (0: Off, 1: On)
-	new ammo=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 3);	// Ammo amount (0 will match to # of alive players)
-	new clip=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 4);	// Clip amount
-	if(kson)
-		attributes="6 ; 0.5 ; 37 ; 0.0 ; 2025 ; 1";
-	else
-		attributes="6 ; 0.5 ; 37 ; 0.0";
+	int weapon;
+	char attributes[126] = "";
+	int boss=FF2_GetBossIndex(client);
+	int bowtype=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 1);	// Bow type? (0: Huntsman, 1: Festive Huntsman, 2: Fortified Compound, 3: Crusader's Crossbow, 4: Festive Crusader's crossbow)
+	int kson=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 2);	// Killstreaks? (0: Off, 1: On)
+	int ammo=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 3);	// Ammo amount (0 will match to # of alive players)
+	int clip=FF2_GetAbilityArgument(boss,this_plugin_name,"rage_new_bowrage", 4);	// Clip amount
+	
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "rage_new_bowrage", 5, attributes, sizeof(attributes));
+	if(kson) {
+		StrCat(attributes, sizeof(attributes), attributes[0] == '\0' ? "2025 ; 1":" ; 2025 ; 1");
+	}
 	TF2_RemoveWeaponSlot(client, TFWeaponSlot_Primary);
 	switch(bowtype)
 	{
@@ -131,9 +110,14 @@ public BOW_Invoke(client)
 	}
 	SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", weapon);
 	if(ammo<0)
-		ammo=FF2_GetAlivePlayers();
+		ammo = alives;
 	if(ammo)
 		SetAmmo(client, weapon , ammo);
 	if(clip)
 		SetEntProp(weapon, Prop_Send, "m_iClip1", clip);
+}
+
+public void FF2_OnAlivePlayersChanged(int players, int bosses)
+{
+	alives = players + bosses;
 }
