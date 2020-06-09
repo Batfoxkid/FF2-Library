@@ -172,7 +172,7 @@ public SMCResult SMC_OnLeaveSection(SMCParser smc)
 				char[] last = new char[PLATFORM_MAX_PATH];
 				int size;
 				FF2Ability.last.PopString(last, PLATFORM_MAX_PATH, size);
-				RemoveLastString(FF2Ability.section, sizeof(FF2Ability.section), size);
+				RemoveLastString(FF2Ability.section, size);
 			} else {
 				FF2Ability.state = Parse_Finished;
 			}
