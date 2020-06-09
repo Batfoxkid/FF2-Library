@@ -11,7 +11,7 @@
 #define ClientToBoss(%1)	(FF2_GetBossIndex(%1))
 #define Dereference(%1)		(view_as<Address>(LoadFromAddress(%1, NumberType_Int32)))
 #define MAXCLIENTS			(MAXPLAYERS+1)
-#define INACTIVE				1000000000.0
+#define FAST_REG(%1)		this_plugin_name, #%1
 
 methodmap FF2Plugins < StringMap {
 	public FF2Plugins() {
@@ -63,8 +63,8 @@ methodmap FF2Prep {
 	 *
 	 * @return			FF2Player's player pointer
 	 */
-	public FF2Prep(int player, bool isclient=true) {
-		return view_as<FF2Prep>((isclient) ? ClientToBoss(player):player);
+	public FF2Prep(int user, bool isclient=true) {
+		return view_as<FF2Prep>((isclient) ? ClientToBoss(user):user);
 	}
 	
 	/**
@@ -126,6 +126,7 @@ methodmap FF2Prep {
 		char name[64];
 		
 		kv.GetString("name", name, sizeof(name));
+		kv = null;
 		BuildPath(Path_SM, path, maxlen, "configs/freak_fortress_2/%s.cfg", name);
 		return FileExists(path);
 	}
