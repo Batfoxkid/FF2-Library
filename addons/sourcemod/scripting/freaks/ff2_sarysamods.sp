@@ -149,7 +149,7 @@ float SERG_flNextThink[MAXCLIENTS];
 
 public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods",
-	author = "sarysa",
+	author = "sarysa, 01Pollux",
 	version = "1.1.0",
 };
 	
