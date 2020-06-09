@@ -1,31 +1,28 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define SOUND_WIGHT			"freak_fortress_2/thewight/wight_theme2.mp3"		// life lost, will be stopped when round ends
 #define MODEL_WIGHT			"models/freak_fortress_2/waails/wight_witchhat.mdl"
 #define WIGHT_SCALE		1.0
 
-new wight_life;
-new wight_boss;
-new String:wight_model[PLATFORM_MAX_PATH]; // model to set
+int wight_life;
+int wight_boss;
 
 #define WIGHT "wrath_of_the_wight"
-#define INACTIVE 100000000.0
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "FF2: The Wight's abilities",
 	author	= "M7",
 	version = "1.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
 	
@@ -40,7 +37,7 @@ public OnPluginStart2()
 	PrecacheModel(MODEL_WIGHT);
 }
 
-public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -49,17 +46,17 @@ public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
 	wight_boss = 0;
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Event event, const char[] name, bool dontBroadcast)
 {
 	GetBossVars();
 }
 
-GetBossVars()
+void GetBossVars()
 {
 	if (FF2_HasAbility(0, this_plugin_name, WIGHT))
 	{
-		new userid = FF2_GetBossUserId(0);
-		new client = GetClientOfUserId(userid);
+		int userid = FF2_GetBossUserId(0);
+		int client = GetClientOfUserId(userid);
 		if (client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			wight_boss = client;
@@ -70,9 +67,9 @@ GetBossVars()
 	wight_boss = 0;
 }
 
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -83,10 +80,11 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public Action:FF2_OnLoseLife(index)
+public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 {		
 	if (!wight_life && wight_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == wight_boss && IsPlayerAlive(wight_boss))
 	{
+		char wight_model[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(index, this_plugin_name, WIGHT, 2, wight_model, sizeof(wight_model));
 		
 		SetVariantString(wight_model);
@@ -102,7 +100,7 @@ public Action:FF2_OnLoseLife(index)
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnMusic(String:path[], &Float:time)
+public Action FF2_OnMusic(char[] path, float& time)
 {
 	if (wight_life)
 	{
@@ -112,17 +110,17 @@ public Action:FF2_OnMusic(String:path[], &Float:time)
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnAbility2(clientIdx, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int clientIdx, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
 	
-	new bossIdx=GetClientOfUserId(FF2_GetBossUserId(clientIdx));
-	new Float:bossPosition[3], Float:targetPosition[3];
-	new Float:distance=FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, WIGHT, 1, FF2_GetRageDist(bossIdx, this_plugin_name, WIGHT));
+	int bossIdx=GetClientOfUserId(FF2_GetBossUserId(clientIdx));
+	float bossPosition[3], targetPosition[3];
+	float distance=FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, WIGHT, 1, FF2_GetRageDist(bossIdx, this_plugin_name, WIGHT));
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPosition);
 	
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
 		{
@@ -137,19 +135,19 @@ public Action:FF2_OnAbility2(clientIdx, const String:plugin_name[], const String
 	return Plugin_Continue;
 }
 
-public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast)
+public void event_player_death(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+	int client = GetClientOfUserId(hEvent.GetInt("userid"));
 	if (client > 0 && client <= MaxClients)
 	{
 		if (client == wight_boss)
 		{
-			new prop = CreateEntityByName("prop_physics_override");
+			int prop = CreateEntityByName("prop_physics_override");
 			if (prop != -1)
 			{
 				RemoveRagdoll(client);
 				
-				decl Float:pos[3], Float:ang[3];
+				static float pos[3], ang[3];
 				
 				GetClientAbsOrigin(client, pos);
 				GetClientAbsAngles(client, ang);
@@ -175,24 +173,22 @@ public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast
 	}
 }
 
-stock RemoveRagdoll(client)
+stock void RemoveRagdoll(int client)
 {
 	RequestFrame(Frame_RemoveRagdoll, GetClientUserId(client));
 }
-public Frame_RemoveRagdoll(any:userid)
+public void Frame_RemoveRagdoll(any userid)
 {
-	new client = GetClientOfUserId(userid);
+	int client = GetClientOfUserId(userid);
 	if (client && IsClientInGame(client))
 	{
-		new ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
-		if (ragdoll > MaxClients)
-		{
-			AcceptEntityInput(ragdoll, "Kill");
-		}
+		int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
+		if(IsValidEntity(ragdoll))
+			RemoveEntity(ragdoll);
 	}
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(isPlayerAlive) return IsClientInGame(client) && IsPlayerAlive(client);
