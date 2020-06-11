@@ -14,6 +14,7 @@ enum AMSResult {
 	AMS_Overwrite
 };
 
+
 /**
  *	Action FF2AMS_PreAbility(int, int&, AMSResult&);
  *
@@ -169,7 +170,7 @@ native bool FF2AMS_IsAMSActive();
 /**
  *	AMSResult PREFIX_CanInvoke(int, int);
  *
- *	@brief			: called to check if boos can block/overwrite an ability
+ *	@brief			: called to check if boss can block/overwrite an ability
  *
  * @return			: AMS_Result==AMS_Overwrite will call PREFIX_OverWrite();
  *						any value other than AMS_Accept will block the ability
@@ -203,7 +204,6 @@ typedef DoOverwrite = function void(int client, int index);
  */
 typedef EndAbility = function void(int client, int index);
 
-
 #if !defined REQUIRE_PLUGIN
 public __pl_INTERFACE_SetNTVOptional()
 {
@@ -217,6 +217,9 @@ public __pl_INTERFACE_SetNTVOptional()
 }
 #endif
 
+#define AMS_REG(%0)(%1.%2) \
+		FF2AMS_PushToAMS(%0, this_plugin_name, #%1, #%2)
+		
 public SharedPlugin __FF2_AMS =
 {
 	name = "FF2AMS",
