@@ -106,6 +106,16 @@ methodmap FF2Prep {
 		}
 	}
 	
+	public void BossName(char[] name, int maxlen) {
+		static KeyValues kv; kv = this.KeyValues;
+		name[0] = '\0';
+		
+		if(!kv) {
+			return;
+		}
+		
+		kv.GetString("name", name, maxlen, "ERROR NAME");
+	}
 	/**
 	 *	bool FF2Prep::BuildBoss
 	 *
@@ -114,7 +124,7 @@ methodmap FF2Prep {
 	 * @return		true on success, false others
 	 */
 	public bool BuildBoss(char[] path, int maxlen, char[] key) {
-		KeyValues kv = this.KeyValues;
+		KeyValues kv; kv = this.KeyValues;
 		if(!kv) {
 			return false;
 		}
@@ -350,7 +360,6 @@ stock FF2Plugins FF2_LoadPrecachedPlugins(bool refresh)
 	}
 	return plugins;
 }
-
 
 
 enum Validity {
