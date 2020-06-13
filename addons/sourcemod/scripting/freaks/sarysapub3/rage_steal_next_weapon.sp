@@ -1,5 +1,4 @@
 
-
 /*
 rage_random_weapon
 
@@ -53,11 +52,10 @@ public void SNW_Invoke(int client, int index)
 
 static void StealClassWeapon(int client, int victim)
 {
-	int class = view_as<int>(TF2_GetPlayerClass(victim)) - 1;
+	int offset = view_as<int>(TF2_GetPlayerClass(victim));
 	
 	FF2Prep player = FF2Prep(client);
 	
-	int offset = GetRandomInt(0, class) + 1;
 	char arg[32];
 	static char cls[64], attr[128];
 	
