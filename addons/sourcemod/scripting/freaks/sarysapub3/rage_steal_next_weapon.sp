@@ -165,4 +165,5 @@ public void SNW_RoundEnd()
 			SDKUnhook(_x, SDKHook_OnTakeDamageAlive, SNW_OnTakeDamageAlive); \
 		} \
 	)
+	isActive = false;
 }
