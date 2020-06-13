@@ -147,4 +147,5 @@ public void FP_RoundEnd()
 		SDKUnhook(_x, SDKHook_PostThinkPost, FP_PostThinkPost); \
 		iWearableRef[_x] = INVALID_ENT_REFERENCE; \
 	) 
+	isActive = false;
 }
