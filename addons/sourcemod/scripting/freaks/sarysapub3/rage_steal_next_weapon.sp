@@ -24,6 +24,7 @@ static ArrayList slots[MAXCLIENTS];
 bool SNW_AMS[MAXCLIENTS];
 static float flStealThink[MAXCLIENTS], flRemoveThink[MAXCLIENTS][7];
 
+
 public void Post_SNWThinkPost(int client)
 {
 	if(!slots[client].Length) {
@@ -42,16 +43,11 @@ public void Post_SNWThinkPost(int client)
 
 public void SNW_Invoke(int client, int index)
 {
-	if(!isActive) {
-		isActive = true;
-	}
-	
 	FF2Prep player = FF2Prep(client);
 	static char sound[128];
 	if(player.GetArgS(FAST_REG(rage_random_weapon), "sound", 2, sound, sizeof(sound))) {
 		EmitSoundToAll(sound);
 	}
-	SDKHook(client, SDKHook_OnTakeDamageAlive, SNW_OnTakeDamageAlive);
 	flStealThink[client] = GetGameTime() + player.GetArgF(FAST_REG(rage_random_weapon), "keep duration", 1, 15.0);
 }
 
@@ -136,35 +132,13 @@ public Action SWN_WeaponCanSwitchTo(int victim, int weapon)
 	return Plugin_Continue;
 }
 
-public void SNW_RoundEnd()
-{
-	if(!isActive) {
-		return;
-	}
-	for(int i = 1; i <= MaxClients; i++) {
-		if(!ValidatePlayer(i, Any)) {
-			continue;
-		}
-		SDKHook(i, SDKHook_WeaponCanSwitchTo, SWN_WeaponCanSwitchTo);
-		SDKUnhook(i, SDKHook_PostThinkPost, Post_SNWThinkPost);
-		if(SNW_AMS[i]) {
-			SNW_AMS[i] = false;
-			delete slots[i];
-		}
-	}
-}
-
-public void SNW_ClientDisconnect(int client)
-{
-	if(slots[client]) {
-		delete slots[client];
-	}
-}
-
 public Action SNW_OnTakeDamageAlive(int victim, int& attacker, int& inflictor, 
 							float& damage, int& damagetype, int& weapon, 
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
+	if(!isActive) {
+		isActive = true;
+	}
 	if(!ValidatePlayer(victim, IsBoss))
 		return Plugin_Continue;
 	else if(PlayerIsInvun(victim))
@@ -175,4 +149,20 @@ public Action SNW_OnTakeDamageAlive(int victim, int& attacker, int& inflictor,
 	}
 		
 	return Plugin_Continue;
+}
+
+public void SNW_RoundEnd()
+{
+	if(!isActive) {
+		return;
+	}
+	LoopAnyValidPlayer( \
+		SDKUnhook(_x, SDKHook_WeaponCanSwitchTo, SWN_WeaponCanSwitchTo); \
+		if(slots[_x]) { \
+			delete slots[_x]; \
+			SNW_AMS[_x] = false; \
+			SDKUnhook(_x, SDKHook_PostThinkPost, Post_SNWThinkPost); \
+			SDKUnhook(_x, SDKHook_OnTakeDamageAlive, SNW_OnTakeDamageAlive); \
+		} \
+	)
 }
