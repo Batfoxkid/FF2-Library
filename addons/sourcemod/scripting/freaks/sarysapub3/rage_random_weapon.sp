@@ -127,4 +127,5 @@ public void RRW_RoundEnd()
 			SDKUnhook(_x, SDKHook_PostThinkPost, Post_RRWThinkPost); \
 		} \
 	)
+	isActive = false;
 }
