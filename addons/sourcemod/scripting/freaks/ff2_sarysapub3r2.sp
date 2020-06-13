@@ -357,7 +357,7 @@ static void LoadGameData()
 	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 	SDKCalls[EquipWearable] = EndPrepSDKCall();
 	if(!SDKCalls[EquipWearable]) {
-		SetFailState("Failed to create a call for \"CBaseCombatWeapon::GetSlot\"");
+		SetFailState("Failed to create a call for \"CBasePlayer::EquipWearable\"");
 	}
 	
 	delete hConfig;
