@@ -147,10 +147,16 @@ public void FF2_OnAbility2(int boss, const char[] plugin_name, const char[] abil
 			FP_Invoke(client, -1);
 		}
 	}
-	else if(!strcmp(ability_name, "rage_front_protection")) {
+	else if(!strcmp(ability_name, "rage_dodge_specific_damage")) {
 		int client = BossToClient(boss);
 		if(!DSD_AMS[client]) {
 			DSD_Invoke(client, -1);
+		}
+	}
+	else if(!strcmp(ability_name, "rage_ams_dynamic_teleport")) {
+		int client = BossToClient(boss);
+		if(!DT_AMS[client]) {
+			DT_Invoke(client, -1);
 		}
 	}
 }
