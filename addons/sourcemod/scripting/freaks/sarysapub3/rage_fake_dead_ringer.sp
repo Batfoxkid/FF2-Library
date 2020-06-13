@@ -159,6 +159,7 @@ public void FDR_RoundEnd()
 		FDR_Pending[_x] = FDR_AMS[_x] = false; \
 		SDKUnhook(_x, SDKHook_OnTakeDamageAlive, FDR_OnTakeDamageAlive); \
 	)
+	isActive = false;
 }
 
 static void TF2_SetCloakFadeTime(int client, float duration)
