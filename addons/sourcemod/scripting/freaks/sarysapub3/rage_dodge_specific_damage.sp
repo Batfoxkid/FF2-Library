@@ -79,4 +79,5 @@ public void DSD_RoundEnd()
 		SDKUnhook(_x, SDKHook_OnTakeDamageAlive, DSD_OnTakeDamageAlive); \
 		SDKUnhook(_x, SDKHook_OnTakeDamageAlive, DSD_PostThinkPost); \
 	)
+	isActive = false;
 }
