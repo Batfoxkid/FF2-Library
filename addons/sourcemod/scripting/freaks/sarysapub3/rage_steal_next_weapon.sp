@@ -62,7 +62,7 @@ static void StealClassWeapon(int client, int victim)
 	static char cls[64], attr[128];
 	
 	int count = offset * 10;
-	FormatEx(arg, sizeof(arg), "classname %i", count);
+	FormatEx(arg, sizeof(arg), "classname %i", offset);
 	player.GetArgS(FAST_REG(rage_random_weapon), arg, count, cls, sizeof(cls));
 	FormatEx(arg, sizeof(arg), "index %i", offset);
 	int idx = player.GetArgI(FAST_REG(rage_random_weapon), arg, count + 1, -1);
