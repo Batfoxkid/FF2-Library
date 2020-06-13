@@ -120,18 +120,11 @@ public void RRW_RoundEnd()
 	if(!isActive) {
 		return;
 	}
-	for(int i = 1; i <= MaxClients; i++) {
-		if(RRW_AMS[i]) {
-			RRW_AMS[i] = false;
-			delete slots[i];
-			SDKUnhook(i, SDKHook_PostThinkPost, Post_RRWThinkPost);
-		}
-	}
-}
-
-public void RRW_ClientDisconnect(int client)
-{
-	if(slots[client]) {
-		delete slots[client];
-	}
+	LoopAnyValidPlayer( \
+		if(slots[_x]) { \
+			delete slots[_x]; \
+			RRW_AMS[_x] = false; \
+			SDKUnhook(_x, SDKHook_PostThinkPost, Post_RRWThinkPost); \
+		} \
+	)
 }
