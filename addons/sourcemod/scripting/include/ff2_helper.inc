@@ -106,16 +106,18 @@ methodmap FF2Prep {
 		}
 	}
 	
-	public void BossName(char[] name, int maxlen) {
+	public void BossName(char[] name, int maxlen, bool file = false) {
 		static KeyValues kv; kv = this.KeyValues;
 		name[0] = '\0';
 		
 		if(!kv) {
 			return;
 		}
+		kv.Rewind();
 		
-		kv.GetString("name", name, maxlen, "ERROR NAME");
+		kv.GetString(file ? "filename":"name", name, maxlen, "ERROR NAME");
 	}
+	
 	/**
 	 *	bool FF2Prep::BuildBoss
 	 *
@@ -123,19 +125,15 @@ methodmap FF2Prep {
 	 *
 	 * @return		true on success, false others
 	 */
-	public bool BuildBoss(char[] path, int maxlen, char[] key) {
+	public bool BuildBoss(char[] path, int maxlen) {
 		KeyValues kv; kv = this.KeyValues;
 		if(!kv) {
 			return false;
 		}
-		
-		if(!kv.JumpToKey(key)) {
-			return false;
-		}
-		
+		kv.Rewind();
 		char name[64];
 		
-		kv.GetString("name", name, sizeof(name));
+		kv.GetString("filename", name, sizeof(name));
 		kv = null;
 		BuildPath(Path_SM, path, maxlen, "configs/freak_fortress_2/%s.cfg", name);
 		return FileExists(path);
