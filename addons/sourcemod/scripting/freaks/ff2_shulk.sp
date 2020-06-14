@@ -1,9 +1,10 @@
-#include <sourcemod>
-#include <tf2>
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 #include <sdkhooks>
+
+#pragma newdecls required
+
 /*
     "shulk_monadoart"
     arg1 = 능력 설정 시간
@@ -49,10 +50,15 @@ public Action RoundStarted(Handle event, const char[] name, bool dont)
     {
         if(IsClientInGame(client) && FF2_HasAbility(FF2_GetBossIndex(client), this_plugin_name, "shulk_monadoart"))
         {
+        	static char name[48]; FF2_GetBossName(FF2_GetBossIndex(client), name, sizeof(name));
+        	LogMessage("--------------------------------------------------------------------");
+        	LogMessage("[FF2] A boss with unfinished rage ff2_shulk.ff2 is active this round\n" ... 
+        				"Boss Name : %s", name);
+        	LogMessage("--------------------------------------------------------------------");
             EnableMonado[client]=true;
             ClientMonado[client]=0;
             MonadoOverloadTimer[client]=0.0;
-            CreateTimer(0.1, MonadoTimer, client, TIMER_REPEAT, TIMER_FLAG_NO_MAPCHANGE);
+            CreateTimer(0.1, MonadoTimer, client, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
         }
     }
 }
@@ -83,7 +89,7 @@ public Action MonadoTimer(Handle timer, int client)
 
             SDKHook(client, SDKHook_PreThink, OnPlayerTink);
 
-            break;
+//            break;
         }
 
         GetColorOfMonado(view_as<MonadoArt>(0), rgba);
@@ -96,7 +102,7 @@ public Action MonadoTimer(Handle timer, int client)
       if(MonadoOverloadTimer[client] <= 0.0)
       {
         ClientMonado[client] = 0;
-        break;
+//        break;
       }
 
       GetColorOfMonado(view_as<MonadoArt>(0), rgba);
@@ -110,7 +116,7 @@ public Action MonadoTimer(Handle timer, int client)
             ClientMonado[client] = -1;
             MonadoOverloadTimer[client] = FF2_GetAbilityArgumentFloat(FF2_GetBossIndex(client), this_plugin_name, "shulk_monadoart", 3, 10.0);
             SDKUnhook(client, SDKHook_PreThink, OnPlayerTink);
-            break;
+//            break;
         }
 
         GetColorOfMonado(GetClientMonadoStat(client), rgba);
@@ -134,7 +140,7 @@ public void OnPlayerTink(int client)
       case Monado_Jump:
       {
           TF2_AddCondition(client, TFCond_MarkedForDeath, 0.1);
-          if()
+//         if()
       }
 
       case Monado_Speed:
@@ -166,26 +172,25 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon, int &subtype, int &cmdnum, int &tickcount, int &seed, int mouse[2])
 {
-    if(!EnableMonado[client] || !IsBoss(client)) return Plugin_Continue;
+	if(!EnableMonado[client] || !IsBoss(client)) return Plugin_Continue;
 
-    if(GetClientMonadoStat(client) == Monado_None && buttons & IN_RELOAD)
-    {
-        if(ButtonPressed[client])
-            return Plugin_Continue;
+	if(GetClientMonadoStat(client) == Monado_None && buttons & IN_RELOAD)
+	{
+		if(ButtonPressed[client])
+			return Plugin_Continue;
 
-        ButtonPressed[client]=true;
+		ButtonPressed[client]=true;
 
-        ClientPreMonado[client]++;
-        if(ClientPreMonado[client] > 5)
-            ClientPreMonado[client] = 0;
+		ClientPreMonado[client]++;
+		if(ClientPreMonado[client] > 5)
+			ClientPreMonado[client] = 0;
 
-        if(ClientPreMonado[client] == 0)
-            MonadoPreloadTimer[client] = FF2_GetAbilityArgumentFloat(FF2_GetBossIndex(client), this_plugin_name, "shulk_monadoart", 1, 2.5);
-
+		if(ClientPreMonado[client] == 0)
+			MonadoPreloadTimer[client] = FF2_GetAbilityArgumentFloat(FF2_GetBossIndex(client), this_plugin_name, "shulk_monadoart", 1, 2.5);
 
     }
-    else
-        ButtonPressed[client] = false;
+	else ButtonPressed[client] = false;
+	return Plugin_Continue;
 }
 
 MonadoArt GetClientMonadoStat(int client)
@@ -305,7 +310,7 @@ public int CheckRoundState()
 			return 2;
 		}
 	}
-	return -1;  //Compiler bug-doesn't recognize 'default' as a valid catch-all
+//	return -1;  //Compiler bug-doesn't recognize 'default' as a valid catch-all
 }
 
 bool IsBoss(int client)
