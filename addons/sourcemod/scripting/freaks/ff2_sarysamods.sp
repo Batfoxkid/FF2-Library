@@ -112,6 +112,10 @@
 enum struct iPlayerInfo {
 	int iAlives;
 	int iBosses;
+	void Update(int p, int b) {
+		this.iAlives = p;
+		this.iBosses = b;
+	}
 }
 iPlayerInfo infos;
 
@@ -163,27 +167,27 @@ public void FF2AMS_PreRoundStart(int client)
 {
 	FF2Prep player = FF2Prep(client);
 	if(player.HasAbility(FAST_REG(rage_delayable_particle_effect)) && player.GetArgI(FAST_REG(rage_delayable_particle_effect), "ams", .def = 1) == 1) {
-		if(!FF2AMS_PushToAMS(client, FAST_REG(rage_delayable_particle_effect), "PE")) {
+		if(!AMS_REG(client)(rage_delayable_particle_effect.PE)) {
 			return;
 		}
 	}
 	if(player.HasAbility(FAST_REG(rage_delayable_building_destruction)) && player.GetArgI(FAST_REG(rage_delayable_building_destruction), "ams", .def = 1) == 1) {
-		if(!FF2AMS_PushToAMS(client, FAST_REG(rage_delayable_building_destruction), "BD")) {
+		if(!AMS_REG(client)(rage_delayable_building_destruction.BD)) {
 			return;
 		}
 	}
 	if(player.HasAbility(FAST_REG(rage_delayable_earthquake)) && player.GetArgI(FAST_REG(rage_delayable_earthquake), "ams", .def = 1) == 1) {
-		if(!FF2AMS_PushToAMS(client, FAST_REG(rage_delayable_earthquake), "DE")) {
+		if(!AMS_REG(client)(rage_delayable_earthquake.DE)) {
 			return;
 		}
 	}
 	if(player.HasAbility(FAST_REG(rage_delayable_damage)) && player.GetArgI(FAST_REG(rage_delayable_damage), "ams", .def = 1) == 1) {
-		if(!FF2AMS_PushToAMS(client, FAST_REG(rage_delayable_damage), "DD")) {
+		if(!AMS_REG(client)(rage_delayable_damage.DD)) {
 			return;
 		}
 	}
 	if(player.HasAbility(FAST_REG(rage_airblast_immunity)) && player.GetArgI(FAST_REG(rage_airblast_immunity), "ams", .def = 1) == 1) {
-		if(!FF2AMS_PushToAMS(client, FAST_REG(rage_airblast_immunity), "AI")) {
+		if(!AMS_REG(client)(rage_airblast_immunity.AI)) {
 			return;
 		}
 	}
@@ -296,8 +300,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 public void FF2_OnAlivePlayersChanged(int players, int bosses)
 {
-	infos.iAlives = players;
-	infos.iBosses = bosses;
+	infos.Update(players, bosses);
 }
 
 public void PE_Invoke(int client, int index)
