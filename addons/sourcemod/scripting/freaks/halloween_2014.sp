@@ -8,8 +8,9 @@
 #include <freak_fortress_2>  
 #include <freak_fortress_2_subplugin>
 #include <tf2items>
+#pragma newdecls required
 
-#include "characters/halloween_framework.inc"
+#include "../characters/halloween_framework.inc"
 
 #undef REQUIRE_PLUGIN
 #include <tf2attributes>
@@ -23,59 +24,60 @@
 
 #define MODEL_TRIGGER	"models/items/ammopack_small.mdl"
 
-new Handle:chargeHUD;
+Handle chargeHUD;
 
 ////////////////////////////// Natives
-new bool:gb_tf2attributes;
+bool gb_tf2attributes;
 
 ///////////////////////////// User Vars
-new g_boss;
-new g_BossUserid[MAX_BOSSES];
-new g_bosstype;
-new g_bossteam = _:TFTeam_Blue;
-new g_otherteam = _:TFTeam_Red;
+int g_boss;
+int g_BossUserid[MAX_BOSSES];
+int g_bosstype;
+int g_bossteam = view_as<int>(TFTeam_Blue);
+int g_otherteam = view_as<int>(TFTeam_Red);
 
 ////////////////////////////// Utility Stuff
 #define MAX_CUSTOMS 3
-new Float:gf_RageTime[MAX_CUSTOMS];
+float gf_RageTime[MAX_CUSTOMS];
 
 //////////////// BOSS MODULES
 #define BOSS_NONE         0
 #define BOSS_NONE_KEY ""
 
 #define BOSS_MUMMY        1
-#include "characters/mummy.sp"
+#include "../characters/mummy.sp"
 
 #define BOSS_GREYALIEN    2
-#include "characters/greyalien.sp"
+#include "../characters/greyalien.sp"
 
 #define BOSS_OOGIEBOOGIE  3
-#include "characters/oogieboogie.sp"
+#include "../characters/oogieboogie.sp"
 
 #define BOSS_FASTZOMBIE   4
-#include "characters/fastzombie.sp"
+#include "../characters/fastzombie.sp"
 
 #define BOSS_SPECIAL_ORB          5
-#include "characters/orb.sp"
+#include "../characters/orb.sp"
 
-#define BOSS_MULTISET	6
-#include "characters/special_multiset.sp"
+//#define BOSS_MULTISET	6
+//#include "../characters/special_multiset.sp"
 
-static const String:gs_bosskeyarray[][] =  {
+static const char gs_bosskeyarray[][] =  {
 	BOSS_NONE_KEY, 
 	BOSS_MUMMY_KEY, 
 	BOSS_GREYALIEN_KEY, 
 	BOSS_OOGIEBOOGIE_KEY, 
 	BOSS_FASTZOMBIE_KEY, 
 	BOSS_SPECIAL_ORB_KEY, 
-	BOSS_MULTISET_KEY,
+//	BOSS_MULTISET_KEY,
 };
 
-public Plugin:myinfo =  {
+public Plugin myinfo =  {
 	name = "Freak Fortress 2: Boss Framework", 
 	author = "Friagram", 
 };
 
+/*
 public Action:FF2_OnMusic(String:path[], &Float:time)
 {
 	switch (g_bosstype)
@@ -85,8 +87,9 @@ public Action:FF2_OnMusic(String:path[], &Float:time)
 	
 	return Plugin_Continue;
 }
+*/
 
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
 {
 	//////////////// BOSS MODULES
 	switch (g_bosstype)
@@ -96,12 +99,12 @@ public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:abi
 		case BOSS_OOGIEBOOGIE:Oogieboogie_FF2_OnAbility2(index, ability_name, action);
 		case BOSS_FASTZOMBIE:Fastzombie_FF2_OnAbility2(index, ability_name);
 		case BOSS_SPECIAL_ORB:Special_Orb_FF2_OnAbility2(ability_name);
-		case BOSS_MULTISET:Multiset_FF2_OnAbility2(ability_name);
+//		case BOSS_MULTISET:Multiset_FF2_OnAbility2(ability_name);
 	}
 	return Plugin_Continue;
 }
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
 	
@@ -120,7 +123,7 @@ public OnPluginStart2()
 	//////////////// BOSS MODULES
 	Oogieboogie_OnPluginStart2();
 	
-	for (new i = 1; i <= MaxClients; i++) // late load
+	for (int i = 1; i <= MaxClients; i++) // late load
 	{
 		if (IsClientInGame(i))
 		{
@@ -129,7 +132,7 @@ public OnPluginStart2()
 	}
 }
 
-public OnLibraryAdded(const String:name[])
+public void OnLibraryAdded(const char[] name)
 {
 	if (StrEqual(name, "tf2attributes"))
 	{
@@ -137,7 +140,7 @@ public OnLibraryAdded(const String:name[])
 	}
 }
 
-public OnLibraryRemoved(const String:name[])
+public void OnLibraryRemoved(const char[] name)
 {
 	if (StrEqual(name, "tf2attributes"))
 	{
@@ -145,7 +148,7 @@ public OnLibraryRemoved(const String:name[])
 	}
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	PrecacheModel(MODEL_TRIGGER, true);
 	
@@ -155,38 +158,38 @@ public OnMapStart()
 	#endif
 }
 
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
-public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	g_boss = 0;
 	g_bosstype = BOSS_NONE;
 	
-	for (new i; i < MAX_BOSSES; i++)
+	for (int i; i < MAX_BOSSES; i++)
 	{
 		g_BossUserid[i] = 0;
 	}
-	for (new i; i < MAX_CUSTOMS; i++)
+	for (int i; i < MAX_CUSTOMS; i++)
 	{
 		gf_RageTime[i] = 0.0;
 	}
 	
 }
 
-GetBossVars()
+void GetBossVars()
 {
 	g_bossteam = FF2_GetBossTeam();
 	g_otherteam = g_bossteam == 2 ? 3 : 2;
 	
-	for (new i = 1; i < sizeof(gs_bosskeyarray); i++)
+	for (int i = 1; i < sizeof(gs_bosskeyarray); i++)
 	{
 		if (FF2_HasAbility(0, this_plugin_name, gs_bosskeyarray[i]))
 		{
-			new userid = FF2_GetBossUserId(0); 
-			new client = GetClientOfUserId(userid);
+			int userid = FF2_GetBossUserId(0); 
+			int client = GetClientOfUserId(userid);
 			if (client && IsClientInGame(client) && IsPlayerAlive(client))
 			{
 				g_boss = client;
@@ -205,7 +208,7 @@ GetBossVars()
 	g_bosstype = 0;
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Event event, const char[] name, bool dontBroadcast)
 {
 	GetBossVars();
 	
@@ -217,17 +220,17 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 		case BOSS_OOGIEBOOGIE:Oogieboogie_event_round_active();
 		case BOSS_FASTZOMBIE:Fastzombie_event_round_active();
 		case BOSS_SPECIAL_ORB: Special_Orb_event_round_active();
-		case BOSS_MULTISET:Multiset_event_round_active();
+//		case BOSS_MULTISET:Multiset_event_round_active();
 	}
 }
 
-public Action:event_player_death(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+public Action event_player_death(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	new userid = GetEventInt(hEvent, "userid");
-	new client = GetClientOfUserId(userid);
-	new attackeruid = GetEventInt(hEvent, "attacker");
-	new attacker = GetClientOfUserId(attackeruid);
-	new deathflags = GetEventInt(hEvent, "death_flags");
+	int userid = hEvent.GetInt("userid");
+	int client = GetClientOfUserId(userid);
+	int attackeruid = hEvent.GetInt("attacker");
+	int attacker = GetClientOfUserId(attackeruid);
+	int deathflags = hEvent.GetInt("death_flags");
 	
 	//////////////// BOSS MODULES
 	switch (g_bosstype)
@@ -236,13 +239,13 @@ public Action:event_player_death(Handle:hEvent, const String:strEventName[], boo
 		case BOSS_GREYALIEN:Greyalien_event_player_death(client, userid, hEvent);
 		case BOSS_OOGIEBOOGIE:Oogieboogie_event_death(client, hEvent);
 		case BOSS_FASTZOMBIE:Fastzombie_event_player_death(client, userid, attacker, deathflags);
-		case BOSS_MULTISET:Vergil_event_player_death(deathflags);
+//		case BOSS_MULTISET:Vergil_event_player_death(deathflags);
 	}
 	
 	return Plugin_Continue;
 }
 
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
 	//////////////// BOSS MODULES
 	switch (g_bosstype)
@@ -250,11 +253,11 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 		case BOSS_GREYALIEN:Greyalien_event_round_end();
 		case BOSS_OOGIEBOOGIE:Oogieboogie_event_round_end();
 		case BOSS_FASTZOMBIE:Fastzombie_event_round_end();
-		case BOSS_MULTISET:Vergil_event_round_end();
+//		case BOSS_MULTISET:Vergil_event_round_end();
 	}
 	
 	//////////////////////////////
-	for (new i; i < MAX_CUSTOMS; i++)
+	for (int i; i < MAX_CUSTOMS; i++)
 	{
 		gf_RageTime[i] = 0.0;
 	}
@@ -263,9 +266,11 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	g_boss = 0;
 }
 
-public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
+public Action OnTakeDamage(int victim, int& attacker, int& inflictor, 
+							float& damage, int& damagetype, int& weapon,
+							float damageForce[3], float damagePosition[3], int damagecustom)
 {
-	//new change;
+	//int change;
 	
 	//////////////// BOSS MODULES
 	switch (g_bosstype)
