@@ -7,18 +7,18 @@
 #define GREYALIEN_STUN_DELAY 1.0
 
 #define GREYALIEN_BEAM_LENGTH 1000.0
-#define GREYALIEN_BEAM_MINS Float:{-50.0, -50.0, 0.0}
-#define GREYALIEN_BEAM_MAXS Float:{50.0, 50.0, 1000.0}
+#define GREYALIEN_BEAM_MINS view_as<float>({-50.0, -50.0, 0.0})
+#define GREYALIEN_BEAM_MAXS view_as<float>({50.0, 50.0, 1000.0})
 
-new g_update[MAXPLAYERS+1];
-new Float:gf_DiedGreyAlien[MAXPLAYERS+1];
-new g_greyalien_iterations, g_greyalien_blindtime;
-new Float:gf_greyalien_timer, Float:gf_greyalien_radius, Float:gf_greyalien_velocity;
-new Float:gf_greyalien_stuntime, Float:gf_greyalien_duration, Float:gf_greyalien_damage;
-new Float:gf_greyalien_slayratio;
-new String:gs_greyalien_push[6];
+int g_update[MAXPLAYERS+1];
+float gf_DiedGreyAlien[MAXPLAYERS+1];
+int g_greyalien_iterations, g_greyalien_blindtime;
+float gf_greyalien_timer, gf_greyalien_radius, gf_greyalien_velocity;
+float gf_greyalien_stuntime, gf_greyalien_duration, gf_greyalien_damage;
+float gf_greyalien_slayratio;
+char gs_greyalien_push[6];
 
-Greyalien_event_round_active()
+void Greyalien_event_round_active()
 {
     PrecacheSound(SOUND_GREYALIEN_POD_START);
     PrecacheSound(SOUND_GREYALIEN_POD_LOOP);
@@ -36,7 +36,7 @@ Greyalien_event_round_active()
     gf_greyalien_slayratio = FF2_GetAbilityArgumentFloat(0,this_plugin_name,BOSS_GREYALIEN_KEY,10,0.95);
 }
 
-Greyalien_FF2_OnAbility2(index,const String:ability_name[])
+void Greyalien_FF2_OnAbility2(int index,const char[] ability_name)
 {
     if (StrEqual(ability_name,BOSS_GREYALIEN_KEY))
     {
@@ -44,30 +44,30 @@ Greyalien_FF2_OnAbility2(index,const String:ability_name[])
     }
 }
 
-Greyalien_event_player_death(client, userid, Handle:hEvent)
+void Greyalien_event_player_death(int client, int userid, Event hEvent)
 {
     if(gf_DiedGreyAlien[client] > GetEngineTime())
     {
-        SetEventString(hEvent, "weapon_logclassname", "alien_abduction");
-        SetEventString(hEvent, "weapon", "merasmus_zap");
+        hEvent.SetString("weapon_logclassname", "alien_abduction");
+        hEvent.SetString("weapon", "merasmus_zap");
 
-        new Handle:data;
+        DataPack data;
         CreateDataTimer(0.01, Timer_DissolveRagdoll, data);
-        WritePackCell(data, userid);
-        WritePackCell(data, 0);
+        data.WriteCell(userid);
+        data.WriteCell(0);
     }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Luna Active Rage
-Rage_UseGreyAlien(index)
+void Rage_UseGreyAlien(int index)
 {
-    new Handle:data;
+    DataPack data;
     CreateDataTimer(gf_greyalien_timer, Timer_Abduction, data, TIMER_FLAG_NO_MAPCHANGE);
-    WritePackCell(data, FF2_GetBossUserId(index));
-    WritePackCell(data, g_greyalien_iterations);          // iterations
+    data.WriteCell(FF2_GetBossUserId(index));
+    data.WriteCell(g_greyalien_iterations);          // iterations
 
-    for(new client=1; client<=MaxClients; client++)
+    for(int client=1; client<=MaxClients; client++)
     {
         if(IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) == g_otherteam)
         {
@@ -76,35 +76,35 @@ Rage_UseGreyAlien(index)
     }
 }
 
-public Action:Timer_Abduction(Handle:timer, Handle:pack)
+public Action Timer_Abduction(Handle timer, DataPack pack)
 {
-    ResetPack(pack);
+    pack.Reset();
 
-    new userid = ReadPackCell(pack);
-    new iterations = ReadPackCell (pack);
+    int userid = ReadPackCell(pack);
+    int iterations = ReadPackCell (pack);
 
-    new client = GetClientOfUserId(userid);
+    int client = GetClientOfUserId(userid);
     if (client == g_boss && client && IsClientInGame(client) && IsPlayerAlive(client))
     {
         Abduct(client);
 
         if(--iterations)
         {
-            new Handle:data;
+            DataPack data;
             CreateDataTimer(gf_greyalien_timer, Timer_Abduction, data, TIMER_FLAG_NO_MAPCHANGE);
-            WritePackCell(data, userid);
-            WritePackCell(data, iterations);          // iterations
+            data.WriteCell(userid);
+            data.WriteCell(iterations);          // iterations
         }
     }
 }
 
-Abduct(client)
+void Abduct(int client)
 {
-    decl Float:origin[3];
+    static float origin[3];
     GetClientAbsOrigin(client, origin);
     origin[0] += GetRandomFloat(-gf_greyalien_radius, gf_greyalien_radius);
     origin[1] += GetRandomFloat(-gf_greyalien_radius, gf_greyalien_radius);
-    new Handle:TraceRay = TR_TraceRayEx(origin, Float:{90.0, 0.0, 0.0}, MASK_SHOT, RayType_Infinite);
+    Handle TraceRay = TR_TraceRayEx(origin, view_as<float>({90.0, 0.0, 0.0}), MASK_SHOT, RayType_Infinite);
     if (TR_DidHit(TraceRay))
     {
         TR_GetEndPosition(origin, TraceRay);
@@ -116,7 +116,7 @@ Abduct(client)
     }
     CloseHandle(TraceRay);
 
-    new trigger = CreateEntityByName("trigger_push");
+    int trigger = CreateEntityByName("trigger_push");
     if(trigger != -1)
     {
         EmitAmbientSound(SOUND_GREYALIEN_POD_START, origin, trigger);
@@ -127,7 +127,7 @@ Abduct(client)
         DispatchKeyValue(trigger, "speed", gs_greyalien_push);
         DispatchKeyValue(trigger, "StartDisabled", "0");
         DispatchKeyValue(trigger, "spawnflags", "1");
-        DispatchKeyValueVector(trigger, "pushdir", Float:{-90.0, 0.0, 0.0});
+        DispatchKeyValueVector(trigger, "pushdir", view_as<float>({-90.0, 0.0, 0.0}));
         DispatchKeyValue(trigger, "alternateticksfix", "0");
         DispatchSpawn(trigger);
         
@@ -150,9 +150,9 @@ Abduct(client)
     }
 }
 
-public Action:Timer_RemovePod(Handle:timer, any:ref)
+public Action Timer_RemovePod(Handle timer, any ref)
 {
-    new ent = EntRefToEntIndex(ref);
+    int ent = EntRefToEntIndex(ref);
     if(ent != INVALID_ENT_REFERENCE)
     {
         StopSound(ent, SNDCHAN_VOICE, SOUND_GREYALIEN_POD_LOOP);
@@ -163,7 +163,7 @@ public Action:Timer_RemovePod(Handle:timer, any:ref)
     }
 }
 
-public Action:OnStartTouchBeam( brush, entity )
+public Action OnStartTouchBeam( int brush, int entity )
 {
     if(entity > 0 && entity <= MaxClients && IsClientInGame(entity) && GetClientTeam(entity) == g_otherteam) // should be in game, but sometimes arn't wtf
     {
@@ -174,7 +174,7 @@ public Action:OnStartTouchBeam( brush, entity )
     return Plugin_Handled;
 }
 
-public Action:OnEndTouchBeam( brush, entity )
+public Action OnEndTouchBeam( int brush, int entity )
 {
     if(entity > 0 && entity <= MaxClients && IsClientInGame(entity)) // should be in game, but sometimes arn't wtf
     {
@@ -183,11 +183,11 @@ public Action:OnEndTouchBeam( brush, entity )
     }
 }
 
-public Action:OnTouchBeam( brush, entity )
+public Action OnTouchBeam( int brush, int entity )
 {
-    static Float:lasthurtstun[MAXPLAYERS+1];
-    static Float:time, Float:ratio;
-    static Float:clientpos[3], Float:beampos[3];
+    static float lasthurtstun[MAXPLAYERS+1];
+    static float time, ratio;
+    static float clientpos[3], beampos[3];
 
     if(entity > 0 && entity <= MaxClients && IsClientInGame(entity) && GetClientTeam(entity) == g_otherteam) // should be in game, but sometimes arn't wtf
     {
@@ -224,7 +224,7 @@ public Action:OnTouchBeam( brush, entity )
         }
         else if(g_update[entity] == 1)
         {
-            TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, Float:{0.0,0.0,0.0}); 
+            TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0,0.0,0.0})); 
         }
         g_update[entity]++;
 
@@ -233,9 +233,9 @@ public Action:OnTouchBeam( brush, entity )
     return Plugin_Handled;
 }
 
-Greyalien_event_round_end()
+void Greyalien_event_round_end()
 {
-    for(new client=1; client<=MaxClients; client++)
+    for(int client=1; client<=MaxClients; client++)
     {
         if(IsClientInGame(client))
         {
