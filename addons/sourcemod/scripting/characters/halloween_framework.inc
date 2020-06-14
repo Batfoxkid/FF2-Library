@@ -1,45 +1,45 @@
-public Action:Timer_RemoveEntity(Handle:timer, any:ref)
+public Action Timer_RemoveEntity(Handle timer, any ref)
 {
-    new ent = EntRefToEntIndex(ref);
+    int ent = EntRefToEntIndex(ref);
     if (ent != INVALID_ENT_REFERENCE)
     {
-        AcceptEntityInput(ent, "Kill");
+    	RemoveEntity(ent);
     }
 }
 
-public Action:Timer_RemoveRagdoll(Handle:timer, any:userid)
+public Action Timer_RemoveRagdoll(Handle timer, any userid)
 {
-    new victim = GetClientOfUserId(userid);
+    int victim = GetClientOfUserId(userid);
     if(victim && IsClientInGame(victim))
     {
-        new ragdoll = GetEntPropEnt(victim, Prop_Send, "m_hRagdoll");
+        int ragdoll = GetEntPropEnt(victim, Prop_Send, "m_hRagdoll");
         if (ragdoll > MaxClients)
         {
-            AcceptEntityInput(ragdoll, "Kill");
+    		RemoveEntity(ragdoll);
         }
     }
 }
 
-public Action:Timer_DissolveRagdoll(Handle:timer, Handle:pack)
+public Action Timer_DissolveRagdoll(Handle timer, DataPack pack)
 {
-    ResetPack(pack);
-    new victim = GetClientOfUserId(ReadPackCell(pack));
+    pack.Reset();
+    int victim = GetClientOfUserId(pack.ReadCell());
     if(victim && IsClientInGame(victim))
     {
-        new ragdoll = GetEntPropEnt(victim, Prop_Send, "m_hRagdoll");
+        int ragdoll = GetEntPropEnt(victim, Prop_Send, "m_hRagdoll");
         if (ragdoll != -1)
         {
-            Dissolve(ragdoll, ReadPackCell(pack));
+            Dissolve(ragdoll, pack.ReadCell());
         }
     }
 }
 
-stock Dissolve(ent, mode=3)
+stock void Dissolve(int ent, int mode=3)
 {
-    new dissolver = CreateEntityByName("env_entity_dissolver");
+    int dissolver = CreateEntityByName("env_entity_dissolver");
     if (dissolver != -1)
     {
-        decl String:dname[12];
+        static char dname[12];
         FormatEx(dname, 12, "dis_%d", ent);
         
         DispatchKeyValue(ent, "targetname", dname);
@@ -56,74 +56,42 @@ stock Dissolve(ent, mode=3)
     }
 }
 
-PerformBlind(client, duration)
+void PerformBlind(int client, int duration)
 {
-    static UserMsg:g_FadeUserMsgId = INVALID_MESSAGE_ID;
-    if(g_FadeUserMsgId == INVALID_MESSAGE_ID)
-    {
-        g_FadeUserMsgId = GetUserMessageId("Fade");
-    }
-
-    new targets[2];
-    targets[0] = client;
-
-    new Handle:message = StartMessageEx(g_FadeUserMsgId, targets, 1);
-    if (GetUserMessageType() == UM_Protobuf)
-    {
-        PbSetInt(message, "duration", duration);
-        PbSetInt(message, "hold_time", duration);
-        PbSetInt(message, "flags", 0x0002);
-        PbSetColor(message, "clr", {200, 200, 200, 200});
-    }
-    else
-    {
-        BfWriteShort(message, 900);
-        BfWriteShort(message, 900);
-        BfWriteShort(message, 0x0002);		
-        BfWriteByte(message, 200);
-        BfWriteByte(message, 200);
-        BfWriteByte(message, 200);
-        BfWriteByte(message, 200);
-    }
-    
+    BfWrite message = UserMessageToBfWrite(StartMessageOne("Fade", client));
+    message.WriteShort(900);
+    message.WriteShort(900);
+    message.WriteShort(0x0002);		
+    message.WriteByte(200);
+    message.WriteByte(200);
+    message.WriteByte(200);
+    message.WriteByte(200);
     EndMessage();
+    #pragma unused duration
 }
 
-stock TE_Particle(String:Name[], Float:origin[3]=NULL_VECTOR, Float:start[3]=NULL_VECTOR, Float:angles[3]=NULL_VECTOR,
-entindex=-1,										// entity to attach to
-attachtype=-1, 									// start_at_origin(1), start_at_attachment(2), follow_origin(3), follow_attachment(4)
-attachpoint=-1,									// attachment point index on entity
-bool:resetParticles=true,
-customcolors = 0,								// probably 0/1/2
-Float:color1[3] = NULL_VECTOR,					// rgb colors?
-Float:color2[3] = NULL_VECTOR,					// rgb colors?
-controlpoint = -1,								// second entity to attach to
-controlpointattachment = -1,						// attach type
-Float:controlpointoffset[3] = NULL_VECTOR,		// offset to maintain
-Float:delay=0.0)
+stock void TE_Particle(char[] Name, float origin[3]=NULL_VECTOR, float start[3]=NULL_VECTOR, float angles[3]=NULL_VECTOR,
+int entindex=-1,										// entity to attach to
+int attachtype=-1, 									// start_at_origin(1), start_at_attachment(2), follow_origin(3), follow_attachment(4)
+int attachpoint=-1,									// attachment point index on entity
+bool resetParticles=true,
+int customcolors = 0,								// probably 0/1/2
+float color1[3] = NULL_VECTOR,						// rgb colors?
+float color2[3] = NULL_VECTOR,						// rgb colors?
+int controlpoint = -1,								// second entity to attach to
+int controlpointattachment = -1,					// attach type
+float controlpointoffset[3] = NULL_VECTOR,			// offset to maintain
+float delay=0.0)
 {
     // find string table
-    new tblidx = FindStringTable("ParticleEffectNames");
+    int tblidx = FindStringTable("ParticleEffectNames");
     if (tblidx==INVALID_STRING_TABLE) 
     {
         LogError("Could not find string table: ParticleEffectNames");
         return;
     }
     
-    // find particle index
-    new String:tmp[256];
-    new count = GetStringTableNumStrings(tblidx);
-    new stridx = INVALID_STRING_INDEX;
-    new i;
-    for (i=0; i<count; i++)
-    {
-        ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-        if (StrEqual(tmp, Name, false))
-        {
-            stridx = i;
-            break;
-        }
-    }
+    int stridx = FindStringIndex(tblidx, Name);
     if (stridx==INVALID_STRING_INDEX)
     {
         LogError("Could not find particle: %s", Name);
@@ -177,20 +145,20 @@ Float:delay=0.0)
     TE_SendToAll(delay);
 }
 
-stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:hide=false, bool:equip=false)
+stock int SpawnWeapon(int client,char[] name, int index, int level,int qual,char[] att, bool hide=false, bool equip=false)
 {
-    new Handle:hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+    Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
     TF2Items_SetClassname(hWeapon, name);
     TF2Items_SetItemIndex(hWeapon, index);
     TF2Items_SetLevel(hWeapon, level);
     TF2Items_SetQuality(hWeapon, qual);
-    new String:atts[32][32];
-    new count = ExplodeString(att, ";", atts, 32, 32);
+    char atts[32][32];
+    int count = ExplodeString(att, ";", atts, 32, 32);
     if (count > 1)
     {
         TF2Items_SetNumAttributes(hWeapon, count/2);
-        new i2 = 0;
-        for (new i = 0;  i < count;  i+= 2)
+        int i2 = 0;
+        for (int i = 0;  i < count;  i+= 2)
         {
             TF2Items_SetAttribute(hWeapon, i2, StringToInt(atts[i]), StringToFloat(atts[i+1]));
             i2++;
@@ -200,8 +168,8 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:hide=
     TF2Items_SetNumAttributes(hWeapon, 0);
     if (hWeapon == INVALID_HANDLE)
     return -1;
-    new entity = TF2Items_GiveNamedItem(client, hWeapon);
-    CloseHandle(hWeapon);
+    int entity = TF2Items_GiveNamedItem(client, hWeapon);
+    delete hWeapon;
     EquipPlayerWeapon(client, entity);
     
     if(hide)
@@ -217,7 +185,7 @@ stock SpawnWeapon(client,String:name[],index,level,qual,String:att[], bool:hide=
     return entity;
 }
 
-stock SetAmmo(client, weapon, ammo, clip = 0)
+stock void SetAmmo(int client, int weapon, int ammo, int clip = 0)
 {
     if(clip < 0)
     {
@@ -228,7 +196,7 @@ stock SetAmmo(client, weapon, ammo, clip = 0)
         SetEntProp(weapon, Prop_Data, "m_iClip1", clip);
     }
 
-    new ammotype = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType");
+    int ammotype = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType");
     if(ammotype != -1)
     {
         SetEntProp(client, Prop_Data, "m_iAmmo", ammo, _, ammotype);
