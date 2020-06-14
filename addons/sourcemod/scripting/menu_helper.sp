@@ -109,7 +109,7 @@ Handle PointsHud;
 bool FF2CreateMenu(FF2Prep player)
 {
 	char path[PLATFORM_MAX_PATH];
-	if(!player.BuildBoss(path, sizeof(path), "menu_base")) {
+	if(!player.BuildBoss(path, sizeof(path))) {
 		return false;
 	}
 	
