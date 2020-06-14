@@ -2,7 +2,7 @@
 
 #define ZOMBIE_MIN_BLOODDMG 15
 
-static String:gs_zombiechatter[][] = {
+static char gs_zombiechatter[][] = {
     "npc/zombie/zombie_voice_idle1.wav",
     "npc/zombie/zombie_voice_idle2.wav",
     "npc/zombie/zombie_voice_idle3.wav",
@@ -19,18 +19,18 @@ static String:gs_zombiechatter[][] = {
     "npc/zombie/zombie_voice_idle14.wav"
 };
 
-new TFClassType:Zombie_LastClass[MAXPLAYERS+1];
+TFClassType Zombie_LastClass[MAXPLAYERS+1];
 
-new TFClassType:g_fastzombie_class;
-new g_fastzombie_weaponindex;
-new Float:gf_fastzombie_ratio, Float:gf_fastzombie_protection, Float:gf_fastzombie_healtime;
-new String:gs_fastzombie_model[PLATFORM_MAX_PATH];
-new String:gs_fastzombie_weaponclassname[64];
-new String:gs_fastzombie_weaponattributes[128];
-new g_zombiechattermin, g_zombiechattermax;
-new g_zombiespray, g_zombieblood;
+TFClassType g_fastzombie_class;
+int g_fastzombie_weaponindex;
+float gf_fastzombie_ratio, gf_fastzombie_protection, gf_fastzombie_healtime;
+char gs_fastzombie_model[PLATFORM_MAX_PATH];
+char gs_fastzombie_weaponclassname[64];
+char gs_fastzombie_weaponattributes[128];
+int g_zombiechattermin, g_zombiechattermax;
+int g_zombiespray, g_zombieblood;
 
-Fastzombie_FF2_OnAbility2(index,const String:ability_name[])
+void Fastzombie_FF2_OnAbility2(int index,const char[] ability_name)
 {
     if (StrEqual(ability_name,BOSS_FASTZOMBIE_KEY))
     {
@@ -38,17 +38,17 @@ Fastzombie_FF2_OnAbility2(index,const String:ability_name[])
     }
 }
 
-Fastzombie_event_round_active()
+void Fastzombie_event_round_active()
 {
     g_zombiespray = PrecacheModel("materials/sprites/bloodspray.vmt", true);
     g_zombieblood = PrecacheModel("materials/sprites/blood.vmt", true);
 
-    for(new i; i<sizeof(gs_zombiechatter); i++)
+    for(int i; i<sizeof(gs_zombiechatter); i++)
     {
         PrecacheSound(gs_zombiechatter[i]);
     }
 
-    g_fastzombie_class = TFClassType:FF2_GetAbilityArgument(0, this_plugin_name, BOSS_FASTZOMBIE_KEY, 1, 1);			  // class
+    g_fastzombie_class = view_as<TFClassType>(FF2_GetAbilityArgument(0, this_plugin_name, BOSS_FASTZOMBIE_KEY, 1, 1));			  // class
     FF2_GetAbilityArgumentString(0, this_plugin_name, BOSS_FASTZOMBIE_KEY, 2, gs_fastzombie_model, PLATFORM_MAX_PATH);   // modelpath
     if(gs_fastzombie_model[0] != '\0')
     {
@@ -67,7 +67,7 @@ Fastzombie_event_round_active()
     g_zombiechattermin = FF2_GetAbilityArgument(0, this_plugin_name, BOSS_FASTZOMBIE_KEY, 9, 10);
     g_zombiechattermax = FF2_GetAbilityArgument(0, this_plugin_name, BOSS_FASTZOMBIE_KEY, 10, 20);
     
-    for(new i=1;i<=MaxClients;i++)
+    for(int i=1;i<=MaxClients;i++)
     {
         if(IsClientInGame(i) && IsPlayerAlive(i))
         {
@@ -80,13 +80,13 @@ Fastzombie_event_round_active()
     }
 }
 
-Fastzombie_OnTakeDamage(victim, Float:damage, Float:damagePosition[3])
+int Fastzombie_OnTakeDamage(int victim, float damage, float damagePosition[3])
 {
-    static lastsound[MAXPLAYERS+1];
+    static int lastsound[MAXPLAYERS+1];
 
     if(GetClientTeam(victim) == g_bossteam)
     {
-        new time = GetTime();
+        int time = GetTime();
         if(lastsound[victim] < time)
         {
             lastsound[victim]  = GetRandomInt(g_zombiechattermin, g_zombiechattermax) + time;
@@ -95,7 +95,7 @@ Fastzombie_OnTakeDamage(victim, Float:damage, Float:damagePosition[3])
         
         if(damage > ZOMBIE_MIN_BLOODDMG)
         {
-            decl Float:vecRt[3];
+            float vecRt[3];
             GetVectorVectors(damagePosition, vecRt, NULL_VECTOR);
             TE_SetupBloodSprite(damagePosition, vecRt, {255, 230, 80, 255}, GetRandomInt(10,25), g_zombiespray, g_zombieblood);							// set up blood spray
             TE_SendToAll();
@@ -104,77 +104,65 @@ Fastzombie_OnTakeDamage(victim, Float:damage, Float:damagePosition[3])
     return ACTION_CONTINUE;
 }
 
-Fastzombie_event_player_death(client, userid, attacker, deathflags)
+void Fastzombie_event_player_death(int client, int userid, int attacker, int deathflags)
 {
-    if (deathflags & TF_DEATHFLAG_DEADRINGER)                   // if it's a spy, the boss could think the zombie spawned at spawn
-    {
-        return;
-    }
+	if (deathflags & TF_DEATHFLAG_DEADRINGER)                   // if it's a spy, the boss could think the zombie spawned at spawn
+	{
+		return;
+	}
 
-    if (client == g_boss)          // victim is a boss
-    {
-        for(new target = 1; target <= MaxClients; target++)     // the boss died, kill his minions and restore the classes of everyone
-        {
+	if (client == g_boss)          // victim is a boss
+	{
+		for(int target = 1; target <= MaxClients; target++)     // the boss died, kill his minions and restore the classes of everyone
+		{
             if (IsClientInGame(target) && IsPlayerAlive(client) && GetClientTeam(target) == g_bossteam)
             {
-                ForcePlayerSuicide(target);                    // force this event to fire for the client, and restore their class via the method below
-            }
-        }
-    }
-    else
-    {
-        if(attacker == g_boss && client != g_boss)             // boss killed a player
-        {
-            decl Float:origin[3], Float:angles[3], Float:velocity[3];
+				ForcePlayerSuicide(target);                    // force this event to fire for the client, and restore their class via the method below
+			}
+		}
+	}
+	else
+	{
+		if(attacker == g_boss && client != g_boss)             // boss killed a player
+		{
+			static float origin[3], angles[3], velocity[3];
         
-            GetClientAbsOrigin(client, origin);
-            GetClientEyeAngles(client, angles);
-            GetEntPropVector(client, Prop_Data, "m_vecVelocity", velocity);
+			GetClientAbsOrigin(client, origin);
+			GetClientEyeAngles(client, angles);
+			GetEntPropVector(client, Prop_Data, "m_vecVelocity", velocity);
 
-            new Handle:data;
-            CreateDataTimer(0.1, Timer_CreateSingleZombie, data);
-            WritePackCell(data, userid);
-            WritePackFloat(data, origin[0]);
-            WritePackFloat(data, origin[1]);
-            WritePackFloat(data, origin[2]);
-            WritePackFloat(data, angles[0]);
-            WritePackFloat(data, angles[1]);
-            WritePackFloat(data, angles[2]);
-            WritePackFloat(data, velocity[0]);
-            WritePackFloat(data, velocity[1]);
-            WritePackFloat(data, velocity[2]);
-        }
-        else                                                     //player somehow died
-        {
-            CreateTimer(0.1, Timer_RestoreZombie_LastClass, userid);
-        }
-    }
+			DataPack data;
+			CreateDataTimer(0.1, Timer_CreateSingleZombie, data);
+			data.WriteCell(userid);
+			for(int i = 0; i < 3; i++) { data.WriteFloat(origin[i]); }
+			for(int i = 0; i < 3; i++) { data.WriteFloat(angles[i]); }
+			for(int i = 0; i < 3; i++) { data.WriteFloat(velocity[i]); }
+		}
+		else                                                     //player somehow died
+		{
+			CreateTimer(0.1, Timer_RestoreZombie_LastClass, userid);
+		}
+	}
 }
 
-public Action:Timer_CreateSingleZombie(Handle:timer, any:pack)
+public Action Timer_CreateSingleZombie(Handle timer, DataPack pack)
 {
-    ResetPack(pack);
-    new client = GetClientOfUserId(ReadPackCell(pack));
-    if(client && IsClientInGame(client) && !IsPlayerAlive(client) && g_bosstype == BOSS_FASTZOMBIE)
-    {
-        decl Float:origin[3], Float:angles[3], Float:velocity[3];
+	pack.Reset();
+	int client = GetClientOfUserId(pack.ReadCell());
+	if(client && IsClientInGame(client) && !IsPlayerAlive(client) && g_bosstype == BOSS_FASTZOMBIE)
+	{
+		static float origin[3], angles[3], velocity[3];
 
-        origin[0] = ReadPackFloat(pack); 
-        origin[1] = ReadPackFloat(pack);
-        origin[2] = ReadPackFloat(pack);
-        angles[0] = ReadPackFloat(pack);
-        angles[1] = ReadPackFloat(pack);
-        angles[2] = ReadPackFloat(pack);
-        velocity[0] = ReadPackFloat(pack);
-        velocity[1] = ReadPackFloat(pack);
-        velocity[2] = ReadPackFloat(pack);
-        CreateZombieMinion(client, g_boss, true, origin, angles, velocity);
-    }
+		for(int i = 0; i < 3; i++) { origin[i] = pack.ReadFloat(); }
+		for(int i = 0; i < 3; i++) { angles[i] = pack.ReadFloat(); }
+		for(int i = 0; i < 3; i++) { velocity[i] = pack.ReadFloat(); }
+		CreateZombieMinion(client, g_boss, true, origin, angles, velocity);
+	}
 }
 
-public Action:Timer_RestoreZombie_LastClass(Handle:timer, any:userid)
+public Action Timer_RestoreZombie_LastClass(Handle timer, any userid)
 {
-    new client = GetClientOfUserId(userid);
+    int client = GetClientOfUserId(userid);
     if(client && IsClientInGame(client) && FF2_GetBossIndex(client) == -1)
     {
         if (Zombie_LastClass[client])
@@ -190,11 +178,11 @@ public Action:Timer_RestoreZombie_LastClass(Handle:timer, any:userid)
     return Plugin_Continue;
 }
 
-Fastzombie_event_round_end()
+void Fastzombie_event_round_end()
 {
     if(FF2_GetRoundState())
     {
-        for(new client = 1; client <= MaxClients; client++)
+        for(int client = 1; client <= MaxClients; client++)
         {
             if (IsClientInGame(client) && GetClientTeam(client) == g_bossteam && FF2_GetBossIndex(client) == -1)
             {
@@ -207,15 +195,15 @@ Fastzombie_event_round_end()
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  Active Rages
 
-Rage_UseFastZombie(index)
+void Rage_UseFastZombie(int index)
 {
-    new Boss=GetClientOfUserId(FF2_GetBossUserId(index));
+    int Boss=GetClientOfUserId(FF2_GetBossUserId(index));
 
-    new alive;
-    new dead;
-    decl team;
-    new Handle:hPlayers = CreateArray();
-    for(new client=1;client<=MaxClients;client++)
+    int alive;
+    int dead;
+    static int team;
+    ArrayList hPlayers = new ArrayList();
+    for(int client=1;client<=MaxClients;client++)
     {
         if (IsClientInGame(client))
         {
@@ -229,25 +217,25 @@ Rage_UseFastZombie(index)
             }
             else if(team > 1)
             {
-                PushArrayCell(hPlayers, client);
+            	hPlayers.Push(client);
                 dead++;
             }
         }
     }
 
-    decl idx;
-    new maxspawn = RoundToCeil(alive * gf_fastzombie_ratio);
-    for(new i; i<dead && i<maxspawn; i++)
+    static int idx;
+    int maxspawn = RoundToCeil(alive * gf_fastzombie_ratio);
+    for(int i; i<dead && i<maxspawn; i++)
     {
-        idx = GetRandomInt(0, GetArraySize(hPlayers) -1);
-        CreateZombieMinion(GetArrayCell(hPlayers, idx), Boss, false);
-        RemoveFromArray(hPlayers, idx);
+        idx = GetRandomInt(0, hPlayers.Length -1);
+        CreateZombieMinion(hPlayers.Get(idx), Boss, false);
+        hPlayers.Erase(idx);
     }
-
-    CloseHandle(hPlayers);
-
-    new ent = -1;
-    decl owner;
+    
+    delete hPlayers;
+	
+    int ent = -1;
+    int owner;
     while ((ent = FindEntityByClassname(ent, "tf_wearable*")) != -1)
     {
         if ((owner=GetEntPropEnt(ent, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner) == g_bossteam && FF2_GetBossIndex(owner) == -1)
@@ -261,7 +249,7 @@ Rage_UseFastZombie(index)
     }
 }
 
-CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR, Float:angle[3] = NULL_VECTOR, Float:velocity[3] = NULL_VECTOR)
+void CreateZombieMinion(int client, int Boss, bool single=true, float origin[3] = NULL_VECTOR, float angle[3] = NULL_VECTOR, float velocity[3] = NULL_VECTOR)
 {
     FF2_SetFF2flags(client,FF2_GetFF2flags(client)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 
@@ -278,7 +266,7 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
     if(g_fastzombie_weaponindex)
     {
         TF2_RemoveAllWeapons(client);
-        SpawnWeapon(client,gs_fastzombie_weaponclassname,g_fastzombie_weaponindex, 101, 9, gs_fastzombie_weaponattributes, true, true);   //stock SpawnWeapon(client,String:name[],index,level,qual,String:att[])
+        SpawnWeapon(client,gs_fastzombie_weaponclassname,g_fastzombie_weaponindex, 101, 9, gs_fastzombie_weaponattributes, true, true);   //stock SpawnWeapon(client,char name[],index,level,qual,char att[])
     }
     else
     {
@@ -287,7 +275,7 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
         TF2_RemoveWeaponSlot(client, 3);
         TF2_RemoveWeaponSlot(client, 4);
         TF2_RemoveWeaponSlot(client, 5);
-        new weapon = GetPlayerWeaponSlot(client, 2);
+        int weapon = GetPlayerWeaponSlot(client, 2);
         if(weapon != -1)
         {
             SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon",weapon);
@@ -303,11 +291,11 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
     Call_PushCell(client);
     Call_PushCell(false);
     Call_PushCell(false);
-    Call_PushArray(Float:{0.0,0.0,0.0}, 3);
+    Call_PushArray(float {0.0,0.0,0.0}, 3);
     Call_Finish();	
 #endif
 
-    decl Float:vel[3];
+    static float vel[3];
     vel[0]=GetRandomFloat(300.0,500.0)*(GetRandomInt(1,0)?1:-1);
     vel[1]=GetRandomFloat(300.0,500.0)*(GetRandomInt(1,0)?1:-1);
     vel[2]=GetRandomFloat(300.0,500.0);
@@ -320,7 +308,7 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
     {
         if(GetRandomInt(0,1))
         {
-            decl Float:pos[3];
+            static float pos[3];
             GetEntPropVector(Boss, Prop_Data, "m_vecOrigin", pos);
             TeleportEntity(client, pos, NULL_VECTOR, vel);
         }
@@ -333,14 +321,14 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
     TF2_AddCondition(client, TFCond_UberchargedHidden, gf_fastzombie_protection);
     TF2_AddCondition(client, TFCond_HalloweenQuickHeal, gf_fastzombie_healtime);
 
-    new userid = GetClientUserId(client);
+    int userid = GetClientUserId(client);
 
     CreateTimer(0.5, Timer_SetFastZombieModel, userid, TIMER_FLAG_NO_MAPCHANGE);		// lazy
     CreateTimer(1.0, Timer_SetFastZombieModel, userid, TIMER_FLAG_NO_MAPCHANGE);		// set the model again, just incase?
     
     if(single)
     {
-        new ent = -1;
+        int ent = -1;
         while ((ent = FindEntityByClassname(ent, "tf_wearable*")) != -1)
         {
             if (client == GetEntPropEnt(ent, Prop_Send, "m_hOwnerEntity"))
@@ -359,11 +347,11 @@ CreateZombieMinion(client, Boss, bool:single=true, Float:origin[3] = NULL_VECTOR
     }
 }
 
-public Action:Timer_SetFastZombieModel(Handle:timer, any:userid)
+public Action Timer_SetFastZombieModel(Handle timer, any userid)
 {
     if(g_bosstype == BOSS_FASTZOMBIE)
     {
-        new client = GetClientOfUserId(userid);
+        int client = GetClientOfUserId(userid);
         if(client && IsClientInGame(client) && IsPlayerAlive(client) && GetClientTeam(client) == g_bossteam)
         {
             SetVariantString(gs_fastzombie_model);
@@ -375,7 +363,7 @@ public Action:Timer_SetFastZombieModel(Handle:timer, any:userid)
             Call_PushCell(client);
             Call_PushCell(false);
             Call_PushCell(false);
-            Call_PushArray(Float:{0.0,0.0,0.0}, 3);
+            Call_PushArray(view_as<float>({0.0,0.0,0.0}), 3);
             Call_Finish();
 
             Call_StartForward(gfwd_OnCreateArrow);
@@ -387,7 +375,7 @@ public Action:Timer_SetFastZombieModel(Handle:timer, any:userid)
 
             if(GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon") == -1)
             {
-                new weapon = GetPlayerWeaponSlot(client, 2);
+                int weapon = GetPlayerWeaponSlot(client, 2);
                 if(weapon != -1)
                 {
                     SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon",weapon);
