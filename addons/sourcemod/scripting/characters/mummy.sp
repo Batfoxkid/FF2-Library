@@ -1,18 +1,18 @@
 #define BOSS_MUMMY_KEY "special_mummy"
 
-new Float:g_fDiedMummy[MAXPLAYERS+1];
+float g_fDiedMummy[MAXPLAYERS+1];
 
-new Float:gf_mummyradius;
-new Float:gf_mummyminratio;
-new Float:gf_mummyscaleincrement;
-new Float:gf_mummyminscale;
-new Float:gf_mummymindamage;
-new Float:gf_mummymaxdamage;
-new Float:gf_mummydamagetime;
-new Float:gf_mummyragemulti;
-new Float:gf_mummyragetime;
+float gf_mummyradius;
+float gf_mummyminratio;
+float gf_mummyscaleincrement;
+float gf_mummyminscale;
+float gf_mummymindamage;
+float gf_mummymaxdamage;
+float gf_mummydamagetime;
+float gf_mummyragemulti;
+float gf_mummyragetime;
 
-Mummy_event_round_active()
+void Mummy_event_round_active()
 {
     gf_mummyradius = FF2_GetAbilityArgumentFloat(0, this_plugin_name, BOSS_MUMMY_KEY, 1, 1500.0);
     gf_mummyminratio = FF2_GetAbilityArgumentFloat(0, this_plugin_name, BOSS_MUMMY_KEY, 2, 0.5);
@@ -37,7 +37,7 @@ Mummy_event_round_active()
 }
 
 
-Mummy_FF2_OnAbility2(const String:ability_name[])
+void Mummy_FF2_OnAbility2(const char[] ability_name)
 {
     if (StrEqual(ability_name, BOSS_MUMMY_KEY))
     {
@@ -45,9 +45,9 @@ Mummy_FF2_OnAbility2(const String:ability_name[])
     }
 }
 
-public Mummy_HookTouch(boss, entity)
+public void Mummy_HookTouch(int boss, int entity)
 {
-    static Float:origin[3], Float:angles[3], Float:targetpos[3];
+    static float origin[3], angles[3], targetpos[3];
 
     if(boss != g_boss)
     {
@@ -70,17 +70,17 @@ public Mummy_HookTouch(boss, entity)
         {
             g_fDiedMummy[entity]= GetEngineTime() + 0.1;
             SDKHooks_TakeDamage(entity, boss, boss, 9999.9, DMG_CRUSH|DMG_PREVENT_PHYSICS_FORCE);    // going to use his meter, rather than his velocity for more reliable numbers
-            FakeClientCommandEx(entity, "kill");
+            ForcePlayerSuicide(entity);
         }
     }
 }
 
-Mummy_event_player_death(client, userid, Handle:hEvent)
+void Mummy_event_player_death(int client, int userid, Event hEvent)
 {
     if(g_fDiedMummy[client] > GetEngineTime())
     {
-        SetEventString(hEvent, "weapon_logclassname", "mummy_stomp");
-        SetEventString(hEvent, "weapon", "mantreads");
+        hEvent.SetString("weapon_logclassname", "mummy_stomp");
+        hEvent.SetString("weapon", "mantreads");
     }
     if(client != g_boss)
     {
@@ -88,21 +88,21 @@ Mummy_event_player_death(client, userid, Handle:hEvent)
     }
 }
 
-public Action:Timer_MummyCurse(Handle:timer, any:userid)
+public Action Timer_MummyCurse(Handle timer, any userid)
 {
-    static Float:bosspos[3], Float:clientpos[3], Float:dist, Float:ratio, Float:scale, Float:damage, Float:time;
-    static Float:lastdamage[MAXPLAYERS+1];
-    static bool:rage;
+    static float bosspos[3], clientpos[3], dist, ratio, scale, damage, time;
+    static float lastdamage[MAXPLAYERS+1];
+    static bool rage;
 
     if(gb_tf2attributes)
     {
-        new boss = GetClientOfUserId(userid);
+        int boss = GetClientOfUserId(userid);
         if(g_boss == boss && g_bosstype == BOSS_MUMMY && IsClientInGame(boss) && IsPlayerAlive(boss))
         {
             time = GetEngineTime();
             GetClientAbsOrigin(boss, bosspos);
             rage = gf_RageTime[BOSS_MUMMY] > time ? true : false;
-            for(new target = 1; target<=MaxClients; target++)
+            for(int target = 1; target<=MaxClients; target++)
             {
                 if(IsClientInGame(target) && GetClientTeam(target) == g_otherteam)
                 {
@@ -155,7 +155,7 @@ public Action:Timer_MummyCurse(Handle:timer, any:userid)
         }
         else
         {
-            for(new target = 1; target<=MaxClients; target++)
+            for(int target = 1; target<=MaxClients; target++)
             {
                 if(IsClientInGame(target))
                 {
