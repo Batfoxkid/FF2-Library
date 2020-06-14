@@ -731,7 +731,7 @@ void DamageEntity(int client, int attacker = 0, float dmg, int dmg_type = DMG_GE
 			AcceptEntityInput(pointHurt,"Hurt",(attacker>0)?attacker:-1);
 			DispatchKeyValue(pointHurt,"classname","point_hurt");
 			DispatchKeyValue(client,"targetname","war3_donthurtme");
-			RemoveEdict(pointHurt);
+			RemoveEntity(pointHurt);
 		}
 	}
 }
@@ -829,7 +829,7 @@ void CreateParticleBlast(int entity, char[] particlename, float vloc[3])
 {
 	int particle = CreateEntityByName("info_particle_system");
 	char tName[128];
-	if (IsValidEdict(particle))
+	if (IsValidEntity(particle))
     {
 		Format(tName, sizeof(tName), "target%i", entity);
 		DispatchKeyValue(particle, "effect_name", particlename);
