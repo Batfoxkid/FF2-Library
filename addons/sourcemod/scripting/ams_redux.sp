@@ -1,7 +1,6 @@
 /*
 	"ams_base"
 	{
-		"name"			"gentlespy"		//boss cfg name
 		"activation"	"0"
 		"selection"		"reload"
 		"reverse"		"mouse3"
