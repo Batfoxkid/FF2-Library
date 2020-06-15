@@ -1,14 +1,11 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
-#include <tf2items_giveweapon>
-#include <morecolors>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 #define PLUGIN_VERSION "0.1"
 
@@ -17,15 +14,15 @@
 #define TF_TELEPORTER_ENTR	0
 
 
-new BossTeam=_:TFTeam_Blue;
-new bool:gb_roboticsoldier;
-new bool:teleportercheck;
-new bool:AnnouncerQuiet;
+int BossTeam=view_as<int>(TFTeam_Blue);
+bool gb_roboticsoldier;
+bool teleportercheck;
+bool AnnouncerQuiet;
 
-new var1;	//Activation Key
-new countcharge;
-new g_iMaxEntities;
-new BossTeleporter;
+int var1;	//Activation Key
+int countcharge;
+int g_iMaxEntities;
+int BossTeleporter;
 
 #define SCOUT_ROBOT					"models/bots/scout/bot_scout.mdl"
 #define SOLDIER_ROBOT				"models/bots/soldier/bot_soldier.mdl"
@@ -49,14 +46,14 @@ new BossTeleporter;
 #define TELEPORTER_SPAWN		"mvm/mvm_tele_deliver.wav"
 
 
-public Plugin:myinfo=
+public Plugin myinfo=
 {
 	name="Freak Fortress 2: Robotic Soldier Abilittypack",
 	author="Benoist3012",
 	description="FF2: Robotic Soldier",
 	version=PLUGIN_VERSION
 };
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy); 
@@ -66,7 +63,7 @@ public OnPluginStart2()
 	AddNormalSoundHook(SoundHook);
 	//HookEvent("player_death", event_player_death, EventHookMode_Pre);
 }
-public OnMapStart()
+public void OnMapStart()
 {
 	countcharge = 0;
 	gb_roboticsoldier = false;
@@ -88,7 +85,7 @@ public OnMapStart()
 	PrecacheSound(TELEPORTER_ACTIVATE5, true);
 	PrecacheSound(TELEPORTER_SPAWN, true);
 }
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Event event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.3, Timer_GetBossTeam);
 	countcharge = 0;
@@ -98,7 +95,7 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 	BossTeleporter = -1;
 	if(FF2_HasAbility( 0, this_plugin_name, "rage_robotic_soldier"))
 	{
-		new client = GetClientOfUserId(FF2_GetBossUserId(0));
+		int client = GetClientOfUserId(FF2_GetBossUserId(0));
 		if(client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			gb_roboticsoldier = true;
@@ -109,7 +106,7 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 		}
 	}
 }
-public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
 	countcharge = 0;
 	gb_roboticsoldier = false;
@@ -117,20 +114,20 @@ public event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
 	AnnouncerQuiet = false;
 	BossTeleporter = -1;
 }
-public Action:Timer_GetBossTeam(Handle:hTimer)
+public Action Timer_GetBossTeam(Handle hTimer)
 {
 	BossTeam=FF2_GetBossTeam();
 	return Plugin_Continue;
 }
-public Action:CheckTeleporter(Handle:hTimer)
+public Action CheckTeleporter(Handle hTimer)
 {
 	if(gb_roboticsoldier)
 	{
 		CreateTimer(0.0, CheckTeleporter);
-		new TeleporterExit = -1;	
+		int TeleporterExit = -1;	
 		if((TeleporterExit = FindEntityByClassname(TeleporterExit,"obj_teleporter")) != -1 && GetEntProp(TeleporterExit, Prop_Send, "m_iTeamNum") == BossTeam)
 		{
-			new String:modelname[128];
+			char modelname[128];
 			GetEntPropString(TeleporterExit, Prop_Data, "m_ModelName", modelname, 128);
 			if(StrContains(modelname, "light") != -1)
 			{
@@ -153,24 +150,24 @@ public Action:CheckTeleporter(Handle:hTimer)
 		}
 	}
 }
-public Action:Particle_Teleporter(Handle:hTimer)
+public Action Particle_Teleporter(Handle hTimer)
 {
 	if(gb_roboticsoldier)
 	{
 		CreateTimer(3.0, Particle_Teleporter);
-		new TeleporterExit = -1;	
+		int TeleporterExit = -1;	
 		if((TeleporterExit = FindEntityByClassname(TeleporterExit,"obj_teleporter")) != -1)
 		{
 			if(GetEntProp(TeleporterExit, Prop_Send, "m_iTeamNum") == BossTeam)
 			{
-				new String:modelname[128];
+				char modelname[128];
 				GetEntPropString(TeleporterExit, Prop_Data, "m_ModelName", modelname, 128);
 				if(StrContains(modelname, "light") != -1)
 				{
-					new Float:position[3];
+					float position[3];
 					GetEntPropVector(TeleporterExit,Prop_Send, "m_vecOrigin",position);
-					new attach = CreateEntityByName("trigger_push");
-					CreateTimer(3.0, DeleteTrigger, attach);
+					int attach = CreateEntityByName("trigger_push");
+					CreateTimer(3.0, DeleteTrigger, EntIndexToEntRef(attach));
 					TeleportEntity(attach, position, NULL_VECTOR, NULL_VECTOR);
 					AttachParticle(attach,"teleporter_mvm_bot_persist");
 					AttachParticle(attach,"teleporter_blue_floorglow");
@@ -180,7 +177,7 @@ public Action:Particle_Teleporter(Handle:hTimer)
 					AttachParticle(attach,"teleporter_blue_charged");
 					if(!AnnouncerQuiet)
 					{
-						new soundswitch;
+						int soundswitch;
 						soundswitch = GetRandomInt(1, 5);
 						switch(soundswitch)
 						{
@@ -212,13 +209,13 @@ public Action:Particle_Teleporter(Handle:hTimer)
 		}
 	}
 }
-public Action:SpawnDeadPlayer(Handle:hTimer)
+public Action SpawnDeadPlayer(Handle hTimer)
 {
 	if(gb_roboticsoldier)
 	{
 		CreateTimer(1.0, SpawnDeadPlayer);
 	}
-	new random;
+	int random;
 	random = GetRandomInt(1, 100);
 	switch(random)
 	{
@@ -231,11 +228,11 @@ public Action:SpawnDeadPlayer(Handle:hTimer)
 		}
 	}
 }
-SpawnRobot()
+void SpawnRobot()
 {
-	new ii;
+	int ii;
 	ii = GetRandomDeadPlayer();
-	new playerinBossTeam = GetTeamPlayerCount(BossTeam);
+	int playerinBossTeam = GetTeamPlayerCount(BossTeam);
 	if(ii != -1 && playerinBossTeam < 6)
 	{
 		FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
@@ -243,7 +240,7 @@ SpawnRobot()
 		TF2_RespawnPlayer(ii);
 		if (TF2_GetPlayerClass(ii) == TFClass_Engineer && playerinBossTeam < 6 && GetEntPropEnt(BossTeleporter,Prop_Send,"m_hBuilder") == ii)
 		{
-			new classrandom;
+			int classrandom;
 			classrandom = GetRandomInt(1, 8);
 			switch(classrandom)
 			{
@@ -283,13 +280,13 @@ SpawnRobot()
 		}
 		EmitSoundToAll(TELEPORTER_SPAWN);
 		TF2_RegeneratePlayer(ii);
-		TF2_AddCondition(ii, TFCond:TFCond_UberchargedCanteen, 3.0);
+		TF2_AddCondition(ii, TFCond_UberchargedCanteen, 3.0);
 		CreateTimer(0.1, Timer_SetRobotModel, ii, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-		new Float:position[3];
+		float position[3];
 		GetEntPropVector(BossTeleporter,Prop_Send, "m_vecOrigin",position);
 		position[2] += 50;
 		TeleportEntity(ii, position, NULL_VECTOR, NULL_VECTOR);
-		new entity, owner;
+		int entity, owner;
 		while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
 		{
 			if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==BossTeam)
@@ -315,7 +312,7 @@ SpawnRobot()
 		}
 	}
 }
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(!strcmp(ability_name, "summon_engie"))
 		Engie(ability_name, index);
@@ -323,31 +320,31 @@ public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:abi
 		Rage_Soldier(ability_name,index);		
 	return Plugin_Continue;
 }
-Rage_Soldier(const String:ability_name[],index)
+void Rage_Soldier(const char[] ability_name, int index)
 {
-	new Boss = GetClientOfUserId(FF2_GetBossUserId(index));
-	new Float:duration=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,1,2.0);
+	int Boss = GetClientOfUserId(FF2_GetBossUserId(index));
+	float duration=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,1,2.0);
 	TF2_AddCondition(Boss, TFCond_UberchargedCanteen, duration);
 	var1=FF2_GetAbilityArgument(index,this_plugin_name,ability_name, 2);	//Activation Key
 	countcharge=FF2_GetAbilityArgument(index,this_plugin_name,ability_name, 3);	//No of times skill can be used per rage
 	SetKeysBits(var1);
 	PrintCenterText(Boss,"Number of charge for summon a engineer bot: %i",countcharge);
 }
-Engie(const String:ability_name[],index)
+void Engie(const char[] ability_name, int index)
 {	
-	new Boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	int Boss=GetClientOfUserId(FF2_GetBossUserId(index));
 	if(countcharge > 0)
 	{
 		PrintCenterText(Boss,"Number of charge for summon a engineer bot: %i",countcharge);
 		if (GetClientButtons(Boss) & var1)
 		{
-			new Float:duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1);
-			new String:attributes[64]="68 ; -1";
+			float duration = FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name, 1);
+			char attributes[64]="68 ; -1";
 			FF2_GetAbilityArgumentString(index, this_plugin_name, ability_name, 2, attributes, sizeof(attributes));
-			new health=FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 3, 0);
+			int health=FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 3, 0);
 			
-			new engineer = 0;
-			for( new i = 1; i <= MaxClients; i++ )
+			int engineer = 0;
+			for( int i = 1; i <= MaxClients; i++ )
 			{
 				if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i) == BossTeam && TF2_GetPlayerClass(i) == TFClass_Engineer)
 				{
@@ -355,7 +352,7 @@ Engie(const String:ability_name[],index)
 					break;
 				}
 			}
-			new ii;
+			int ii;
 			ii = GetRandomDeadPlayer();
 			if(ii != -1 && engineer < 1)
 			{
@@ -373,10 +370,10 @@ Engie(const String:ability_name[],index)
 				{
 					attributes="68 ; -1";
 				}
-				new weapon;
-				TF2Items_GiveWeapon(ii, 737);
-				TF2Items_GiveWeapon(ii, 26);    
-				TF2Items_GiveWeapon(ii, 28);
+				int weapon;
+				SpawnWeapon(ii, "tf_weapon_pda_engineer_build", 737, 101, 0, "");
+				SpawnWeapon(ii, "tf_weapon_builder", 28, 101, 0, "");
+				SpawnWeapon(ii, "tf_weapon_pda_engineer_destroy", 26, 101, 0, "");
 				SpawnWeapon(ii, "tf_weapon_shotgun_primary", 199, 101, 0, "");
 				SpawnWeapon(ii, "tf_weapon_pistol", 209, 101, 0, attributes);
 				weapon = SpawnWeapon(ii, "tf_weapon_wrench", 197, 101, 0, "");
@@ -384,15 +381,15 @@ Engie(const String:ability_name[],index)
 				SetEntProp(ii, Prop_Data, "m_iMaxHealth", health);
 				SetEntProp(ii, Prop_Data, "m_iHealth", health);
 				SetEntProp(ii, Prop_Send, "m_iHealth", health);
-				new Float:position[3];
+				float position[3];
 				GetEntPropVector(Boss, Prop_Data, "m_vecOrigin", position);
 				TeleportEntity(ii, position, NULL_VECTOR, NULL_VECTOR);
-				new attach = CreateEntityByName("trigger_push");
-				CreateTimer(10.0, DeleteTrigger, attach);
+				int attach = CreateEntityByName("trigger_push");
+				CreateTimer(10.0, DeleteTrigger, EntIndexToEntRef(attach));
 				TeleportEntity(attach, position, NULL_VECTOR, NULL_VECTOR);
 				TE_Particle("teleported_mvm_bot", position, _, _, attach, 1,0);
 				//CreateTimer(0.0, Timer_CheckBuilding, ii, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
-				new soundswitch;
+				int soundswitch;
 				soundswitch = GetRandomInt(1, 2);
 				switch(soundswitch)
 				{
@@ -407,23 +404,14 @@ Engie(const String:ability_name[],index)
 				}
 				countcharge = countcharge-1;
 				PrintCenterText(Boss,"Number of charge for summon a engineer bot: %i",countcharge);
-				new entity, owner;
-				while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
+				int entity, owner;
+				while((entity=FindEntityByClassname(entity, "tf_wearable*"))!=-1)
 				{
 					if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==BossTeam)
 					{
 						TF2_RemoveWearable(owner, entity);
 					}
 				}
-
-				while((entity=FindEntityByClassname(entity, "tf_wearable_demoshield"))!=-1)
-				{
-					if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==BossTeam)
-					{
-						TF2_RemoveWearable(owner, entity);
-					}
-				}
-
 				while((entity=FindEntityByClassname(entity, "tf_powerup_bottle"))!=-1)
 				{
 					if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)==BossTeam)
@@ -435,16 +423,16 @@ Engie(const String:ability_name[],index)
 		}
 	}
 }
-public Action:CommandListener_Build(client, const String:command[], argc)
+public Action CommandListener_Build(int client, const char[] command, int argc)
 {
-	decl String:sObjectMode[256], String:sObjectType[256];
+	static char sObjectMode[256], sObjectType[256];
 	GetCmdArg(1, sObjectType, sizeof(sObjectType));
 	GetCmdArg(2, sObjectMode, sizeof(sObjectMode));
-	new iObjectMode = StringToInt(sObjectMode);
-	new iObjectType = StringToInt(sObjectType);
-	new iTeam = GetClientTeam(client);
-	decl String:sClassName[32];
-	for(new i = MaxClients + 1; i < g_iMaxEntities; i++)
+	int iObjectMode = StringToInt(sObjectMode);
+	int iObjectType = StringToInt(sObjectType);
+	int iTeam = GetClientTeam(client);
+	static char sClassName[32];
+	for(int i = MaxClients + 1; i < g_iMaxEntities; i++)
 	{
 		if(!IsValidEntity(i))
 			continue;
@@ -458,7 +446,7 @@ public Action:CommandListener_Build(client, const String:command[], argc)
 	}
 	return Plugin_Continue;
 }
-public SetKeysBits(keys)
+public void SetKeysBits(int keys)
 {
 	if(keys==2)			//IN_ATTACK2
 		var1 = 2048;
@@ -467,15 +455,15 @@ public SetKeysBits(keys)
 	else				//IN_ATTACK
 		var1 = 1;
 }
-stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute[])
+stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute)
 {
-	new Handle:weapon=TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
+	Handle weapon=TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	TF2Items_SetClassname(weapon, name);
 	TF2Items_SetItemIndex(weapon, index);
 	TF2Items_SetLevel(weapon, level);
 	TF2Items_SetQuality(weapon, quality);
-	new String:attributes[32][32];
-	new count = ExplodeString(attribute, ";", attributes, 32, 32);
+	char attributes[32][32];
+	int count = ExplodeString(attribute, ";", attributes, 32, 32);
 	if(count%2!=0)
 	{
 		count--;
@@ -484,10 +472,10 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	if(count>0)
 	{
 		TF2Items_SetNumAttributes(weapon, count/2);
-		new i2=0;
-		for(new i=0; i<count; i+=2)
+		int i2=0;
+		for(int i=0; i<count; i+=2)
 		{
-			new attrib=StringToInt(attributes[i]);
+			int attrib=StringToInt(attributes[i]);
 			if(attrib==0)
 			{
 				LogError("Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
@@ -506,17 +494,17 @@ stock SpawnWeapon(client, String:name[], index, level, quality, String:attribute
 	{
 		return -1;
 	}
-	new entity=TF2Items_GiveNamedItem(client, weapon);
-	CloseHandle(weapon);
+	int entity=TF2Items_GiveNamedItem(client, weapon);
+	delete weapon;
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
-stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}, bool:attach=true)
+stock int AttachParticle(int entity, char[] particleType, float offset[3]={0.0,0.0,0.0}, bool attach=true)
 {
-	new particle=CreateEntityByName("info_particle_system");
+	int particle=CreateEntityByName("info_particle_system");
 
-	decl String:targetName[128];
-	decl Float:position[3];
+	static char targetName[128];
+	static float position[3];
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", position);
 	position[0]+=offset[0];
 	position[1]+=offset[1];
@@ -538,26 +526,22 @@ stock AttachParticle(entity, String:particleType[], Float:offset[]={0.0,0.0,0.0}
 	}
 	ActivateEntity(particle);
 	AcceptEntityInput(particle, "start");
-	CreateTimer(3.0, DeleteParticle, particle);
+	CreateTimer(3.0, DeleteParticle, EntIndexToEntRef(particle));
 	return particle;
 }
-public Action:DeleteParticle(Handle:timer, any:Ent)
+public Action DeleteParticle(Handle timer, int ref)
 {
-	if (!IsValidEntity(Ent)) return;
-	new String:cls[25];
-	GetEdictClassname(Ent, cls, sizeof(cls));
-	if (StrEqual(cls, "info_particle_system", false)) AcceptEntityInput(Ent, "Kill");
-	return;
+	int Ent = EntRefToEntIndex(ref);
+	if(!IsValidEntity(Ent)) return;
+	RemoveEntity(Ent);
 }
-public Action:DeleteTrigger(Handle:timer, any:Ent)
+public Action DeleteTrigger(Handle timer, int ref)
 {
-	if (!IsValidEntity(Ent)) return;
-	new String:cls[25];
-	GetEdictClassname(Ent, cls, sizeof(cls));
-	if (StrEqual(cls, "trigger_push", false)) AcceptEntityInput(Ent, "Kill");
-	return;
+	int Ent = EntRefToEntIndex(ref);
+	if(!IsValidEntity(Ent)) return;
+	RemoveEntity(Ent);
 }
-public Action:Timer_SetRobotModel(Handle:hTimer, any:iClient)
+public Action Timer_SetRobotModel(Handle hTimer, any iClient)
 {
 	if(!gb_roboticsoldier)
 		return Plugin_Stop;
@@ -567,8 +551,8 @@ public Action:Timer_SetRobotModel(Handle:hTimer, any:iClient)
 	if(TF2_IsPlayerInCondition(iClient, TFCond_Taunting) || TF2_IsPlayerInCondition(iClient, TFCond_Dazed))
 		return Plugin_Handled;
 	
-	new TFClassType:iClass = TF2_GetPlayerClass(iClient);
-	new String:strModel[PLATFORM_MAX_PATH];
+	TFClassType iClass = TF2_GetPlayerClass(iClient);
+	char strModel[PLATFORM_MAX_PATH];
 	switch(iClass)
 	{
 		case TFClass_Scout: strcopy( strModel, sizeof(strModel), "scout");
@@ -588,10 +572,11 @@ public Action:Timer_SetRobotModel(Handle:hTimer, any:iClient)
 	}	
 	return Plugin_Stop;
 }
-stock GetRandomDeadPlayer()
+stock int GetRandomDeadPlayer()
 {
-	new clients[MaxClients+1], clientCount;
-	for(new i=1;i<=MaxClients;i++)
+	int clientCount;
+	int[] clients = new int[MaxClients + 1];
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if (IsValidEdict(i) && IsClientConnected(i) && IsClientInGame(i) && !IsPlayerAlive(i) && (GetClientTeam(i) > 1))
 		{
@@ -600,7 +585,7 @@ stock GetRandomDeadPlayer()
 	}
 	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
 }
-stock SetRobotModel(iClient, const String:strModel[PLATFORM_MAX_PATH] = "" )
+stock void SetRobotModel(int iClient, const char[] strModel = "" )
 {
 	if(!gb_roboticsoldier)
 		return;
@@ -612,40 +597,24 @@ stock SetRobotModel(iClient, const String:strModel[PLATFORM_MAX_PATH] = "" )
 	AcceptEntityInput(iClient, "SetCustomModel");
 	SetEntProp(iClient, Prop_Send, "m_bUseClassAnimations", 1);
 }
-stock PrecacheMdl( const String:strModel[PLATFORM_MAX_PATH], bool:bPreload = false )
+stock int PrecacheMdl( const char[] strModel, bool bPreload = false )
 {
 	if( FileExists( strModel, true ) || FileExists( strModel, false ) )
 		if( !IsModelPrecached( strModel ) )
 			return PrecacheModel( strModel, bPreload );
 	return -1;
 }
-stock TE_Particle(String:Name[], Float:origin[3]=NULL_VECTOR, Float:start[3]=NULL_VECTOR, Float:angles[3]=NULL_VECTOR,entindex=-1,attachtype=-1,attachpoint=-1,bool:resetParticles=true,customcolors = 0,Float:color1[3] = NULL_VECTOR,Float:color2[3] = NULL_VECTOR,controlpoint = -1,controlpointattachment = -1,Float:controlpointoffset[3] = NULL_VECTOR)
+stock void TE_Particle(char[] Name, float origin[3]=NULL_VECTOR, float start[3]=NULL_VECTOR, float angles[3]=NULL_VECTOR, 
+				int entindex=-1, int attachtype=-1, int attachpoint=-1, bool resetParticles=true, int customcolors = 0,
+				float color1[3] = NULL_VECTOR, float color2[3] = NULL_VECTOR, int controlpoint = -1, int controlpointattachment = -1, float controlpointoffset[3] = NULL_VECTOR)
 {
     // find string table
-    new tblidx = FindStringTable("ParticleEffectNames");
-    if (tblidx==INVALID_STRING_TABLE) 
-    {
-        LogError("Could not find string table: ParticleEffectNames");
-        return;
-    }
-    new Float:delay=3.0;
-    // find particle index
-    new String:tmp[256];
-    new count = GetStringTableNumStrings(tblidx);
-    new stridx = INVALID_STRING_INDEX;
-    new i;
-    for (i=0; i<count; i++)
-    {
-        ReadStringTable(tblidx, i, tmp, sizeof(tmp));
-        if (StrEqual(tmp, Name, false))
-        {
-            stridx = i;
-            break;
-        }
-    }
+    int tblidx = FindStringTable("ParticleEffectNames");
+    float delay=3.0;
+    int stridx = FindStringIndex(tblidx, Name);
     if (stridx==INVALID_STRING_INDEX)
     {
-        LogError("Could not find particle: %s", Name);
+        ThrowError("Could not find particle: %s", Name);
         return;
     }
 
@@ -695,41 +664,40 @@ stock TE_Particle(String:Name[], Float:origin[3]=NULL_VECTOR, Float:start[3]=NUL
     
     TE_SendToAll(delay);
 }
-stock GetTeamPlayerCount( iTeamNum = -1 )
+stock int GetTeamPlayerCount(int iTeamNum = -1)
 {
-	new iCounter = 0;
-	for( new i = 1; i <= MaxClients; i++ )
+	int iCounter = 0;
+	for( int i = 1; i <= MaxClients; i++ )
 		if(IsClientInGame(i) && (iTeamNum == -1 || GetClientTeam(i) == iTeamNum) && IsPlayerAlive(i))
 			iCounter++;
 	return iCounter;
 }
-stock DestroyBuildings()
+stock void DestroyBuildings()
 {
-	decl String:strObjects[3][] = {"obj_sentrygun","obj_dispenser","obj_teleporter"};
-	for( new o = 0; o < sizeof(strObjects); o++ )
-	{
-		new iEnt = -1;
-		while( ( iEnt = FindEntityByClassname( iEnt, strObjects[o] ) ) != -1 )
-			if( IsValidEdict(iEnt) && GetEntProp( iEnt, Prop_Send, "m_iTeamNum" ) == BossTeam )
-			{
-				SetEntityHealth( iEnt, 100 );
-				SetVariantInt( 1488 );
-				AcceptEntityInput( iEnt, "RemoveHealth" );
-			}
+	int iEnt = MaxClients + 1;
+	while( ( iEnt = FindEntityByClassname( iEnt, "obj_*" ) ) != -1 ) {
+		if( IsValidEntity(iEnt) && GetEntProp( iEnt, Prop_Send, "m_iTeamNum" ) == BossTeam )
+		{
+			SetEntityHealth( iEnt, 100 );
+			SetVariantInt( 1488 );
+			AcceptEntityInput( iEnt, "RemoveHealth" );
+		}
 	}
 }
-public Action:SoundHook(clients[64], &numClients, String:sound[PLATFORM_MAX_PATH], &Ent, &channel, &Float:volume, &level, &pitch, &flags)
+public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char sound[PLATFORM_MAX_PATH],
+			  int& Ent, int& channel, float& volume, int& level, int& pitch, int& flags,
+			  char soundEntry[PLATFORM_MAX_PATH], int& seed)
 {
 	if (!gb_roboticsoldier) return Plugin_Continue;
 	if (volume == 0.0 || volume == 0.9997) return Plugin_Continue;
 	if (!IsValidClient(Ent)) return Plugin_Continue;
-	new client = Ent;
-	new TFClassType:class = TF2_GetPlayerClass(client);
+	int client = Ent;
+	TFClassType class = TF2_GetPlayerClass(client);
 	if (GetClientTeam(client)== BossTeam)
 	{
 		if (StrContains(sound, "player/footsteps/", false) != -1 && class != TFClass_Medic)
 		{
-			new rand = GetRandomInt(1,18);
+			int rand = GetRandomInt(1,18);
 			Format(sound, sizeof(sound), "mvm/player/footsteps/robostep_%s%i.wav", (rand < 10) ? "0" : "", rand);
 			pitch = GetRandomInt(95, 100);
 			PrecacheSound(sound, false);
@@ -742,18 +710,18 @@ public Action:SoundHook(clients[64], &numClients, String:sound[PLATFORM_MAX_PATH
 		if (volume == 0.99997) return Plugin_Continue;
 		ReplaceString(sound, sizeof(sound), "vo/", "vo/mvm/norm/", false);
 		ReplaceString(sound, sizeof(sound), ".wav", ".mp3", false);
-		new String:classname[10], String:classname_mvm[15];
+		char classname[10], classname_mvm[15];
 		TF2_GetNameOfClass(class, classname, sizeof(classname));
 		Format(classname_mvm, sizeof(classname_mvm), "%s_mvm", classname);
 		ReplaceString(sound, sizeof(sound), classname, classname_mvm, false);
-		new String:soundchk[PLATFORM_MAX_PATH];
+		char soundchk[PLATFORM_MAX_PATH];
 		Format(soundchk, sizeof(soundchk), "sound/%s", sound);
 		PrecacheSound(sound);
 		return Plugin_Changed;
 	}
 	return Plugin_Continue;
 }
-stock TF2_GetNameOfClass(TFClassType:class, String:name[], maxlen)
+stock void TF2_GetNameOfClass(TFClassType class, char[] name, int maxlen)
 {
 	switch (class)
 	{
@@ -768,7 +736,7 @@ stock TF2_GetNameOfClass(TFClassType:class, String:name[], maxlen)
 		case TFClass_Spy: Format(name, maxlen, "spy");
 	}
 }
-stock IsValidClient( client )
+stock bool IsValidClient(int client)
 {
 	//Check for client "ID"
 	if  ( client <= 0 || client > MaxClients ) 

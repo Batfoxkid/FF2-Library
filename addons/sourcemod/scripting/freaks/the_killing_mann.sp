@@ -1,15 +1,13 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
-#include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2items>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
+#pragma semicolon 1
+#pragma newdecls required
+
 #define LIFELOSE_THEME			"freak_fortress_2/killingmann/theme_secondlife_fx.mp3"		// life lost, will be stopped when round ends
-new killing_mann_life;
+int killing_mann_life;
 
 #define KILLINGMANN "killing_mann_themechange"
 #define FAR_FUTURE 100000000.0
@@ -23,13 +21,13 @@ float SpellsCooldownEndsIn[MAXPLAYERS+1]=FAR_FUTURE;
 int spellsnumber;
 char SpellsHUDText[MAXPLAYERS+1][10][256];
 
-public Plugin:myinfo = {
+public Plugin myinfo = {
 	name	= "Freak Fortress 2: The Killing Manns abilities",
 	author	= "M7",
 	version = "1.0",
 };
 
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
@@ -40,7 +38,7 @@ public OnPluginStart2()
 	PrecacheSound(LIFELOSE_THEME);
 }
 
-public Action:event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -219,9 +217,9 @@ int ShootProjectile(int iClient, char strEntname[48] = "")
 	return iSpell;
 }
 
-public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadcast)
+public Action event_round_end(Event event, const char[] name, bool dontBroadcast)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if (IsValidClient(client))
 		{
@@ -231,15 +229,15 @@ public Action:event_round_end(Handle:event, const String:name[], bool:dontBroadc
 	}
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnLoseLife(index)
+public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 {		
-	new userid = FF2_GetBossUserId(index);
-	new client=GetClientOfUserId(userid);
+	int userid = FF2_GetBossUserId(index);
+	int client=GetClientOfUserId(userid);
 	if(index==-1 || !IsValidEdict(client) || !FF2_HasAbility(index, this_plugin_name, KILLINGMANN))
 		return Plugin_Continue;
 	
@@ -252,7 +250,7 @@ public Action:FF2_OnLoseLife(index)
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnMusic(String:path[], &Float:time)
+public Action FF2_OnMusic(char[] path, float& time)
 {
 	if (killing_mann_life)
 	{
@@ -262,21 +260,21 @@ public Action:FF2_OnMusic(String:path[], &Float:time)
 	return Plugin_Continue;
 }
 
-stock bool:IsValidClient(client, bool:isPlayerAlive=false)
+stock bool IsValidClient(int client, bool isPlayerAlive=false)
 {
 	if (client <= 0 || client > MaxClients) return false;
 	if(isPlayerAlive) return IsClientInGame(client) && IsPlayerAlive(client);
 	return IsClientInGame(client);
 }
 
-stock bool:IsBoss(client)
+stock bool IsBoss(int client)
 {
 	if(GetClientTeam(client)!=FF2_GetBossTeam()) return false;
 	if(FF2_GetBossIndex(client)==-1) return false;
 	return true;
 }
 
-stock ReadCenterText(bossIdx, const String:ability_name[], argInt, String:centerText[PLATFORM_MAX_PATH])
+stock void ReadCenterText(int bossIdx, const char[] ability_name, int argInt, char[] centerText)
 {
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, argInt, centerText, PLATFORM_MAX_PATH);
 	ReplaceString(centerText, PLATFORM_MAX_PATH, "\\n", "\n");

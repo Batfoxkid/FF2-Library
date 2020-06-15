@@ -28,8 +28,7 @@ new Specials;
 
 public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
 {
-	strcopy(err, err_max, "[FF2] DEPRECATED : There is no point in using this plugin!");
-	strcopy(err, err_max, "[FF2] use \"ff2_tnw.ff2\" instead");
+	strcopy(err, err_max, "[FF2] DEPRECATED : There is no point in using this plugin!\nUse \"ff2_tnw.ff2\" instead");
 	return APLRes_Failure;
 }
 

@@ -8,25 +8,23 @@
 	3) Clean up the plugin
 
 */
-#pragma semicolon 1
-
-#include <sourcemod>
-#include <sdktools>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
-#include <tf2>
+
+#pragma semicolon 1
+#pragma newdecls required
 
 //Defines
 #define PLUGIN_VERSION "0.5.1"
 #define ABILITY "ff2_pause"
 
 //Declarations
-new Handle:pauseCVar;
-new bool:paused;
-new bool:IsProxy[MAXPLAYERS+1];
-new Handle:rageTM[MAXPLAYERS+1];
+ConVar pauseCVar;
+bool paused;
+bool IsProxy[MAXPLAYERS+1];
+Handle rageTM[MAXPLAYERS+1];
 
-public Plugin:myinfo =
+public Plugin myinfo =
 {
 	name = "Freak Fortress 2: Pause Ability", 
 	author = "Naydef",
@@ -35,43 +33,32 @@ public Plugin:myinfo =
 	url = "https://forums.alliedmods.net/forumdisplay.php?f=154"
 };
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public void OnPluginStart2()
 {
-	if(!IsTF2())
-	{
-		strcopy(error, err_max, "This subplugin is only for Team Fortress 2. Remove the subplugin!");
-		return APLRes_Failure;
-	}
-	return APLRes_Success;
-}
-
-public OnPluginStart2()
-{
-	pauseCVar=FindConVar("sv_pausable");
-	if(pauseCVar==INVALID_HANDLE)
-	{
+	pauseCVar = FindConVar("sv_pausable");
+	if(!pauseCVar) {
 		SetFailState("sv_pausable convar not found. Subplugin disabled!!!");
 	}
 	AddCommandListener(Listener_PauseCommand, "pause");
 	AddCommandListener(Listener_PauseCommand, "unpause"); // For safety
 }
 
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], action)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(StrEqual(ability_name, ABILITY, false))
 	{
-		new client=GetClientOfUserId(FF2_GetBossUserId(boss));
-		new Float:time=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ABILITY, 1, 0.0);
+		int client=GetClientOfUserId(FF2_GetBossUserId(boss));
+		float time=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ABILITY, 1, 0.0);
 		PauseRage(client, time);
 	}
 	return Plugin_Continue;
 }
 
-public PauseRage(client, Float:time)
+public void PauseRage(int client, float time)
 {
 	if(IsValidClient(client))
 	{
-		for(new i=1; i<=MaxClients; i++)
+		for(int i=1; i<=MaxClients; i++)
 		{
 			if(IsValidClient(i))
 			{
@@ -80,6 +67,7 @@ public PauseRage(client, Float:time)
 		}
 		SilentCvarChange(pauseCVar, true);
 		SetConVarBool(pauseCVar, true);
+		pauseCVar.BoolValue = true;
 		SilentCvarChange(pauseCVar, false);
 		if(!paused)
 		{
@@ -89,23 +77,23 @@ public PauseRage(client, Float:time)
 		}
 		paused=true;
 		//CreateTimer(1.0, Timer_RemOverlay, _, TIMER_FLAG_NO_MAPCHANGE);
-		new Handle:packet=CreateDataPack();
-		WritePackCell(packet, GetClientUserId(client));
-		rageTM[client]=CreateTimer(time, Timer_UnPause, packet, TIMER_FLAG_NO_MAPCHANGE);
+		DataPack packet;
+		rageTM[client]=CreateDataTimer(time, Timer_UnPause, packet, TIMER_FLAG_NO_MAPCHANGE);
+		packet.WriteCell(GetClientSerial(client));
 	}
 }
 
-public OnClientDisconnect(client)
+public void OnClientDisconnect(int client)
 {
 	if(rageTM[client]!=INVALID_HANDLE)
 	{
 		TriggerTimer(rageTM[client]);
-		rageTM[client]=INVALID_HANDLE;
+		delete rageTM[client];
 	}
 	IsProxy[client]=false;
 }
 
-public Action:Listener_PauseCommand(client, const String:command[], argc)
+public Action Listener_PauseCommand(int client, const char[] command, int argc)
 {
 	if(!IsProxy[client])
 	{
@@ -114,16 +102,16 @@ public Action:Listener_PauseCommand(client, const String:command[], argc)
 	return Plugin_Continue;
 }
 
-public Action:Timer_UnPause(Handle:htimer, Handle:packet)
+public Action Timer_UnPause(Handle htimer, DataPack packet)
 {
-	ResetPack(packet);
-	new client=GetClientOfUserId(ReadPackCell(packet));
+	packet.Reset();
+	int client=GetClientFromSerial(packet.ReadCell());
 	if(!IsValidClient(client))
 	{
 		return Plugin_Stop;
 	}
 	SilentCvarChange(pauseCVar, true);
-	SetConVarBool(pauseCVar, true);
+	pauseCVar.BoolValue = false;
 	SilentCvarChange(pauseCVar, false);
 	IsProxy[client]=true;
 	if(paused)
@@ -132,22 +120,21 @@ public Action:Timer_UnPause(Handle:htimer, Handle:packet)
 	}
 	paused=false;
 	IsProxy[client]=false;
-	rageTM[client]=INVALID_HANDLE;
-	for(new i=1; i<=MaxClients; i++)
+	rageTM[client] = null;
+	for(int i=1; i<=MaxClients; i++)
 	{
 		if(IsValidClient(i))
 		{
 			SetNextAttack(i, 0.1);
 		}
 	}
-	CloseHandle(packet);
 	return Plugin_Continue;
 }
 
 /*
 public Action:Timer_RemOverlay(Handle:htimer)
 {
-	for(new i=1; i<=MaxClients; i++)
+	for(int i=1; i<=MaxClients; i++)
 	{
 		if(IsValidClient(i))
 		{
@@ -159,7 +146,7 @@ public Action:Timer_RemOverlay(Handle:htimer)
 */
 
 /*                                   Stocks                                            */
-bool:IsValidClient(client, bool:replaycheck=true) //From Freak Fortress 2
+bool IsValidClient(int client, bool replaycheck=true) //From Freak Fortress 2
 {
 	if(client<=0 || client>MaxClients)
 	{
@@ -187,26 +174,21 @@ bool:IsValidClient(client, bool:replaycheck=true) //From Freak Fortress 2
 }
 
 
-SilentCvarChange(Handle:cvar, setsilent=true)
+void SilentCvarChange(const ConVar cvar, bool setsilent=true)
 {
-	new flags=GetConVarFlags(cvar);
+	int flags=GetConVarFlags(cvar);
 	(setsilent) ? (flags^=FCVAR_NOTIFY) : (flags|=FCVAR_NOTIFY);
 	SetConVarFlags(cvar, flags);
 }
 
-bool:IsTF2()
-{
-	return (GetEngineVersion()==Engine_TF2) ?  true : false;
-}
-
-SetNextAttack(client, Float:time) // Fix prediction
+void SetNextAttack(int client, float time) // Fix prediction
 {
 	if(IsValidClient(client))
 	{
 		SetEntPropFloat(client, Prop_Send, "m_flNextAttack", GetGameTime()+time);
-		for(new i=0; i<=2; i++)
+		for(int i=0; i<=2; i++)
 		{
-			new weapon=GetPlayerWeaponSlot(client, i);
+			int weapon=GetPlayerWeaponSlot(client, i);
 			if(IsValidEntity(weapon))
 			{
 				SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime()+time);
@@ -219,7 +201,7 @@ SetNextAttack(client, Float:time) // Fix prediction
 DoOverlay(client, const String:overlay[]) //Copied from FF2
 {
 	PrintToChatAll("Removing overlay for %N", client);
-	new flags=GetCommandFlags("r_screenoverlay");
+	int flags=GetCommandFlags("r_screenoverlay");
 	SetCommandFlags("r_screenoverlay", flags & ~FCVAR_CHEAT);
 	ClientCommand(client, "r_screenoverlay \"%s\"", overlay);
 	SetCommandFlags("r_screenoverlay", flags);

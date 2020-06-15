@@ -1,12 +1,11 @@
-#include <sourcemod>
 #include <sdktools>
-#include <tf2>
 #include <tf2_stocks>
+#pragma newdecls required
 
-new Handle:AttackTimer;
-new Handle:Attack2Timer;
+Handle AttackTimer;
+Handle Attack2Timer;
 
-public Plugin:myinfo = 
+public Plugin myinfo = 
 {
 	name = "VSH/FF2 Bots[logic]",
 	author = "tRololo312312",
@@ -15,35 +14,34 @@ public Plugin:myinfo =
 	url = "http://steamcommunity.com/profiles/76561198039186809"
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	CreateTimer(305.0, InfoTimer,_,TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public Action:InfoTimer(Handle:timer)
+public Action InfoTimer(Handle timer)
 {
 	PrintToChatAll("This server is using VSH/FF2 Bots plugin by tRololo312312");
 }
 
-Float:moveForward(Float:vel[3],Float:MaxSpeed)
+void moveForward(float vel[3], float MaxSpeed)
 {
 	vel[0] = MaxSpeed;
-	return vel;
 }
 
-Float:moveBackwards(Float:vel[3],Float:MaxSpeed)
+void moveBackwards(float vel[3],float MaxSpeed)
 {
 	vel[0] = -MaxSpeed;
-	return vel;
 }
 
-Float:moveSide(Float:vel[3],Float:MaxSpeed)
+void moveSide(float vel[3],float MaxSpeed)
 {
 	vel[1] = MaxSpeed;
-	return vel;
 }
 
-public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
+							float vel[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if(IsValidClient(client))
 	{
@@ -51,17 +49,16 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 		{
 			if(IsPlayerAlive(client))
 			{
-				decl Float:camangle[3], Float:clientEyes[3], Float:targetEyes[3];
+				static float camangle[3], clientEyes[3], targetEyes[3];
 				GetClientEyePosition(client, clientEyes);
-				new TFClassType:class = TF2_GetPlayerClass(client);
-				new m_iStunFlags = FindSendPropInfo("CTFPlayer","m_iStunFlags");
-				new stunFlag = GetEntData(client, m_iStunFlags);
-				new team = GetClientTeam(client);
-				new Ent = Client_GetClosest(clientEyes, client);
+				TFClassType class = TF2_GetPlayerClass(client);
+				int stunFlag = GetEntData(client, FindSendPropInfo("CTFPlayer","m_iStunFlags"));
+				int team = GetClientTeam(client);
+				int Ent = Client_GetClosest(clientEyes, client);
 				
 				if(TF2_IsPlayerInCondition(client, TFCond_Cloaked))
 				{
-					new iMeleeEnt = GetPlayerWeaponSlot(client, 2);
+					int iMeleeEnt = GetPlayerWeaponSlot(client, 2);
 					SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", iMeleeEnt);
 				}
 				
@@ -86,7 +83,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 				{
 					if(team == 2)
 					{
-						decl Float:vec[3],Float:angle[3];
+						static float vec[3], angle[3];
 						GetClientAbsOrigin(Ent, targetEyes);
 						GetEntPropVector(Ent, Prop_Data, "m_angRotation", angle);
 						if(class == TFClass_Soldier && IsWeaponSlotActive(client, 0) || class == TFClass_DemoMan)
@@ -115,8 +112,8 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 							if(TF2_IsPlayerInCondition(Ent, TFCond_Ubercharged))
 							{
 								Handle WallBehind;
-								decl Float:lookangle[3], Float:ClientLocation[3], Float:WallBehindVec[3], Float:lookDir[3];
-								vel = moveBackwards(vel,400.0);
+								static float lookangle[3], ClientLocation[3], WallBehindVec[3], lookDir[3];
+								moveBackwards(vel,400.0);
 								GetClientEyeAngles(client, lookangle);
 								GetClientEyePosition(client, ClientLocation);
 								lookangle[0] = 0.0;
@@ -129,15 +126,15 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 								if(TR_DidHit(WallBehind))
 								{
 									TR_GetEndPosition(WallBehindVec, WallBehind);
-									new Float:wallDistance;
+									float wallDistance;
 									wallDistance = GetVectorDistance(ClientLocation,WallBehindVec);
 									if(wallDistance <60.0)
 									{
-										vel = moveSide(vel,400.0);
+										moveSide(vel,400.0);
 									}
 								}
 								
-								CloseHandle(WallBehind);
+								delete WallBehind;
 							}
 							else
 							{
@@ -145,27 +142,27 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 							}
 						}
 
-						new Float:location_check[3];
+						float location_check[3];
 						GetClientAbsOrigin(client, location_check);
 
-						new Float:chainDistance;
+						float chainDistance;
 						chainDistance = GetVectorDistance(location_check,targetEyes);
 						
 						if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged))
 						{
-							vel = moveForward(vel,400.0);
+							moveForward(vel,400.0);
 						}
 						else if(chainDistance <400.0)
 						{
 							if(IsWeaponSlotActive(client, 2))
 							{
-								vel = moveForward(vel,400.0);
+								moveForward(vel,400.0);
 							}
 							else
 							{
 								Handle WallBehind;
-								decl Float:lookangle[3], Float:ClientLocation[3], Float:WallBehindVec[3], Float:lookDir[3];
-								vel = moveBackwards(vel,400.0);
+								static float lookangle[3], ClientLocation[3], WallBehindVec[3], lookDir[3];
+								moveBackwards(vel,400.0);
 								GetClientEyeAngles(client, lookangle);
 								GetClientEyePosition(client, ClientLocation);
 								lookangle[0] = 0.0;
@@ -178,15 +175,15 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 								if(TR_DidHit(WallBehind))
 								{
 									TR_GetEndPosition(WallBehindVec, WallBehind);
-									new Float:wallDistance;
+									float wallDistance;
 									wallDistance = GetVectorDistance(ClientLocation,WallBehindVec);
 									if(wallDistance <60.0)
 									{
-										vel = moveSide(vel,400.0);
+										moveSide(vel,400.0);
 									}
 								}
 								
-								CloseHandle(WallBehind);
+								delete WallBehind;
 							}
 							
 							if(class == TFClass_Pyro)
@@ -202,9 +199,9 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 						if(stunFlag == TF_STUNFLAGS_GHOSTSCARE|TF_STUNFLAG_NOSOUNDOREFFECT)
 						{
 							Handle WallBehind;
-							vel = moveBackwards(vel,400.0);
-							decl Float:lookangle[3], Float:ClientLocation[3], Float:WallBehindVec[3], Float:lookDir[3];
-							vel = moveBackwards(vel,400.0);
+							moveBackwards(vel,400.0);
+							static float lookangle[3], ClientLocation[3], WallBehindVec[3], lookDir[3];
+							moveBackwards(vel,400.0);
 							GetClientEyeAngles(client, lookangle);
 							GetClientEyePosition(client, ClientLocation);
 							lookangle[0] = 0.0;
@@ -217,15 +214,15 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 							if(TR_DidHit(WallBehind))
 							{
 								TR_GetEndPosition(WallBehindVec, WallBehind);
-								new Float:wallDistance;
+								float wallDistance;
 								wallDistance = GetVectorDistance(ClientLocation,WallBehindVec);
 								if(wallDistance <60.0)
 								{
-									vel = moveSide(vel,400.0);
+									moveSide(vel,400.0);
 								}
 							}
 							
-							CloseHandle(WallBehind);
+							delete WallBehind;
 						}
 						
 						if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged) && class == TFClass_Pyro)
@@ -239,11 +236,11 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 					}
 					if(team == 3)
 					{
-						decl Float:vec[3],Float:angle[3];
+						static float vec[3], angle[3];
 						GetClientAbsOrigin(Ent, targetEyes);
-						new Float:location_check[3];
+						float location_check[3];
 						GetClientAbsOrigin(client, location_check);
-						new Float:chainDistance;
+						float chainDistance;
 						chainDistance = GetVectorDistance(location_check,targetEyes);
 						GetEntPropVector(Ent, Prop_Data, "m_angRotation", angle);
 						if(chainDistance <150.0)
@@ -279,7 +276,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 						
 						if(chainDistance <400.0)
 						{
-							vel = moveForward(vel,400.0);
+							moveForward(vel,400.0);
 						}
 						TeleportEntity(client, NULL_VECTOR, camangle, NULL_VECTOR);
 					}
@@ -291,39 +288,39 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 	return Plugin_Continue;
 }
 
-public Action:ResetAttackTimer(Handle:timer)
+public Action ResetAttackTimer(Handle timer)
 {
 	AttackTimer = INVALID_HANDLE;
 }
 
-public Action:ResetAttack2Timer(Handle:timer)
+public Action ResetAttack2Timer(Handle timer)
 {
 	Attack2Timer = INVALID_HANDLE;
 }
 
-bool:IsValidClient( client ) 
+bool IsValidClient( int client ) 
 {
 	if(!(1 <= client <= MaxClients ) || !IsClientInGame(client)) 
 		return false; 
 	return true; 
 }
 
-stock GetHealth(client)
+stock int GetHealth(int client)
 {
 	return GetEntProp(client, Prop_Send, "m_iHealth");
 }
 
-stock bool:IsWeaponSlotActive(iClient, iSlot)
+stock bool IsWeaponSlotActive(int iClient, int iSlot)
 {
     return GetPlayerWeaponSlot(iClient, iSlot) == GetEntPropEnt(iClient, Prop_Send, "m_hActiveWeapon");
 }
 
-stock Client_GetClosest(Float:vecOrigin_center[3], const client)
+stock int Client_GetClosest(float vecOrigin_center[3], const int client)
 {
-	decl Float:vecOrigin_edict[3];
-	new Float:distance = -1.0;
-	new closestEdict = -1;
-	for(new i=1;i<=MaxClients;i++)
+	static float vecOrigin_edict[3];
+	float distance = -1.0;
+	int closestEdict = -1;
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if (!IsClientInGame(i) || !IsPlayerAlive(i) || (i == client))
 			continue;
@@ -331,13 +328,13 @@ stock Client_GetClosest(Float:vecOrigin_center[3], const client)
 		GetClientEyePosition(i, vecOrigin_edict);
 		if(GetClientTeam(i) != GetClientTeam(client))
 		{
-			new TFClassType:class = TF2_GetPlayerClass(client);
-			new team = GetClientTeam(client);
+			TFClassType class = TF2_GetPlayerClass(client);
+			int team = GetClientTeam(client);
 			if(team == 2 && class == TFClass_Medic || !IsFakeClient(i) && TF2_IsPlayerInCondition(i, TFCond_Cloaked) || !IsFakeClient(i) && TF2_IsPlayerInCondition(i, TFCond_Disguised) || team == 3 && TF2_IsPlayerInCondition(i, TFCond_Ubercharged) || TF2_IsPlayerInCondition(client, TFCond_Cloaked))
 				continue;
 			if(IsPointVisible(vecOrigin_center, vecOrigin_edict))
 			{
-				new Float:edict_distance = GetVectorDistance(vecOrigin_center, vecOrigin_edict);
+				float edict_distance = GetVectorDistance(vecOrigin_center, vecOrigin_edict);
 				if((edict_distance < distance) || (distance == -1.0))
 				{
 					distance = edict_distance;
@@ -349,7 +346,7 @@ stock Client_GetClosest(Float:vecOrigin_center[3], const client)
 	return closestEdict;
 }
 
-stock ClampAngle(Float:fAngles[3])
+stock void ClampAngle(float fAngles[3])
 {
 	while(fAngles[0] > 89.0)  fAngles[0]-=360.0;
 	while(fAngles[0] < -89.0) fAngles[0]+=360.0;
@@ -357,9 +354,9 @@ stock ClampAngle(Float:fAngles[3])
 	while(fAngles[1] <-180.0) fAngles[1]+=360.0;
 }
 
-stock Float:TF_GetUberLevel(client)
+stock float TF_GetUberLevel(int client)
 {
-	new index = GetPlayerWeaponSlot(client, 1);
+	int  index = GetPlayerWeaponSlot(client, 1);
 	if(IsValidEntity(index)
 	&& (GetEntProp(index, Prop_Send, "m_iItemDefinitionIndex")==29
 	|| GetEntProp(index, Prop_Send, "m_iItemDefinitionIndex")==211
@@ -380,18 +377,18 @@ stock Float:TF_GetUberLevel(client)
 		return 0.0;
 }
 
-stock bool:IsPointVisible(const Float:start[3], const Float:end[3])
+stock bool IsPointVisible(const float start[3], const float end[3])
 {
 	TR_TraceRayFilter(start, end, MASK_PLAYERSOLID, RayType_EndPoint, TraceEntityFilterStuff);
 	return TR_GetFraction() >= 0.9;
 }
 
-public bool:TraceEntityFilterStuff(entity, mask)
+public bool TraceEntityFilterStuff(int entity, int mask)
 {
 	return entity > MaxClients;
 }
 
-public bool:Filter(entity,mask)
+public bool Filter(int entity, int mask)
 {
 	return !(IsValidClient(entity));
 }

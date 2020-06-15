@@ -1,6 +1,6 @@
-#include <tf2_stocks>
 #include <sdkhooks>
-#include <freak_fortress_2>
+#include <ff2_helper>
+#include <ff2_ams2>
 #include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
@@ -11,95 +11,149 @@
  * Everything with "Delayable" in the name has an optional time delay. If it's 0 it executes immediately.
  *
  * OVERALL Known Issues:
- * - Single bosses have been tested thoroughly. Multi-bosses support was added on 2014-04-20 but has only had limited testing.
- * - If you have the RTD mod installed on your server and non-engies can make sentry guns, search and remove if check with TFClass_Engineer
+ * - Single bosses have been tested thoroughly. Multi-bosses support was added on 2014-04-20 but 
+ *	has only had limited testing.
+ * - If you have the RTD mod installed on your server and non-engies can make sentry guns, search and remove if 
+ *	check with TFClass_Engineer
  * - Don't time any of the delayables longer than it'd take between last end of round and next round respawn
  *
+ *--------------------------------------------------------------------------------------------------------------
  * DelayableDamage: Damage in a radius with no visual effect, which allows a delay before execution.
  *	Credits: Took minor samples from phatrages and other minor sources while making this.
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1	"delay"			"float"
+ * arg2	"damage"		"float"
+ * arg3	"radius"		"float"
+ * arg4	"knockback"		"float"
+ * arg5	"scale by dist"	"bool"
+ * arg6	"z-lift"		"bool"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
  *
+ *
+ *--------------------------------------------------------------------------------------------------------------
+ * DelayableDamage: Damage in a radius with no visual effect, which allows a delay before execution.
+ *	Credits: Took minor samples from phatrages and other minor sources while making this.
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1	"alive to start"		"int"
+ * arg2	"player rage per sec"	"float"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
+ *
+ *
+ *--------------------------------------------------------------------------------------------------------------
  * DelayableEarthquake: Display an earthquake to living non-hale players for a period, optionally play a sound.
  *	Credits: Ripped some functions straight from phatrages.
  *		 Took minor samples from phatrages and other minor sources while making this.
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1 "delay"		"float"
+ * arg2 "duration"	"float"
+ * arg3 "radius"	"float"
+ * arg4 "amplitude"	"float"
+ * arg5 "frequency"	"float"
+ * arg6 "air shake" "bool"
+ * arg7 "sound"		"string"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
  *
+ *
+ *--------------------------------------------------------------------------------------------------------------
  * DelayableBuildingDestruction: Destroys all buildings of specified types except the ones the engie is holding.
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1 "delay"			"float"
+ * arg2 "sentries"		"bool"
+ * arg3 "dispenser" 	"bool"
+ * arg4 "teleporters" 	"bool"
+ * arg5 "save by carry" "bool"
+ * arg6 "radius"		"float"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
  *
+ *
+ *--------------------------------------------------------------------------------------------------------------
  * DelayableParticleEffect: Display a particle effect on all players in a radius for N seconds.
  *	Credits: Took some of the code used when sentries are raged.
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1 "delay"		"float"
+ * arg2 "duration"	"float"
+ * arg3 "radius"	"float"
+ * arg4 "particle"	"string"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
  *
+ *
+ *--------------------------------------------------------------------------------------------------------------
  * Airblast Immunity: Airblast immunity for N seconds.
+ *--------------------------------------------------------------------------------------------------------------
  *
- * Mapwide Sound: And you thought the above was reinventing the wheel. Plays a map-wide sound on rage, instead of the standard local rage sound.
+ * arg1 "duration"		"float"
+ * arg2 "incldue uber"	"bool"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
  *
- * ======= Revised on 2015-03-20, with plenty of opportunity to laugh at my old work from 2014-03-2X =======
+ *
+ *--------------------------------------------------------------------------------------------------------------
+ * Mapwide Sound: And you thought the above was reinventing the wheel. Plays a map-wide 
+ * sound on rage, instead of the standard local rage sound.
+ *--------------------------------------------------------------------------------------------------------------
+ * arg1 "sound"		"string"
+ *--------------------------------------------------------------------------------------------------------------
+ *--------------------------------------------------------------------------------------------------------------
+ *
+ *--------------------------------------------------------------------------------------------------------------
+ * ======= Revised on 2015-03-20, with plenty of opportunity to laugh at my old work from 2014-03-2X ==========
+ *--------------------------------------------------------------------------------------------------------------
+ * ================ Rework on 2020-06-09 by 01Pollux, improvement and migration to AMS2 =======================
+ *--------------------------------------------------------------------------------------------------------------
  */
 
-// change this to minimize console output
-bool PRINT_DEBUG_INFO = true;
+enum struct iPlayerInfo {
+	int iAlives;
+	int iBosses;
+	void Update(int p, int b) {
+		this.iAlives = p;
+		this.iBosses = b;
+	}
+}
+iPlayerInfo infos;
 
-#define MAX_PLAYERS_ARRAY 36
-#define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
+enum ShakeCommand_t
+{
+	SHAKE_START,			// Starts the screen shake for all players within the radius.
+	SHAKE_STOP,				// Stops the screen shake for all players within the radius.
+	SHAKE_AMPLITUDE,		// Modifies the amplitude of an active screen shake for all players within the radius.
+	SHAKE_FREQUENCY,		// Modifies the frequency of an active screen shake for all players within the radius.
+	SHAKE_START_RUMBLEONLY,	// Starts a shake effect that only rumbles the controller, no screen effect.
+	SHAKE_START_NORUMBLE	// Starts a shake that does NOT rumble the controller.
+};
 
-// text string limits
-#define MAX_SOUND_FILE_LENGTH 128
-#define MAX_MODEL_SWAP_LENGTH 128
-#define MAX_WEAPON_NAME_LENGTH 64
-#define MAX_WEAPON_ARG_LENGTH 128
-// messages already truncated so may as well waste less memory space
-#define MAX_TUTORIAL_MESSAGE_LENGTH 170
-#define MAX_EFFECT_NAME_LENGTH 64
+bool AIActive;
+float AI_EndsAt[MAXCLIENTS];
 
-#define FAR_FUTURE 100000000.0
+bool DDActive;
+float DD_ExecuteRageAt[MAXCLIENTS];
 
-// don't let timed rages be activated after round ends, they WILL leak over otherwise!
-bool PluginActiveThisRound = false;
-bool RoundInProgress = false;
+bool DEActive;
+float DE_ExecuteRageAt[MAXCLIENTS];
 
-// for airblast immunity
-#define AI_STRING "rage_airblast_immunity"
-bool AI_ActiveThisRound;
-bool AI_CanUse[MAX_PLAYERS_ARRAY];
-float AI_EndsAt[MAX_PLAYERS_ARRAY];
+bool DBDActive;
+float DBD_ExecuteRageAt[MAXCLIENTS];
 
-// for delayable damage
-#define DD_STRING "rage_delayable_damage"
-bool DD_ActiveThisRound;
-bool DD_CanUse[MAX_PLAYERS_ARRAY];
-float DD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool DPEActive;
+float DPE_ExecuteRageAt[MAXCLIENTS];
 
-// for delayable earthquake
-#define DE_STRING "rage_delayable_earthquake"
-bool DE_ActiveThisRound;
-bool DE_CanUse[MAX_PLAYERS_ARRAY];
-float DE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
+bool SERGActive;
+int SERG_PlayersAliveToStart[MAXCLIENTS];
+float SERG_OnePlayerRPS[MAXCLIENTS];
+float SERG_flNextThink[MAXCLIENTS];
 
-// for delayable building destruction
-#define DBD_STRING "rage_delayable_building_destruction"
-bool DBD_ActiveThisRound;
-bool DBD_CanUse[MAX_PLAYERS_ARRAY];
-float DBD_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
-
-// for delayable particle effect
-#define DPE_STRING "rage_delayable_particle_effect"
-bool DPE_ActiveThisRound;
-bool DPE_CanUse[MAX_PLAYERS_ARRAY];
-float DPE_ExecuteRageAt[MAX_PLAYERS_ARRAY]; // internal
-
-// for mapwide sound
-#define MWS_STRING "rage_mapwide_sound_sarysamods"
-
-// for rage gain with few players
-#define SERG_STRING "ff2_scaled_endgame_rage_gain"
-#define SERG_INTERVAL 1.0
-bool SERG_ActiveThisRound = false;
-float SERG_NextCheckAt;
-bool SERG_CanUse[MAX_PLAYERS_ARRAY];
-int SERG_PlayersAliveToStart[MAX_PLAYERS_ARRAY];
-float SERG_OnePlayerRPS[MAX_PLAYERS_ARRAY];
+#define PLUGIN_EXISTS AIActive || DDActive || DEActive || DBDActive || DPEActive || SERGActive
 
 public Plugin myinfo = {
 	name = "Freak Fortress 2: sarysa's mods",
-	author = "sarysa",
+	author = "sarysa, 01Pollux",
 	version = "1.1.0",
 };
 	
@@ -109,539 +163,542 @@ public void OnPluginStart2()
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 }
 
-public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast)
+public void FF2AMS_PreRoundStart(int client)
 {
-	// various non-array inits
-	PluginActiveThisRound = false;
-	SERG_ActiveThisRound = false;
-	AI_ActiveThisRound = false;
-	DD_ActiveThisRound = false;
-	DE_ActiveThisRound = false;
-	DBD_ActiveThisRound = false;
-	DPE_ActiveThisRound = false;
-	
-	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-	{
-		// various array inits
-		AI_CanUse[clientIdx] = false;
-		SERG_CanUse[clientIdx] = false;
-		DD_CanUse[clientIdx] = false;
-		DE_CanUse[clientIdx] = false;
-		DBD_CanUse[clientIdx] = false;
-		DPE_CanUse[clientIdx] = false;
-
-		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
-			continue;
-		int bossIdx = FF2_GetBossIndex(clientIdx);
-		if (bossIdx < 0)
-			continue;
-
-		if ((SERG_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, SERG_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			SERG_ActiveThisRound = true;
-			SERG_PlayersAliveToStart[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, SERG_STRING, 1);
-			SERG_OnePlayerRPS[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SERG_STRING, 2);
-		}
-
-		if ((DD_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DD_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			DD_ActiveThisRound = true;
-			DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
-		}
-		
-		if ((DE_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DE_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			DE_ActiveThisRound = true;
-			DE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
-
-			static char soundFile[MAX_SOUND_FILE_LENGTH];
-			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DE_STRING, 6, soundFile, MAX_SOUND_FILE_LENGTH);
-			if (strlen(soundFile) > 3)
-				PrecacheSound(soundFile);
-		}
-		
-		if ((DBD_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DBD_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			DBD_ActiveThisRound = true;
-			DBD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
-		}
-		
-		if ((DPE_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, DPE_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			DPE_ActiveThisRound = true;
-			DPE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
-		}
-
-		if ((AI_CanUse[clientIdx] = FF2_HasAbility(bossIdx, this_plugin_name, AI_STRING)) == true)
-		{
-			PluginActiveThisRound = true;
-			AI_ActiveThisRound = true;
-			AI_EndsAt[clientIdx] = FAR_FUTURE;
-		}
-
-		if (FF2_HasAbility(bossIdx, this_plugin_name, MWS_STRING))
-		{
-			static char soundFile[MAX_SOUND_FILE_LENGTH];
-			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MWS_STRING, 1, soundFile, MAX_SOUND_FILE_LENGTH);
-			if (strlen(soundFile) > 3)
-				PrecacheSound(soundFile);
+	FF2Prep player = FF2Prep(client);
+	if(player.HasAbility(FAST_REG(rage_delayable_particle_effect)) && player.GetArgI(FAST_REG(rage_delayable_particle_effect), "ams", .def = 1) == 1) {
+		if(!AMS_REG(client)(rage_delayable_particle_effect.PE)) {
+			return;
 		}
 	}
-	
-	// allow game frame rages to execute
-	RoundInProgress = true;
+	if(player.HasAbility(FAST_REG(rage_delayable_building_destruction)) && player.GetArgI(FAST_REG(rage_delayable_building_destruction), "ams", .def = 1) == 1) {
+		if(!AMS_REG(client)(rage_delayable_building_destruction.BD)) {
+			return;
+		}
+	}
+	if(player.HasAbility(FAST_REG(rage_delayable_earthquake)) && player.GetArgI(FAST_REG(rage_delayable_earthquake), "ams", .def = 1) == 1) {
+		if(!AMS_REG(client)(rage_delayable_earthquake.DE)) {
+			return;
+		}
+	}
+	if(player.HasAbility(FAST_REG(rage_delayable_damage)) && player.GetArgI(FAST_REG(rage_delayable_damage), "ams", .def = 1) == 1) {
+		if(!AMS_REG(client)(rage_delayable_damage.DD)) {
+			return;
+		}
+	}
+	if(player.HasAbility(FAST_REG(rage_airblast_immunity)) && player.GetArgI(FAST_REG(rage_airblast_immunity), "ams", .def = 1) == 1) {
+		if(!AMS_REG(client)(rage_airblast_immunity.AI)) {
+			return;
+		}
+	}
+}
 
-	if (SERG_ActiveThisRound)
-		SERG_NextCheckAt = GetEngineTime() + SERG_INTERVAL;
+public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast)
+{
+	FF2Prep player;
+	int client;
+	for(int i; ; i++) {
+		player = FF2Prep(i, false);
+		client = player.Index;
+		if(!client) {
+			break;
+		}
+		
+		if(player.HasAbility(FAST_REG(ff2_scaled_endgame_rage_gain))) {
+			SERGActive = true;
+			SERG_PlayersAliveToStart[client] = player.GetArgI(FAST_REG(ff2_scaled_endgame_rage_gain), "alive to start", 1, 5);
+			SERG_OnePlayerRPS[client] = player.GetArgF(FAST_REG(ff2_scaled_endgame_rage_gain), "player rage per sec", 2, 5.0);
+			SDKHook(client, SDKHook_PostThinkPost, SERG_ThinkPost);
+		}
+		
+		if(player.HasAbility(FAST_REG(rage_delayable_damage))) {
+			DDActive = true;
+		}
+		
+		if(player.HasAbility(FAST_REG(rage_delayable_earthquake))) {
+			DEActive = true;
+		}
+		
+		if(player.HasAbility(FAST_REG(rage_delayable_building_destruction))) {
+			DBDActive = true;
+		}
+		
+		if(player.HasAbility(FAST_REG(rage_delayable_particle_effect))) {
+			DPEActive = true;
+		}
+	}
 }
 
 public Action Event_RoundEnd(Event event,const char[] name, bool dontBroadcast)
 {
-	// don't activate timed rages anymore
-	RoundInProgress = false;
+	if(PLUGIN_EXISTS) {
+		FF2Prep player;
+		int client;
+		for(int i; ; i++) {
+			player = FF2Prep(i, false);
+			client = player.Index;
+			if(!client) {
+				break;
+			}
+			
+			if(SERGActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, SERG_ThinkPost);
+			}
+			
+			if(DDActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, DD_ThinkPost);
+			}
+			
+			if(DEActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, DE_ThinkPost);
+			}
+			
+			if(DBDActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, DBD_ThinkPost);
+			}
+			
+			if(DPEActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, DPE_ThinkPost);
+			}
+			
+			if(AIActive) {
+				SDKUnhook(client, SDKHook_PostThinkPost, AI_ThinkPost);
+			}
+			
+		}
+		SERGActive = DDActive = AIActive = DEActive = DBDActive = DPEActive = false;
+	}
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
 	// I'm allowing this to happen after hale wins. playing rage sounds after winning is a time-honored tradition. :D
-	if (!strcmp(ability_name, MWS_STRING))
+	if (!strcmp(ability_name, "rage_mapwide_sound_sarysamods"))
 	{
-		static char soundFile[MAX_SOUND_FILE_LENGTH];
-		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MWS_STRING, 1, soundFile, MAX_SOUND_FILE_LENGTH);
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods1] Playing important sound: %s", soundFile);
-		
-		if (strlen(soundFile) > 3)
+		FF2Prep player = FF2Prep(boss, false);
+		static char soundFile[128];
+		if (!player.GetArgS(FAST_REG(rage_mapwide_sound_sarysamods), "sound", 1, soundFile, sizeof(soundFile)))
 			EmitSoundToAll(soundFile);
 	}
 
-	if (!RoundInProgress)
+	if (!IsRoundActive())
 		return Plugin_Continue;
 
-	// strictly enforce the correct plugin is specified.
-	// these were working earlier with no specification...eep.
-	if (strcmp(plugin_name, this_plugin_name))
-		return Plugin_Continue;
-
-	if (!strcmp(ability_name, DD_STRING))
-		Rage_DelayableDamage(ability_name, bossIdx);
-	else if (!strcmp(ability_name, DE_STRING))
-		Rage_DelayableEarthquake(ability_name, bossIdx);
-	else if (!strcmp(ability_name, DBD_STRING))
-		Rage_DelayableBuildingDestruction(ability_name, bossIdx);
-	else if (!strcmp(ability_name, DPE_STRING))
-		Rage_DelayableParticleEffect(ability_name, bossIdx);
-	else if (!strcmp(ability_name, AI_STRING))
-		Rage_AirblastImmunity(ability_name, bossIdx);
+	if (!strcmp(ability_name, "rage_delayable_damage"))
+		Rage_DelayableDamage(boss);
+	else if (!strcmp(ability_name, "rage_delayable_earthquake"))
+		Rage_DelayableEarthquake(boss);
+	else if (!strcmp(ability_name, "rage_delayable_building_destruction"))
+		Rage_DelayableBuildingDestruction(boss);
+	else if (!strcmp(ability_name, "rage_delayable_particle_effect"))
+		Rage_DelayableParticleEffect(boss);
+	else if (!strcmp(ability_name, "rage_airblast_immunity"))
+		Rage_AirblastImmunity(boss);
 		
 	return Plugin_Continue;
+}
+
+public void FF2_OnAlivePlayersChanged(int players, int bosses)
+{
+	infos.Update(players, bosses);
+}
+
+public void PE_Invoke(int client, int index)
+{
+	Rage_DelayableParticleEffect(ClientToBoss(client));
+}
+
+public void BD_Invoke(int client, int index)
+{
+	Rage_DelayableBuildingDestruction(ClientToBoss(client));
+}
+
+public void DE_Invoke(int client, int index)
+{
+	Rage_DelayableEarthquake(ClientToBoss(client));
+}
+
+public void DD_Invoke(int client, int index)
+{
+	Rage_DelayableDamage(ClientToBoss(client));
+}
+
+public void AI_Invoke(int client, int index)
+{
+	Rage_AirblastImmunity(ClientToBoss(client));
 }
 
 /**
  * Airblast Immunity (fun fact, in March 2014 I actually made this as a standalone ability. lol)
  */
-public void Rage_AirblastImmunity(const char[] ability_name, int bossIdx)
+public void AI_ThinkPost(int client)
 {
-	// get rage metadata first
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	bool includeUber = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
-	
-	// don't add effects if not necessary
-	if (AI_EndsAt[clientIdx] == FAR_FUTURE)
-	{
-		TF2_AddCondition(clientIdx, TFCond_MegaHeal, -1.0);
-		if (includeUber)
-		{
-			TF2_AddCondition(clientIdx, TFCond_Ubercharged, -1.0);
-			SetEntProp(clientIdx, Prop_Data, "m_takedamage", 0);
-		}
+	if(AI_EndsAt[client] >= GetGameTime()) {
+		AI_EndRage(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, DPE_ThinkPost);
 	}
-	
-	AI_EndsAt[clientIdx] = GetEngineTime() + duration;
 }
 
-public void AI_EndRage(int clientIdx)
+public void Rage_AirblastImmunity(int bossIdx)
 {
-	TF2_RemoveCondition(clientIdx, TFCond_MegaHeal);
-	TF2_RemoveCondition(clientIdx, TFCond_Ubercharged);
-	SetEntProp(clientIdx, Prop_Data, "m_takedamage", 2);
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float duration = player.GetArgF(FAST_REG(rage_airblast_immunity), "duration", 1, 7.5);
+	bool includeUber = player.GetArgI(FAST_REG(rage_airblast_immunity), "include uber", 2, 1) != 0;
+	int client = BossToClient(bossIdx);
 	
-	AI_EndsAt[clientIdx] = FAR_FUTURE;
+	if(AI_EndsAt[client] <= GetGameTime()) {
+		TF2_AddCondition(client, TFCond_MegaHeal, -1.0);
+		if(includeUber) {
+			TF2_AddCondition(client, TFCond_Ubercharged, -1.0);
+			SetEntProp(client, Prop_Data, "m_takedamage", 0);
+		}
+		SDKHook(client, SDKHook_PostThinkPost, AI_ThinkPost);
+	}
+	
+	AI_EndsAt[client] = GetGameTime() + duration;
+}
+
+void AI_EndRage(int client)
+{
+	TF2_RemoveCondition(client, TFCond_MegaHeal);
+	TF2_RemoveCondition(client, TFCond_Ubercharged);
+	SetEntProp(client, Prop_Data, "m_takedamage", 2);
 }
 
 /**
  * Delayable Particle Effect
  */
-void DelayableParticleEffect(int clientIdx)
+public void DPE_ThinkPost(int client)
 {
-	int bossIdx = FF2_GetBossIndex(clientIdx);
-	if (bossIdx < 0)
-		return;
-		
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 2);
-	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPE_STRING, 3);
-	radiusSquared = radiusSquared * radiusSquared;
-	char effectName[MAX_EFFECT_NAME_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DPE_STRING, 4, effectName, MAX_EFFECT_NAME_LENGTH);
+	if(DPE_ExecuteRageAt[client] >= GetGameTime()) {
+		DelayableBuildingDestruction(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, DPE_ThinkPost);
+	}
+}
 
-	if (PRINT_DEBUG_INFO)
-		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, duration=%f, radius(square)=%f, effectName=%s", DPE_STRING, clientIdx, duration, radiusSquared, effectName);
-	
+void DelayableParticleEffect(int client)
+{
+	FF2Prep player = FF2Prep(client);
+	float duration = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "duration", 2, 2.0);
+	float radiusSquared = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "radius", 3, 1000.0);
+	radiusSquared = radiusSquared * radiusSquared;
+	char[] effectName = new char[48];
+	player.GetArgS(FAST_REG(rage_delayable_particle_effect), "particle", 4, effectName, 48);
+
 	static float bossPos[3];
-	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
+	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPos);
 	static float victimPos[3];
-	for (int victim = 1; victim < MAX_PLAYERS; victim++)
-	{
-		if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
-		{
+	for (int victim = 1; victim < MaxClients; victim++) {
+		if (ValidatePlayer(victim, AnyAlive) && GetClientTeam(victim) != FF2_GetBossTeam()) {
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
-			if (GetVectorDistance(bossPos, victimPos, true) <= radiusSquared)
-			{
-				int particle = AttachParticle(victim, effectName, 75.0);
-				if (particle != -1)
-					CreateTimer(duration, RemoveEntityDA, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE); // revamp note: I'm allowing this.
+			if (GetVectorDistance(bossPos, victimPos, true) <= radiusSquared) {
+				CreateTimedEntity(EntIndexToEntRef(AttachParticle(victim, effectName, 75.0)), duration);
 			}
 		}
 	}
-
-	DPE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-void Rage_DelayableParticleEffect(const char[] ability_name, int bossIdx)
+void Rage_DelayableParticleEffect(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float delay = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "delay", 1, 2.5);
+	int client = BossToClient(bossIdx);
 	
-	// everything looks good
-	if (delay > 0)
-		DPE_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
-	else
-		DelayableParticleEffect(clientIdx);
+	if(delay) {
+		DPE_ExecuteRageAt[client] = GetGameTime() + delay;
+		SDKHook(client, SDKHook_PostThinkPost, DPE_ThinkPost);
+		return;
+	}
+	DelayableParticleEffect(client);
 }
 
 /**
  * Delayable Building Destruction
  */
-void DestroyBuildingsOfType(const char[] classname, int clientIdx, bool saveByCarry, float radiusSquared)
+public void DBD_ThinkPost(int client)
 {
-	int building = 0;
-	while ((building = FindEntityByClassname(building, classname)) != -1)
-	{
-		// ensure the building is in range
+	if(DBD_ExecuteRageAt[client] >= GetGameTime()) {
+		DelayableBuildingDestruction(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, DBD_ThinkPost);
+	}
+}
+
+void DestroyBuildingsOfType(const int bits, int clientIdx, bool saveByCarry, float radiusSquared)
+{
+	int building = MaxClients + 1;
+	char clsname[64];
+	while((building = FindEntityByClassname(building, "obj_*")) != -1) {
+		if(!IsValidEntity(building)) {
+			continue;
+		}
+		GetEntityClassname(building, clsname, sizeof(clsname));
+		switch(clsname[5]) {
+			case 's': if(bits ^ (1 << 0)) continue;
+			case 'd': if(bits ^ (1 << 1)) continue;
+			case 't': if(bits ^ (1 << 2)) continue;
+		}
+		
 		static float bossPos[3];
 		static float objPos[3];
 		GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
 		GetEntPropVector(building, Prop_Send, "m_vecOrigin", objPos);
-		if (GetVectorDistance(bossPos, objPos, true) > radiusSquared)
+		if (GetVectorDistance(bossPos, objPos, true) > radiusSquared) {
 			continue;
-		
-		// holy shit, TakeDamage does what I want to do with Cheese. makes up for how difficult texture swap was. :P
-		// alas, I want to make this flexible, so gotta create the "destroy everything" version too
-		if (saveByCarry)
-			SDKHooks_TakeDamage(building, clientIdx, clientIdx, 5000.0, DMG_GENERIC, -1);
-		else if (!(GetEntProp(building, Prop_Send, "m_bCarried") == 0 && GetEntProp(building, Prop_Send, "m_bPlacing") != 0))
-		{
-			if (GetEntProp(building, Prop_Send, "m_bPlacing"))
-				Timer_RemoveEntity(building, 0.0);
-			else
-				SDKHooks_TakeDamage(building, clientIdx, clientIdx, 5000.0, DMG_GENERIC, -1);
 		}
 		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods1] (probably) Destroyed %s, entity# %d", classname, building);
+		if (saveByCarry) {
+			SDKHooks_TakeDamage(building, clientIdx, clientIdx, 5000.0, DMG_GENERIC, -1);
+		}
+		else if (!(GetEntProp(building, Prop_Send, "m_bCarried") == 0 && GetEntProp(building, Prop_Send, "m_bPlacing") != 0)) {
+			if (GetEntProp(building, Prop_Send, "m_bPlacing")) {
+				CreateTimedEntity(building, 0.0);
+			}
+			else {
+				SDKHooks_TakeDamage(building, clientIdx, clientIdx, 5000.0, DMG_GENERIC, -1);
+			}
+		}
 	}
 }
 
-void DelayableBuildingDestruction(int clientIdx)
+void DelayableBuildingDestruction(int client)
 {
-	int bossIdx = FF2_GetBossIndex(clientIdx);
-	if (bossIdx < 0)
-		return;
-
-	bool sentries = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 2) == 1;
-	bool dispensers = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 3) == 1;
-	bool teleporters = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 4) == 1;
-	bool saveByCarry = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DBD_STRING, 5) == 1;
-	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DBD_STRING, 6);
-	radiusSquared = radiusSquared * radiusSquared;
+	FF2Prep player = FF2Prep(client);
+	bool sentries = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "sentries", 2, 1) != 0;
+	bool dispensers = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "dispenser", 3, 1) != 0;
+	bool teleporters = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "teleporters", 4, 1) != 0;
+	bool saveByCarry = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "save by carry", 5, 1) != 0;
+	float radius = player.GetArgF(FAST_REG(rage_delayable_building_destruction), "radius", 6, 700.0);
+	radius *= radius;
 	
-	if (PRINT_DEBUG_INFO)
-		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, sentries=%d, dispensers=%d, teleporters=%d, engiecansave=%d, radiusSquared=%f", DBD_STRING, clientIdx, sentries, dispensers, teleporters, saveByCarry, radiusSquared);
-		
-	if (sentries)
-		DestroyBuildingsOfType("obj_sentrygun", clientIdx, saveByCarry, radiusSquared);
-	if (dispensers)
-		DestroyBuildingsOfType("obj_dispenser", clientIdx, saveByCarry, radiusSquared);
-	if (teleporters)
-		DestroyBuildingsOfType("obj_teleporter", clientIdx, saveByCarry, radiusSquared);
-
-	DBD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
+	int bits = 0x00;
+	bits &= sentries ? (1<<0):0;
+	bits &= dispensers ? (1<<1):0;
+	bits &= teleporters ? (1<<2):0;
+	DestroyBuildingsOfType(bits, client, saveByCarry, radius);
 }
 
-void Rage_DelayableBuildingDestruction(const char[] ability_name, int bossIdx)
+void Rage_DelayableBuildingDestruction(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float delay = player.GetArgF(FAST_REG(rage_delayable_damage), "delay", 1, 2.5);
+	int client = BossToClient(bossIdx);
 	
-	// everything looks good
-	if (delay > 0)
-		DBD_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
-	else
-		DelayableBuildingDestruction(clientIdx);
+	if(delay) {
+		DBD_ExecuteRageAt[client] = GetGameTime() + delay;
+		SDKHook(client, SDKHook_PostThinkPost, DBD_ThinkPost);
+		return;
+	}
+	DelayableBuildingDestruction(client);
 }
 
 /**
  * Delayable Earthquake
  */
-void DelayableEarthquake(int clientIdx)
+public void DE_ThinkPost(int client)
 {
-	int bossIdx = FF2_GetBossIndex(clientIdx);
-	if (bossIdx < 0)
-		return;
-		
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 2);
-	float radiusSquared = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 3);
-	radiusSquared = radiusSquared * radiusSquared;
-	float amplitude = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 4);
-	float frequency = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 5);
-	char soundFile[MAX_SOUND_FILE_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DE_STRING, 6, soundFile, MAX_SOUND_FILE_LENGTH);
-
-	if (PRINT_DEBUG_INFO)
-		PrintToServer("[sarysamods1] %s executing. BossIdx=%i, duration=%f, radiusSquared=%f, amplitude=%f, frequency=%f, sound=%s", DE_STRING, clientIdx, duration, radiusSquared, amplitude, frequency, soundFile);
-	
-	// shake it, Gummy! Uh-huh! You know it!
-	static float bossPos[3];
-	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
-	env_shake(bossPos, amplitude, radiusSquared, duration, frequency);
-	
-	// play optional sound
-	if (strlen(soundFile) > 3)
-	{
-		static float victimPos[3];
-		for (int victim = 1; victim < MAX_PLAYERS; victim++)
-		{
-			if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
-			{
-				GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
-				if (GetVectorDistance(bossPos, victimPos, true) <= radiusSquared)
-					EmitSoundToClient(victim, soundFile);
-			}
-		}
+	if(DD_ExecuteRageAt[client] >= GetGameTime()) {
+		DelayableEarthquake(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, DE_ThinkPost);
 	}
-		
-	DE_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-void Rage_DelayableEarthquake(const char[] ability_name, int bossIdx)
+void DelayableEarthquake(int client)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	FF2Prep player = FF2Prep(client);
+		
+	float duration = player.GetArgF(FAST_REG(rage_delayable_earthquake), "duration", 2, 5.0);
+	float raidus = player.GetArgF(FAST_REG(rage_delayable_earthquake), "radius", 3, 1000.0);
+	float amplitude = player.GetArgF(FAST_REG(rage_delayable_earthquake), "amplitude", 4, 6.0);
+	float frequency = player.GetArgF(FAST_REG(rage_delayable_earthquake), "frequency", 5, 1.0);
+	bool airshake = player.GetArgI(FAST_REG(rage_delayable_earthquake), "air shake", 6, 1) != 0;
+
+	static float bossPos[3];
+	GetClientAbsOrigin(client, bossPos);
+	FF2UTIL_ScreenShakeAll(player, bossPos, amplitude, frequency, duration, raidus, SHAKE_START, airshake);
+}
+
+void Rage_DelayableEarthquake(int bossIdx)
+{
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float delay = player.GetArgF(FAST_REG(rage_delayable_earthquake), "delay", 1, 1.5);
+	int client = BossToClient(bossIdx);
 	
-	// everything looks good
-	if (delay > 0)
-		DE_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
-	else
-		DelayableEarthquake(clientIdx);
+	if(delay) {
+		DE_ExecuteRageAt[client] = GetGameTime() + delay;
+		SDKHook(client, SDKHook_PostThinkPost, DE_ThinkPost);
+		return;
+	}
+	DelayableEarthquake(client);
 }
 
 /**
  * Delayable Damage
  */
-void DelayableDamage(int clientIdx)
+public void DD_ThinkPost(int client)
 {
-	int bossIdx = FF2_GetBossIndex(clientIdx);
-	if (bossIdx < 0)
-		return;
-		
-	float damage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 2);
-	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 3);
-	//int weapon = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 4); // useless, but I can't reclaim this prop since it's an old old boss :P
-	float knockback = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DD_STRING, 5);
-	bool scaleByDistance = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 6) == 1;
-	bool liftLowZ = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DD_STRING, 7) == 1;
+	if(DD_ExecuteRageAt[client] >= GetGameTime()) {
+		DelayableDamage(client);
+		SDKUnhook(client, SDKHook_PostThinkPost, DD_ThinkPost);
+	}
+}
 
-	if (PRINT_DEBUG_INFO)
-		PrintToServer("[sarysamods1] %s executing. clientIdx=%i, damage=%f, radius=%i, knockback=%f, scaleByDistance=%i, liftLowZ=%i", DD_STRING, clientIdx, damage, radius, knockback, scaleByDistance, liftLowZ);
+void DelayableDamage(int client)
+{
+	FF2Prep player = FF2Prep(client);
 	
+	float damage = player.GetArgF(FAST_REG(rage_delayable_damage), "damage", 2, 150.0);
+	float radius = player.GetArgF(FAST_REG(rage_delayable_damage), "radius", 3, 1200.0);
+	float knockback = player.GetArgF(FAST_REG(rage_delayable_damage), "knockback", 4, 1200.0);
+	bool scaleByDistance = player.GetArgI(FAST_REG(rage_delayable_damage), "scale by dist", 5, 1) == 1;
+	bool liftLowZ = player.GetArgI(FAST_REG(rage_delayable_damage), "z-lift", 6, 1) == 1;
+
 	static float bossPos[3];
-	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
+	GetClientAbsOrigin(client, bossPos);
 	static float victimPos[3];
 	static float kbTarget[3];
-	for (int victim = 1; victim < MAX_PLAYERS; victim++)
-	{
-		if (IsLivingPlayer(victim) && GetClientTeam(victim) != FF2_GetBossTeam())
+	float dist;
+	for (int victim = 1; victim < MaxClients; victim++) {
+		if (ValidatePlayer(victim, AnyAlive) && GetClientTeam(victim) != FF2_GetBossTeam())
 		{
+			GetClientAbsOrigin(victim, victimPos);
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
-			float distance = GetVectorDistance(bossPos, victimPos);
-			if (distance < radius && !TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
+			dist = GetVectorDistance(bossPos, victimPos);
+			if (dist < radius && !TF2_IsPlayerInCondition(victim, TFCond_Ubercharged))
 			{
-				SDKHooks_TakeDamage(victim, clientIdx, clientIdx, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
+				SDKHooks_TakeDamage(victim, client, client, damage, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
 				
-				// this seems to be how the cool kids are doing knockback...and subsequently how I do it for a zillion packs. hasn't gone wrong yet.
-				// dear god. early work. even at my age I still cringe at it.
-				if (knockback > 0.0)
+				if (knockback)
 				{
 					MakeVectorFromPoints(bossPos, victimPos, kbTarget);
 					NormalizeVector(kbTarget, kbTarget);
 					
-					// replace low Z values to give some lift, and give the hale designer more flexibility with the knockback.
 					if (kbTarget[2] < 0.1 && !(kbTarget[2] < 0 && liftLowZ))
 						kbTarget[2] = 0.1;
 					
-					ScaleVector(kbTarget, (scaleByDistance ? knockback : (knockback * (((radius - distance) * 2) / radius)))); // can opt to factor distance
+					ScaleVector(kbTarget, (scaleByDistance ? knockback : (knockback * (((radius - dist) * 2) / radius))));
 
 					TeleportEntity(victim, NULL_VECTOR, NULL_VECTOR, kbTarget);
 				}
 			}
 		}
 	}
-	
-	DD_ExecuteRageAt[clientIdx] = FAR_FUTURE;
 }
 
-void Rage_DelayableDamage(const char[] ability_name, int bossIdx)
+void Rage_DelayableDamage(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	FF2Prep player = FF2Prep(bossIdx, false);
+	float delay = player.GetArgF(FAST_REG(rage_delayable_damage), "delay", 1, 2.5);
+	int client = BossToClient(bossIdx);
 	
-	// everything looks good
-	if (delay > 0)
-		DD_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
-	else
-		DelayableDamage(clientIdx);
+	if(delay) {
+		DD_ExecuteRageAt[client] = GetGameTime() + delay;
+		SDKHook(client, SDKHook_PostThinkPost, DD_ThinkPost);
+		return;
+	}
+	DelayableDamage(client);
 }
 
 /**
  * Scaled Endgame Rage Gain (SERG)
  */
-public void SERG_GiveRageIfNecessary()
+public void SERG_ThinkPost(int client)
 {
-	// get a living red team count first of all
-	int clientCount = 0;
-	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-	{
-		if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) != FF2_GetBossTeam())
-			clientCount++;
-	}
-	
-	// now see if any of the hales get rage
-	if (clientCount > 0)
-	{
-		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-		{
-			if (!IsLivingPlayer(clientIdx))
-				continue;
-
-			if (SERG_CanUse[clientIdx] && SERG_PlayersAliveToStart[clientIdx] >= clientCount)
-			{
-				int bossIdx = FF2_GetBossIndex(clientIdx);
-				if (bossIdx < 0) // wtf?
-					continue;
-
-				float rageToGive = (SERG_OnePlayerRPS[clientIdx] * ((SERG_PlayersAliveToStart[clientIdx] - clientCount) + 1)) / SERG_PlayersAliveToStart[clientIdx];
-				float rage = FF2_GetBossCharge(bossIdx, 0);
-				rage += rageToGive;
-				if (rage > 100.0)
-					rage = 100.0;
-				FF2_SetBossCharge(bossIdx, 0, rage);
-			}
-		}
-	}
-	
-	SERG_NextCheckAt += SERG_INTERVAL;
-}
-
-/**
- * OnGameFrame, ditching the old timers
- */
-public void OnGameFrame()
-{
-	if (!PluginActiveThisRound || !RoundInProgress)
+	if(SERG_flNextThink[client] > GetGameTime()) {
 		return;
-	
-	float curTime = GetEngineTime();
-	
-	if (SERG_ActiveThisRound && curTime >= SERG_NextCheckAt)
-		SERG_GiveRageIfNecessary();
-
-	// combining things that need to loop through clients, for efficiency
-	if (DD_ActiveThisRound || DE_ActiveThisRound || DBD_ActiveThisRound || DPE_ActiveThisRound || AI_ActiveThisRound)
-	{
-		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
-		{
-			if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != FF2_GetBossTeam())
-				continue;
-				
-			if (DD_CanUse[clientIdx] && curTime >= DD_ExecuteRageAt[clientIdx])
-				DelayableDamage(clientIdx);
-			if (DE_CanUse[clientIdx] && curTime >= DE_ExecuteRageAt[clientIdx])
-				DelayableEarthquake(clientIdx);
-			if (DBD_CanUse[clientIdx] && curTime >= DBD_ExecuteRageAt[clientIdx])
-				DelayableBuildingDestruction(clientIdx);
-			if (DPE_CanUse[clientIdx] && curTime >= DPE_ExecuteRageAt[clientIdx])
-				DelayableParticleEffect(clientIdx);
-			if (AI_CanUse[clientIdx] && curTime >= AI_EndsAt[clientIdx])
-				AI_EndRage(clientIdx);
+	}
+	SERG_flNextThink[client] = GetGameTime() + 1.0;
+	int count = GetClientTeam(client) == FF2_GetBossTeam() ? infos.iAlives:infos.iBosses;
+	if(SERG_PlayersAliveToStart[client] >= count) {
+		int boss = FF2_GetBossIndex(client);
+		float rtg = (SERG_OnePlayerRPS[client] * ((SERG_PlayersAliveToStart[client] - count) + 1)) / SERG_PlayersAliveToStart[client];
+		float rage = FF2_GetBossCharge(boss, 0) + rtg;
+		if(rage > 100.0) {
+			rage = 100.0;
 		}
+		FF2_SetBossCharge(boss, 0, rage);
 	}
 }
 
 /**
  * Stocks
  */
-stock bool IsLivingPlayer(int clientIdx)
+#define MAX_SHAKE_AMPLITUDE 16.0
+void FF2UTIL_ScreenShakeAll(FF2Prep player, const float center[3], float amplitude, float frequency, float duration, float radius, ShakeCommand_t eCommand, bool AirShake = true)
 {
-	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
-		return false;
+	static bool usesound = false;
+	char[] soundFile = new char[128];
+	usesound = player.GetArgS(FAST_REG(rage_delayable_earthquake), "sound", 7, soundFile, 128);
+	if(usesound) {
+		PrecacheSound(soundFile);
+	}
+	
+	int i;
+	float LocalAmplitude;
+	
+	if( amplitude > MAX_SHAKE_AMPLITUDE)
+		amplitude = MAX_SHAKE_AMPLITUDE;
+	
+	static float Origin[3];
+	
+	for (i = 1; i <= MaxClients; i++) {
+		if(!ValidatePlayer(i, AnyAlive)) {
+			continue;
+		}
 		
-	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
-}
-
-/**
- * CODE BELOW WAS TAKEN STRAIGHT FROM PHATRAGES, I TAKE NO CREDIT FOR IT
- */
-void env_shake(float Origin[3], float Amplitude, float Radius, float Duration, float Frequency)
-{
-	static int Ent;
-
-	//Initialize:
-	Ent = CreateEntityByName("env_shake");
+		if (!AirShake && eCommand == SHAKE_START && GetEntityFlags(i) & ~FL_ONGROUND) {
+			continue;
+		}
 		
-	//Spawn:
-	if (IsValidEntity(Ent))
-	{
-		//Properties:
-		DispatchKeyValueFloat(Ent, "amplitude", Amplitude);
-		DispatchKeyValueFloat(Ent, "radius", Radius);
-		DispatchKeyValueFloat(Ent, "duration", Duration);
-		DispatchKeyValueFloat(Ent, "frequency", Frequency);
-
-		SetVariantString("spawnflags 8");
-		AcceptEntityInput(Ent,"AddOutput");
-
-		//Input:
-		AcceptEntityInput(Ent, "StartShake", 0);
+		GetClientAbsOrigin(i, Origin);
+		LocalAmplitude = ComputeShakeAmplitude(center, Origin, amplitude, radius);
+		if(LocalAmplitude <0) {
+			continue;
+		}
 		
-		// create
-		DispatchSpawn(Ent);
+		if(usesound && GetClientTeam(i) != FF2_GetBossTeam() && GetVectorDistance(center, Origin, true) <= radius*radius) {
+			EmitSoundToClient(i, soundFile);
+		}
 		
-		//Send:
-		TeleportEntity(Ent, Origin, NULL_VECTOR, NULL_VECTOR);
-
-		//Delete:
-		Timer_RemoveEntity(Ent, Duration + 1.0);
+		TransmitShakeEvent(i, LocalAmplitude, frequency, duration, eCommand);
 	}
 }
 
-void Timer_RemoveEntity(int entity, float time = 0.0)
+static stock void TransmitShakeEvent(int client, float LocalAmplitude, float frequency, float duration, ShakeCommand_t eCommand)
+{
+	if(LocalAmplitude>0.0 || eCommand == SHAKE_STOP) {
+		if(eCommand)	
+			LocalAmplitude = 0.0;
+		
+		BfWrite DoShake = UserMessageToBfWrite(StartMessageOne("Shake", client, 1));
+		
+		DoShake.WriteByte(view_as<int>(eCommand));
+		DoShake.WriteFloat(LocalAmplitude);
+		DoShake.WriteFloat(frequency);
+		DoShake.WriteFloat(duration);
+		
+		EndMessage();
+	}
+}
+static stock float ComputeShakeAmplitude(const float Center[3], const float ShakePt[3], float amplitude, float radius)
+{
+	if(radius <= 0) {
+		return amplitude;
+	}
+
+	float localAmplitude = -1.0;
+	static float delta[3];
+	SubtractVectors(Center, ShakePt, delta);
+	
+	float distance = GetVectorLength(delta);
+
+	if(distance <= radius) {
+		float flPerc = 1.0 - (distance / radius);
+		localAmplitude = amplitude * flPerc;
+	}
+	return localAmplitude;
+}
+
+void CreateTimedEntity(int entity, float time = 0.0)
 {
 	if (time == 0.0)
 	{
@@ -661,23 +718,9 @@ public Action RemoveEntityTimer(Handle Timer, any entRef)
 	int entity = EntRefToEntIndex(entRef);
 	if(IsValidEntity(entity))
 		RemoveEntity(entity);
-	
-	return Plugin_Stop;
 }
 
-/**
- * CODE BELOW TAKEN FROM default_abilities, I CLAIM NO CREDIT
- */
-public Action RemoveEntityDA(Handle timer, any entid)
-{
-	int entity=EntRefToEntIndex(entid);
-	if(IsValidEdict(entity) && entity>MAX_PLAYERS)
-	{
-		RemoveEntity(entity);
-	}
-}
-
-stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool attach=true)
+stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
 	int particle = CreateEntityByName("info_particle_system");
 	if (!IsValidEntity(particle))
@@ -697,8 +740,7 @@ stock int AttachParticle(int entity, char[] particleType, float offset=0.0, bool
 	DispatchKeyValue(particle, "effect_name", particleType);
 	DispatchSpawn(particle);
 	SetVariantString(targetName);
-	if(attach)
-	{
+	if(attach) {
 		AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 		SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", entity);
 	}

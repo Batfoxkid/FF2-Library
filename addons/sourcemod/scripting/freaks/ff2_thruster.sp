@@ -1,110 +1,81 @@
-#pragma semicolon 1
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
-#include <tf2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
-#define IN_ATTACK		(1 << 0)
-#define IN_JUMP			(1 << 1)
-#define IN_DUCK			(1 << 2)
-#define IN_FORWARD		(1 << 3)
-#define IN_BACK			(1 << 4)
-#define IN_USE			(1 << 5)
-#define IN_CANCEL		(1 << 6)
-#define IN_LEFT			(1 << 7)
-#define IN_RIGHT		(1 << 8)
-#define IN_MOVELEFT		(1 << 9)
-#define IN_MOVERIGHT		(1 << 10)
-#define IN_ATTACK2		(1 << 11)
-#define IN_RUN			(1 << 12)
-#define IN_RELOAD		(1 << 13)
-#define IN_ALT1			(1 << 14)
-#define IN_ALT2			(1 << 15)
-#define IN_SCORE		(1 << 16)   	/**< Used by client.dll for when scoreboard is held down */
-#define IN_SPEED		(1 << 17)	/**< Player is holding the speed key */
-#define IN_WALK			(1 << 18)	/**< Player holding walk key */
-#define IN_ZOOM			(1 << 19)	/**< Zoom key for HUD zoom */
-#define IN_WEAPON1		(1 << 20)	/**< weapon defines these bits */
-#define IN_WEAPON2		(1 << 21)	/**< weapon defines these bits */
-#define IN_BULLRUSH		(1 << 22)
-#define IN_GRENADE1		(1 << 23)	/**< grenade 1 */
-#define IN_GRENADE2		(1 << 24)	/**< grenade 2 */
-#define IN_ATTACK3		(1 << 25)
-#define MAX_BUTTONS 26
+#pragma semicolon 1
+#pragma newdecls required
 
 #define PLUGIN_VERSION "1.1"
 
-new string_hud = 128;
-new string_path = 256;
+int string_hud = 128;
+int string_path = 256;
 
-new RoundActive;
+int RoundActive;
 
 //aoe effects
-new FF2ThrustAOEFlags[MAXPLAYERS+1]=0;
-new Float:FF2ThrustAOEDmg[MAXPLAYERS+1]=0.0;
-new Float:FF2ThrustAOE[MAXPLAYERS+1]=300.0;
-new FF2LandAOEFlags[MAXPLAYERS+1]=0;
-new Float:FF2LandAOEDmg[MAXPLAYERS+1]=0.0;
-new Float:FF2LandAOE[MAXPLAYERS+1]=300.0;
-new FF2DmgFix[MAXPLAYERS+1]=1;
+int FF2ThrustAOEFlags[MAXPLAYERS+1]=0;
+float FF2ThrustAOEDmg[MAXPLAYERS+1]=0.0;
+float FF2ThrustAOE[MAXPLAYERS+1]=300.0;
+int FF2LandAOEFlags[MAXPLAYERS+1]=0;
+float FF2LandAOEDmg[MAXPLAYERS+1]=0.0;
+float FF2LandAOE[MAXPLAYERS+1]=300.0;
+int FF2DmgFix[MAXPLAYERS+1]=1;
 
 //stun and addcond during thrust
-new FF2ThrustStunType[MAXPLAYERS+1]=0;
-new Float:FF2ThrustStunDur[MAXPLAYERS+1]=0.0;
-new String:FF2ThrustCond[MAXPLAYERS+1][128];
+int FF2ThrustStunType[MAXPLAYERS+1]=0;
+float FF2ThrustStunDur[MAXPLAYERS+1]=0.0;
+char FF2ThrustCond[MAXPLAYERS+1][128];
 
 //how thrusting is controlled
-new FF2ThrustAir[MAXPLAYERS+1]=0;
-new Float:FF2ThrustDiminishRate[MAXPLAYERS+1]=0.0;
-new Float:FF2ThrustDiminishMin[MAXPLAYERS+1]=450.0;
-new Float:FF2ThrustVertPower[MAXPLAYERS+1]=900.0;
-new Float:FF2ThrustHoriPower[MAXPLAYERS+1]=600.0;
-new Float:FF2ThrustSmalPower[MAXPLAYERS+1]=400.0;
-new Float:FF2ThrustEMult[MAXPLAYERS+1]=2.0;
+int FF2ThrustAir[MAXPLAYERS+1]=0;
+float FF2ThrustDiminishRate[MAXPLAYERS+1]=0.0;
+float FF2ThrustDiminishMin[MAXPLAYERS+1]=450.0;
+float FF2ThrustVertPower[MAXPLAYERS+1]=900.0;
+float FF2ThrustHoriPower[MAXPLAYERS+1]=600.0;
+float FF2ThrustSmalPower[MAXPLAYERS+1]=400.0;
+float FF2ThrustEMult[MAXPLAYERS+1]=2.0;
 
 //resource reqs for thruster
-new Float:FF2ThrustCooldown[MAXPLAYERS+1]=15.0;
-new Float:FF2ThrustCost[MAXPLAYERS+1]=5.0;
-new FF2ThrustCharges[MAXPLAYERS+1]=0;
-new FF2ThrustChargesMax[MAXPLAYERS+1]=1;
+float FF2ThrustCooldown[MAXPLAYERS+1]=15.0;
+float FF2ThrustCost[MAXPLAYERS+1]=5.0;
+int FF2ThrustCharges[MAXPLAYERS+1]=0;
+int FF2ThrustChargesMax[MAXPLAYERS+1]=1;
 
 //graphical and sound
-new String:FF2ThrustSmallSound[MAXPLAYERS+1][128];
-new String:FF2ThrustLargeSound[MAXPLAYERS+1][128];
-new String:FF2ThrustBlastEffect[MAXPLAYERS+1][128];
-new String:FF2ThrustExhaustEffect[MAXPLAYERS+1][128];
-new FF2ThrustEffectStyle[MAXPLAYERS+1];
-new Float:FF2ThrustEffectOffset[MAXPLAYERS+1];
+char FF2ThrustSmallSound[MAXPLAYERS+1][128];
+char FF2ThrustLargeSound[MAXPLAYERS+1][128];
+char FF2ThrustBlastEffect[MAXPLAYERS+1][128];
+char FF2ThrustExhaustEffect[MAXPLAYERS+1][128];
+int FF2ThrustEffectStyle[MAXPLAYERS+1];
+float FF2ThrustEffectOffset[MAXPLAYERS+1];
 
-new bool:FF2ThrustEnable[MAXPLAYERS+1]=false;
-new FF2ThrustButton[MAXPLAYERS+1]=1;
+bool FF2ThrustEnable[MAXPLAYERS+1]=false;
+int FF2ThrustButton[MAXPLAYERS+1]=1;
 
 //hud
-new HUDThrustStyle[MAXPLAYERS+1]=0;
-new Float:HUDThrustOffset[MAXPLAYERS+1]=0.77;
+int HUDThrustStyle[MAXPLAYERS+1]=0;
+float HUDThrustOffset[MAXPLAYERS+1]=0.77;
 
-new Float:NextThrust[MAXPLAYERS+1];
-new Float:NextCharge[MAXPLAYERS+1];
-new Float:GraceTimer[MAXPLAYERS+1];
-new Float:PanicMode[MAXPLAYERS+1];
-new Float:WorldDmg[MAXPLAYERS+1];
-new AirDashCount[MAXPLAYERS+1];
-new LastButtons[MAXPLAYERS+1];
-new bool:AddcondAirList[MAXPLAYERS+1][128];
+float NextThrust[MAXPLAYERS+1];
+float NextCharge[MAXPLAYERS+1];
+float GraceTimer[MAXPLAYERS+1];
+float PanicMode[MAXPLAYERS+1];
+float WorldDmg[MAXPLAYERS+1];
+int AirDashCount[MAXPLAYERS+1];
+int LastButtons[MAXPLAYERS+1];
+bool AddcondAirList[MAXPLAYERS+1][128];
 
 //graphical stuff
-new bool:TrailActive[MAXPLAYERS+1]; //used for graphics but is also used to determine if in mid flight
-new RT_EntRef[MAXPLAYERS+1][2];
-new Float:LastFallSpeed[MAXPLAYERS+1];
-new Handle:JetPackHUD;
+bool TrailActive[MAXPLAYERS+1]; //used for graphics but is also used to determine if in mid flight
+int RT_EntRef[MAXPLAYERS+1][2];
+float LastFallSpeed[MAXPLAYERS+1];
+Handle JetPackHUD;
 
-new Handle:hTrace; //for wall checks
+Handle hTrace; //for wall checks
 
-public Plugin:myinfo=
+public Plugin myinfo=
 {
 	name="Freak Fortress 2: Thruster",
 	author="kking117",
@@ -112,17 +83,7 @@ public Plugin:myinfo=
 	version=PLUGIN_VERSION,
 };
 
-new Handle:OnHaleRage=INVALID_HANDLE;
-
-new BossTeam=_:TFTeam_Blue;
-
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
-{
-	OnHaleRage=CreateGlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
-	return APLRes_Success;
-}
-
-public OnPluginStart2()
+public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
@@ -130,21 +91,15 @@ public OnPluginStart2()
 	JetPackHUD=CreateHudSynchronizer();
 }
 
-public Action:Timer_GetBossTeam(Handle:timer)
-{
-	BossTeam=FF2_GetBossTeam();
-	return Plugin_Continue;
-}
-
-public OnClientPutInServer(client)
+public void OnClientPutInServer(int client)
 {
 	ClearVariables(client);
 }
 
-public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
-    RoundActive=1;
-	for(new client=1; client<=MaxClients; client++)
+	RoundActive=1;
+	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client))
 		{
@@ -158,15 +113,14 @@ public Action:OnRoundStart(Handle:event, const String:name[], bool:dontBroadcast
 			}
 		}
 	}
-	CreateTimer(0.3, Timer_GetBossTeam, _, TIMER_FLAG_NO_MAPCHANGE);
 	CreateTimer(0.2, ClientTimer, _, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 	return Plugin_Continue;
 }
 
-public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-    RoundActive=0;
-	for(new client=1; client<=MaxClients; client++)
+	RoundActive=0;
+	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client))
 		{
@@ -176,9 +130,9 @@ public Action:OnRoundEnd(Handle:event, const String:name[], bool:dontBroadcast)
 	return Plugin_Continue;
 }
 
-RegisterBossAbility(client, String:ability_name[])
+void RegisterBossAbility(int client, char[] ability_name)
 {
-	new boss=FF2_GetBossIndex(client);
+	int boss=FF2_GetBossIndex(client);
 	if(boss>-1)
 	{
 		if(!strcmp(ability_name, "thruster_ability"))
@@ -227,17 +181,12 @@ RegisterBossAbility(client, String:ability_name[])
 }
 
 //this has no real business being here, but I left it anyway just in case
-public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:ability_name[], status)
-{
-	new slot=FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 0);
-	new client=GetClientOfUserId(FF2_GetBossUserId(boss));
-	if(!strcmp(ability_name, "thruster_ability"))
-	{
-	}
-	return Plugin_Continue;
+public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status){
 }
 
-public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:angles[3], &weapon)
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
+							float velocity[3], float angles[3], int& weapon, 
+							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
     if(IsValidClient(client) && IsBoss(client))
 	{
@@ -322,18 +271,18 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 					}
 					else
 					{
-						new Float:vPos[3];
-						new Float:vel[3]; //this was already declared, but I don't give a damn
+						float vPos[3];
+						float vel[3]; //this was already declared, but I don't give a damn
 						GetEntPropVector(client, Prop_Data, "m_vecVelocity", vel);
 						GetEntPropVector(client, Prop_Send, "m_vecOrigin", vPos);
-						new trail1 = EntRefToEntIndex(RT_EntRef[client][0]);
-						new trail2 = EntRefToEntIndex(RT_EntRef[client][1]);
+						int trail1 = EntRefToEntIndex(RT_EntRef[client][0]);
+						int trail2 = EntRefToEntIndex(RT_EntRef[client][1]);
 						TF2_AddCondition(client, TFCond_RocketPack, 0.5);
 						if(FF2ThrustEffectStyle[client]==1)
 						{
 							if(IsValidEntity(trail1))
 							{
-								new Float:vAng[3];
+								float vAng[3];
 								GetEntPropVector(client, Prop_Send, "m_vecOrigin", vPos);
 								GetEntPropVector(client, Prop_Send, "m_angRotation", vAng);
 								GetAngleVectors(vAng, vAng, NULL_VECTOR, NULL_VECTOR);
@@ -347,7 +296,7 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
 						{
 							if(IsValidEntity(trail1))
 							{
-								new Float:vAng[3];
+								float vAng[3];
 								GetEntPropVector(client, Prop_Send, "m_vecOrigin", vPos);
 								GetEntPropVector(client, Prop_Send, "m_angRotation", vAng);
 								vAng[0] =0.0;
@@ -396,13 +345,13 @@ public Action:OnPlayerRunCmd(client, &buttons, &impulse, Float:vel[3], Float:ang
     return Plugin_Changed;
 }
 
-public Action:ClientTimer(Handle:timer)
+public Action ClientTimer(Handle timer)
 {
-    if(RoundActive!=1)
+	if(RoundActive!=1)
 	{
 	    return Plugin_Stop;
 	}
-	for(new client=1; client<=MaxClients; client++)
+	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client) && IsBoss(client) && FF2ThrustEnable[client])
 		{
@@ -423,8 +372,8 @@ public Action:ClientTimer(Handle:timer)
 				}
 				if(PanicMode[client]>=GetGameTime())
 				{
-					new Float:chargeprcnt = NextThrust[client]-GetGameTime();
-					new String:HudMsg[129];
+					float chargeprcnt = NextThrust[client]-GetGameTime();
+					char HudMsg[129];
 					if(HUDThrustStyle[client]==1)
 					{
 						chargeprcnt = 100.0 - (((NextThrust[client]-GetGameTime()) / 1.5)*100.0);
@@ -451,8 +400,8 @@ public Action:ClientTimer(Handle:timer)
 				}
 				else
 				{
-					new Float:chargeprcnt = NextCharge[client]-GetGameTime();
-					new String:HudMsg[129];
+					float chargeprcnt = NextCharge[client]-GetGameTime();
+					char HudMsg[129];
 					if(HUDThrustStyle[client]==1)
 					{
 						chargeprcnt = 100.0 - (((NextCharge[client]-GetGameTime()) / FF2ThrustCooldown[client])*100.0);
@@ -504,11 +453,11 @@ public Action:ClientTimer(Handle:timer)
 	return Plugin_Continue;
 }
 
-public Action:OnPlayerHurt(Handle:event, const String:name[], bool:dontBroadcast)
+public Action OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 {
-	new client=GetClientOfUserId(GetEventInt(event, "userid"));
-	new attacker=GetClientOfUserId(GetEventInt(event, "attacker"));
-	new damage=GetEventInt(event, "damageamount");
+	int client=GetClientOfUserId(event.GetInt("userid"));
+	int attacker=GetClientOfUserId(event.GetInt("attacker"));
+	int damage=event.GetInt("damageamount");
 	if(IsBoss(client))
 	{
 		if(!IsValidClient(attacker) && FF2ThrustEMult[client] != 0.0)
@@ -519,10 +468,10 @@ public Action:OnPlayerHurt(Handle:event, const String:name[], bool:dontBroadcast
 }
 
 //used to activate the first weaker blast from the tt
-TTLaunchSmall(client)
+void TTLaunchSmall(int client)
 {
-	new Float:vLoc[3]; //position
-	new Float:vVel[3]; //velocity
+	float vLoc[3]; //position
+	float vVel[3]; //velocity
 	GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVel);
 	if ((GetEntityFlags(client) & FL_ONGROUND))
 	{
@@ -558,7 +507,7 @@ TTLaunchSmall(client)
 	}
 }
 
-public Action:Timer_DeployParachute(Handle:timer, client)
+public Action Timer_DeployParachute(Handle timer, int client)
 {
 	client = GetClientOfUserId(client);
 	if(IsValidClient(client) && IsPlayerAlive(client))
@@ -567,7 +516,7 @@ public Action:Timer_DeployParachute(Handle:timer, client)
 	}
 }
 
-public Action:Timer_BigBlast(Handle:timer, client)
+public Action Timer_BigBlast(Handle timer, int client)
 {
 	client = GetClientOfUserId(client);
 	if(IsValidClient(client) && IsPlayerAlive(client))
@@ -577,11 +526,11 @@ public Action:Timer_BigBlast(Handle:timer, client)
 }
 
 //used to activate the second stronger blast from the tt
-TTLaunchBig(client)
+void TTLaunchBig(int client)
 {
-	new Float:vLoc[3]; //position
-	new Float:vAng[3]; //position
-	new Float:vVel[3]; //velocity
+	float vLoc[3]; //position
+	float vAng[3]; //position
+	float vVel[3]; //velocity
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", vLoc);
 	vLoc[2] += GetEntityHeight(client, 0.25);
 	GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVel);
@@ -655,7 +604,7 @@ TTLaunchBig(client)
 	}
 	TrailActive[client]=true;
 	EmitSoundToAll(FF2ThrustLargeSound[client], client, _, _, _, 0.7);
-	new Float:stundur = FF2ThrustStunDur[client];
+	float stundur = FF2ThrustStunDur[client];
 	if(FF2ThrustStunType[client]>0)
 	{
 		if(stundur<0.0)
@@ -687,11 +636,11 @@ TTLaunchBig(client)
 	SetPlayerCondition(client, FF2_GetBossIndex(client), FF2ThrustCond[client]);
 }
 
-TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
+void TTBlastAOE(int client, float power, float dist, int aoeflags, float dmg)
 {
-	new Float:clientPosition[3];
-	new Float:targetPosition[3];
-	new Float:buffer[3];
+	float clientPosition[3];
+	float targetPosition[3];
+	float buffer[3];
 	if (power > 3500.0)
 	{
 		power = 3500.0;
@@ -702,7 +651,7 @@ TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
 	}
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", clientPosition);
 	clientPosition[2] += GetEntityHeight(client, 0.5);
-	for(new target=1; target<=MaxClients; target++)
+	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsValidClient(target) && IsPlayerAlive(target) && client!=target)
 		{
@@ -710,7 +659,7 @@ TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
 			targetPosition[2] += GetEntityHeight(client, 0.5);
 			if(GetVectorDistance(clientPosition, targetPosition)<=dist && InClearView(clientPosition, targetPosition, target))
 			{
-				new Float:DistDif = GetVectorDistance(clientPosition, targetPosition);
+				float DistDif = GetVectorDistance(clientPosition, targetPosition);
 				if((aoeflags & 1) && GetClientTeam(target) != GetClientTeam(client))
 				{
 					TF2_IgnitePlayer(target, client);
@@ -721,7 +670,7 @@ TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
 				}
 				if((GetEntityFlags(target) & FL_ONGROUND) && (aoeflags & 4))
 				{
-					new Float:kb = ((75.0+power)*50.0) / (100.0+(DistDif*0.5));
+					float kb = ((75.0+power)*50.0) / (100.0+(DistDif*0.5));
 					TF2_AddCondition(target, TFCond_LostFooting, 1.0, client);
 					
 					
@@ -735,13 +684,13 @@ TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
 				}
 				if(dmg>0.0 && GetClientTeam(target) != GetClientTeam(client))
 				{
-					new Float:FallOff = ((DistDif+(dist*0.25))/dist)*0.5;
+					float FallOff = ((DistDif+(dist*0.25))/dist)*0.5;
 					if (FallOff>0.5)
 					{
 						FallOff = 0.5;
 					}
 					FallOff = 1.0 - FallOff;
-					new Float:aoedmg = dmg * FallOff;
+					float aoedmg = dmg * FallOff;
 					if(FF2DmgFix[client]!=0)
 					{
 						if(aoedmg<=160.0)
@@ -756,16 +705,16 @@ TTBlastAOE(client, Float:power, Float:dist, aoeflags, Float:dmg)
 	}
 }
 
-DamageEntity(client, attacker = 0, Float:dmg, dmg_type = DMG_GENERIC)
+void DamageEntity(int client, int attacker = 0, float dmg, int dmg_type = DMG_GENERIC)
 {
 	if(IsValidClient(client) || IsValidEntity(client))
 	{
-		new damage = RoundToNearest(dmg);
-		new String:dmg_str[16];
+		int damage = RoundToNearest(dmg);
+		char dmg_str[16];
 		IntToString(damage,dmg_str,16);
-		new String:dmg_type_str[32];
+		char dmg_type_str[32];
 		IntToString(dmg_type,dmg_type_str,32);
-		new pointHurt=CreateEntityByName("point_hurt");
+		int pointHurt=CreateEntityByName("point_hurt");
 		if(pointHurt)
 		{
 			DispatchKeyValue(client,"targetname","targetsname");
@@ -775,29 +724,29 @@ DamageEntity(client, attacker = 0, Float:dmg, dmg_type = DMG_GENERIC)
 			DispatchSpawn(pointHurt);
 			if(IsValidEntity(attacker))
 			{
-			    new Float:AttackLocation[3];
-		        GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", AttackLocation);
+				float AttackLocation[3];
+				GetEntPropVector(attacker, Prop_Send, "m_vecOrigin", AttackLocation);
 				TeleportEntity(pointHurt, AttackLocation, NULL_VECTOR, NULL_VECTOR);
 			}
 			AcceptEntityInput(pointHurt,"Hurt",(attacker>0)?attacker:-1);
 			DispatchKeyValue(pointHurt,"classname","point_hurt");
 			DispatchKeyValue(client,"targetname","war3_donthurtme");
-			RemoveEdict(pointHurt);
+			RemoveEntity(pointHurt);
 		}
 	}
 }
 
-stock SetPlayerCondition(client, boss, String:cond[])
+stock void SetPlayerCondition(int client, int boss, char[] cond)
 {
-	new String:conds[32][32];
-	new count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
+	char conds[32][32];
+	int count = ExplodeString(cond, " ; ", conds, sizeof(conds), sizeof(conds));
 	if (count > 0)
 	{
-		new Float:dur;
-		new id;
-		for (new i = 0; i < count; i+=2)
+		float dur;
+		int id;
+		for (int i = 0; i < count; i+=2)
 		{
-			if(!TF2_IsPlayerInCondition(client, TFCond:StringToInt(conds[i])))
+			if(!TF2_IsPlayerInCondition(client, view_as<TFCond>(StringToInt(conds[i]))))
 			{
 				dur = StringToFloat(conds[i+1]);
 				id = StringToInt(conds[i]);
@@ -813,30 +762,30 @@ stock SetPlayerCondition(client, boss, String:cond[])
 				{
 					dur=9999.0;
 				}
-				TF2_AddCondition(client, id, dur); ///says this is a tag match but works as intended
+				TF2_AddCondition(client, view_as<TFCond>(id), dur); ///says this is a tag match but works as intended
 			}
 		}
 	}
 }
 
-KillRocketTrails(client)
+void KillRocketTrails(int client)
 {
 	if (RT_EntRef[client][0]!=0)
 	{
-		new trail1 = EntRefToEntIndex(RT_EntRef[client][0]);
+		int trail1 = EntRefToEntIndex(RT_EntRef[client][0]);
 		if(IsValidEntity(trail1))
 		{
-			AcceptEntityInput(trail1, "Kill");
+			RemoveEntity(trail1);
 			TrailActive[client]=false;
 		}
 		RT_EntRef[client][0]=0;
 	}
 	if (RT_EntRef[client][1]!=0)
 	{
-		new trail2 = EntRefToEntIndex(RT_EntRef[client][1]);
+		int trail2 = EntRefToEntIndex(RT_EntRef[client][1]);
 		if(IsValidEntity(trail2))
 		{
-			AcceptEntityInput(trail2, "Kill");
+			RemoveEntity(trail2);
 			TrailActive[client]=false;
 		}
 		RT_EntRef[client][1]=0;
@@ -844,12 +793,12 @@ KillRocketTrails(client)
 	TrailActive[client]=false;
 }
 
-CreateRocketTrail(client, String:particlename[], bool:dotwo)
+void CreateRocketTrail(int client, char[] particlename, bool dotwo)
 {
     if(IsValidClient(client))
 	{
-		new particle = CreateEntityByName("info_particle_system");
-		if (IsValidEdict(particle))
+		int particle = CreateEntityByName("info_particle_system");
+		if (IsValidEntity(particle))
 		{
 			DispatchKeyValue(particle, "targetname", "tf2particle");
 			DispatchKeyValue(particle, "effect_name", particlename);
@@ -862,7 +811,7 @@ CreateRocketTrail(client, String:particlename[], bool:dotwo)
 		if(dotwo)
 		{
 			particle = CreateEntityByName("info_particle_system");
-			if (IsValidEdict(particle))
+			if (IsValidEntity(particle))
 			{
 				DispatchKeyValue(particle, "targetname", "tf2particle");
 				DispatchKeyValue(particle, "effect_name", particlename);
@@ -876,11 +825,11 @@ CreateRocketTrail(client, String:particlename[], bool:dotwo)
 	}
 }
 
-CreateParticleBlast(entity, String:particlename[], Float:vloc[3])
+void CreateParticleBlast(int entity, char[] particlename, float vloc[3])
 {
-	new particle = CreateEntityByName("info_particle_system");
-    new String:tName[128];
-    if (IsValidEdict(particle))
+	int particle = CreateEntityByName("info_particle_system");
+	char tName[128];
+	if (IsValidEntity(particle))
     {
 		Format(tName, sizeof(tName), "target%i", entity);
 		DispatchKeyValue(particle, "effect_name", particlename);
@@ -892,16 +841,16 @@ CreateParticleBlast(entity, String:particlename[], Float:vloc[3])
     }
 }
 
-public Action:Timer_RemoveParticle(Handle:timer, entity)
+public Action Timer_RemoveParticle(Handle timer, int ref)
 {
-	entity = EntRefToEntIndex(entity);
+	int entity = EntRefToEntIndex(ref);
 	if(IsValidEntity(entity))
 	{
-		AcceptEntityInput(entity, "Kill");
+		RemoveEntity(entity);
 	}
 }
 
-ClearVariables(client)
+void ClearVariables(int client)
 {
 	FF2ThrustAOEFlags[client]=0;
 	FF2ThrustAOEDmg[client]=0.0;
@@ -951,28 +900,28 @@ ClearVariables(client)
 	ClearAddcondList(client);
 }
 
-ClearAddcondList(client)
+void ClearAddcondList(int client)
 {
-	for(new id=0; id<=127; id++)
+	for(int id=0; id<=127; id++)
 	{
 		AddcondAirList[client][id] = false;
 	}
 }
 
 //does the same as clearaddcondlist but also removes the addconds from the client
-RemoveAddconds(client)
+void RemoveAddconds(int client)
 {
-	for(new id=0; id<=127; id++)
+	for(int id=0; id<=127; id++)
 	{
 		if(AddcondAirList[client][id]==true)
 		{
-			TF2_RemoveCondition(client, id); //says it's a tag mismatch but works fine
+			TF2_RemoveCondition(client, view_as<TFCond>(id)); //says it's a tag mismatch but works fine
 		}
 		AddcondAirList[client][id] = false;
 	}
 }
 
-stock CanThrust(client)
+stock int CanThrust(int client)
 {
 	//reasons
 	//0 = can use
@@ -1034,12 +983,12 @@ stock CanThrust(client)
 	}
 }
 
-stock Float:GetDiminishForce(client, type)
+stock float GetDiminishForce(int client, int type)
 {
-	new Float:Reduce = FF2ThrustDiminishRate[client]*AirDashCount[client];
-	new Float:ForceTotalOG = FF2ThrustVertPower[client] + FF2ThrustHoriPower[client] + FF2ThrustSmalPower[client];
-	new Float:ForceTotal = ForceTotalOG;
-	new Float:EMult = FF2ThrustEMult[client];
+	float Reduce = FF2ThrustDiminishRate[client]*AirDashCount[client];
+	float ForceTotalOG = FF2ThrustVertPower[client] + FF2ThrustHoriPower[client] + FF2ThrustSmalPower[client];
+	float ForceTotal = ForceTotalOG;
+	float EMult = FF2ThrustEMult[client];
 	if(PanicMode[client]<GetGameTime())
 	{
 		EMult = 1.0;
@@ -1067,13 +1016,13 @@ stock Float:GetDiminishForce(client, type)
 	return 0.0;
 }
 
-stock Float:GetEntityHeight(entity, Float:mult)
+stock float GetEntityHeight(int entity, float mult)
 {
-    if(IsValidEntity(entity))
+	if(IsValidEntity(entity))
 	{
 		if(HasEntProp(entity, Prop_Send, "m_vecMaxs"))
 		{
-		    new Float:height[3];
+			float height[3];
 			GetEntPropVector(entity, Prop_Send, "m_vecMaxs", height);
 			return height[2]*mult;
 		}
@@ -1081,7 +1030,7 @@ stock Float:GetEntityHeight(entity, Float:mult)
 	return -1.0;
 }
 
-stock bool:IsBoss(client)
+stock bool IsBoss(int client)
 {
 	if(IsValidClient(client))
 	{
@@ -1093,7 +1042,7 @@ stock bool:IsBoss(client)
 	return false;
 }
 
-stock bool:IsValidClient(client, bool:replaycheck=true)
+stock bool IsValidClient(int client, bool replaycheck=true)
 {
 	if(client<=0 || client>MaxClients)
 	{
@@ -1120,9 +1069,9 @@ stock bool:IsValidClient(client, bool:replaycheck=true)
 	return true;
 }
 
-stock bool:InClearView(Float:pos2[3], Float:pos[3], entity)
+stock bool InClearView(float pos2[3], float pos[3], int entity)
 {
-    hTrace = TR_TraceRayFilterEx(pos2, pos, MASK_SOLID, RayType_EndPoint, TraceFilterThroughNpc, entity);
+	hTrace = TR_TraceRayFilterEx(pos2, pos, MASK_SOLID, RayType_EndPoint, TraceFilterThroughNpc, entity);
 	if(hTrace != INVALID_HANDLE)
 	{
         if(TR_DidHit(hTrace))//if there's an obstruction
@@ -1139,7 +1088,7 @@ stock bool:InClearView(Float:pos2[3], Float:pos[3], entity)
 	return false;
 }
 
-stock bool:TraceFilterThroughNpc(entity, contentsMask, any:ent)
+stock bool TraceFilterThroughNpc(int entity, int contentsMask, any ent)
 {
 	if(entity == ent)
 	{
@@ -1151,7 +1100,7 @@ stock bool:TraceFilterThroughNpc(entity, contentsMask, any:ent)
 	}
 	else if(IsValidEntity(entity))
 	{
-		new String:entname[256];
+		char entname[256];
 		GetEntityClassname(entity, entname, sizeof(entname));
 		if(StrEqual(entname, "tank_boss", false) || StrEqual(entname, "tf_zombie", false) || StrEqual(entname, "tf_robot_destruction_robot", false) || StrEqual(entname, "merasmus", false) || StrEqual(entname, "headless_hatman", false) || StrEqual(entname, "eyeball_boss", false))
 		{

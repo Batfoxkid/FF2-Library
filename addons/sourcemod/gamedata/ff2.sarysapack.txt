@@ -1,0 +1,24 @@
+"Games"
+{
+	"tf"
+	{
+		"Offsets"
+		{
+			"CBaseCombatWeapon::GetSlot"
+			{
+				"linux"		"332"
+				"windows"	"326"
+			}
+			"CTFPlayer::Weapon_Switch"
+			{
+				"linux"		"268"
+				"windows"	"267"
+			}
+			"CBasePlayer::EquipWearable"
+			{
+				"linux"		"431"
+				"windows"	"430"
+			}
+		}
+	}
+}

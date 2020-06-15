@@ -1,7 +1,6 @@
 /*
 	"ams_base"
 	{
-		"name"			"gentlespy"		//boss cfg name
 		"activation"	"0"
 		"selection"		"reload"
 		"reverse"		"mouse3"
@@ -202,7 +201,7 @@ static bool CreateAMS(FF2Prep player)
 	int client = player.Index;
 	
 	char path[PLATFORM_MAX_PATH];
-	if(!player.BuildBoss(path, sizeof(path), "ams_base")) {
+	if(!player.BuildBoss(path, sizeof(path))) {
 		return false;
 	}
 	

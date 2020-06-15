@@ -7,23 +7,23 @@
 
 #define OOGIEBOOGIE_SAWBLADE_THROW_OFFSET 15.0
 
-new g_oogieboogie_min_tossrage, g_oogieboogie_largesawhealth;
-new Float:gf_oogieboogie_tosschargerate, Float:g_oogieboogie_largesawdamage, Float:gf_oogieboogie_largesawrehitdelay;
-new Float:gf_oogieboogie_tossdamage, Float:gf_oogieboogie_tossforce, Float:gf_oogieboogie_tossforcemin, Float:gf_oogieboogie_tosssawrehitdelay;
-new Float:gf_oogieboogie_largesawduration, Float:gf_oogieboogie_tossduration, Float:gf_oogieboogie_largesawactivate;
-new Float:gf_oogieboogie_largesawbleed;
+int g_oogieboogie_min_tossrage, g_oogieboogie_largesawhealth;
+float gf_oogieboogie_tosschargerate, g_oogieboogie_largesawdamage, gf_oogieboogie_largesawrehitdelay;
+float gf_oogieboogie_tossdamage, gf_oogieboogie_tossforce, gf_oogieboogie_tossforcemin, gf_oogieboogie_tosssawrehitdelay;
+float gf_oogieboogie_largesawduration, gf_oogieboogie_tossduration, gf_oogieboogie_largesawactivate;
+float gf_oogieboogie_largesawbleed;
 
-static const String:gs_oogieboogiesaws[][] = {"ambient/sawblade_impact1.wav", "ambient/sawblade_impact1.wav"}; 
+static const char gs_oogieboogiesaws[][] = {"ambient/sawblade_impact1.wav", "ambient/sawblade_impact1.wav"}; 
 
-new Handle:gh_oogieboogie_sawblades;
-new Float:gf_diedOogieboogie[MAXPLAYERS+1];
+ArrayList gh_oogieboogie_sawblades;
+float gf_diedOogieboogie[MAXPLAYERS+1];
 
-new Handle:g_hSDKGetSmoothedVelocity = INVALID_HANDLE;
-new bool:gb_SDKsv;
+Handle g_hSDKGetSmoothedVelocity = INVALID_HANDLE;
+bool gb_SDKsv;
 
-bool:TF2_SVStartup()
+bool TF2_SVStartup()
 {
-    new Handle:hConfig = LoadGameConfigFile("smoothedvelocity"); 
+    GameData hConfig = new GameData("smoothedvelocity"); 
     if (hConfig == INVALID_HANDLE)
     {
         LogError("Couldn't load SDK functions (GetSmoothedVelocity). Make sure smoothedvelocity.txt is in your gamedata folder! Restart server if you want projectile physics.");
@@ -33,7 +33,7 @@ bool:TF2_SVStartup()
     StartPrepSDKCall(SDKCall_Entity); 
     PrepSDKCall_SetFromConf(hConfig, SDKConf_Virtual, "GetSmoothedVelocity"); 
     PrepSDKCall_SetReturnInfo(SDKType_Vector, SDKPass_ByValue); 
-    CloseHandle(hConfig);
+    delete hConfig;
 
     if ((g_hSDKGetSmoothedVelocity = EndPrepSDKCall()) == INVALID_HANDLE)
     {
@@ -44,14 +44,14 @@ bool:TF2_SVStartup()
     return true;
 }
 
-Oogieboogie_event_round_active()
+void Oogieboogie_event_round_active()
 {
     gb_SDKsv = TF2_SVStartup();
 
     PrecacheModel(OOGIEBOOGIE_PHYSICS_SAWBLADE);
     PrecacheModel(OOGIEBOOGIE_LARGE_PHYSICS_SAWBLADE);
 
-    for(new i; i<sizeof(gs_oogieboogiesaws); i++)
+    for(int i; i<sizeof(gs_oogieboogiesaws); i++)
     {
         PrecacheSound(gs_oogieboogiesaws[i]);
     }
@@ -75,7 +75,7 @@ Oogieboogie_event_round_active()
     gf_oogieboogie_tossforcemin = FF2_GetAbilityArgumentFloat(0,this_plugin_name,"charge_oogieboogiesaw",7,200.0);
 }
 
-Oogieboogie_FF2_OnAbility2(index, const String:ability_name[], action)
+void Oogieboogie_FF2_OnAbility2(int index, const char[] ability_name, int action)
 {
     if (StrEqual(ability_name,BOSS_OOGIEBOOGIE_KEY))
     {
@@ -87,43 +87,43 @@ Oogieboogie_FF2_OnAbility2(index, const String:ability_name[], action)
     }
 }
 
-Oogieboogie_OnPluginStart2()
+void Oogieboogie_OnPluginStart2()
 {
-    gh_oogieboogie_sawblades = CreateArray();
+    gh_oogieboogie_sawblades = new ArrayList();
 }
 
-Oogieboogie_event_round_end()
+void Oogieboogie_event_round_end()
 {
-    for(new i = GetArraySize(gh_oogieboogie_sawblades) -1; i>= 0; i--)
+    for(int i = gh_oogieboogie_sawblades.Length -1; i>= 0; i--)
     {
-        new ent = EntRefToEntIndex(GetArrayCell(gh_oogieboogie_sawblades, i));
+        int ent = EntRefToEntIndex(gh_oogieboogie_sawblades.Get(i));
         if(ent != INVALID_ENT_REFERENCE)
         {
             AcceptEntityInput(ent, "Break");
         }
     }
-    ClearArray(gh_oogieboogie_sawblades);
+    gh_oogieboogie_sawblades.Clear();
 }
 
-Oogieboogie_event_death(client, Handle:hEvent)
+void Oogieboogie_event_death(int client, Event hEvent)
 {
     if(gf_diedOogieboogie[client] > GetEngineTime())
     {
-        new iDamageBits = GetEventInt(hEvent, "damagebits");
-        SetEventInt(hEvent, "damagebits",  iDamageBits |= DMG_NERVEGAS);
-        SetEventString(hEvent, "weapon_logclassname", "oogieboogie_saw");
-        SetEventString(hEvent, "weapon", "worldspawn");
-        SetEventInt(hEvent, "customkill", TF_CUSTOM_TRIGGER_HURT);
-        SetEventInt(hEvent, "playerpenetratecount", 0);
-        SetEventInt(hEvent, "attacker", g_BossUserid[0]);
+        int iDamageBits = GetEventInt(hEvent, "damagebits");
+        hEvent.SetInt("damagebits",  iDamageBits |= DMG_NERVEGAS);
+        hEvent.SetString("weapon_logclassname", "oogieboogie_saw");
+        hEvent.SetString("weapon", "worldspawn");
+        hEvent.SetInt("customkill", TF_CUSTOM_TRIGGER_HURT);
+        hEvent.SetInt("playerpenetratecount", 0);
+        hEvent.SetInt("attacker", g_BossUserid[0]);
     }
 }
 
-Charge_Oogieboogiesaw(const String:ability_name[],index,action)      // so lazy
+void Charge_Oogieboogiesaw(const char[] ability_name,int index,int action)      // so lazy
 {
-    new slot = FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 0);
-    new Float:zero_charge = FF2_GetBossCharge(index,0);
-    new boss = GetClientOfUserId(FF2_GetBossUserId(index));
+    int slot = FF2_GetAbilityArgument(index, this_plugin_name, ability_name, 0);
+    float zero_charge = FF2_GetBossCharge(index,0);
+    int boss = GetClientOfUserId(FF2_GetBossUserId(index));
     if(zero_charge < g_oogieboogie_min_tossrage)
     {
         SetHudTextParams(-1.0, 0.93, 1.0, 255, 255, 255, 255);
@@ -131,7 +131,7 @@ Charge_Oogieboogiesaw(const String:ability_name[],index,action)      // so lazy
         return;
     }
  
-    new Float:charge=FF2_GetBossCharge(index,slot);
+    float charge=FF2_GetBossCharge(index,slot);
 
     switch(action)
     {
@@ -164,11 +164,11 @@ Charge_Oogieboogiesaw(const String:ability_name[],index,action)      // so lazy
             {
                 FF2_SetBossCharge(index,0,zero_charge - g_oogieboogie_min_tossrage);
 
-                new Handle:data;
+                DataPack data;
                 CreateDataTimer(0.2, Timer_StartOogieThrowCD, data);
-                WritePackCell(data, index);
-                WritePackCell(data, slot);
-                ResetPack(data);
+                data.WriteCell(index);
+                data.WriteCell(slot);
+                data.Reset();
 
                 ThrowSawBlade(boss);
             }
@@ -176,31 +176,31 @@ Charge_Oogieboogiesaw(const String:ability_name[],index,action)      // so lazy
     }
 }
 
-public Action:Timer_StartOogieThrowCD(Handle:hTimer,Handle:data)
+public Action Timer_StartOogieThrowCD(Handle hTimer,DataPack data)
 {
-	new index = ReadPackCell(data);
-	new slot = ReadPackCell(data);
+	int index = data.ReadCell();
+	int slot = data.ReadCell();
 	FF2_SetBossCharge(index,slot,-gf_oogieboogie_tosschargerate);
 }
 
-ThrowSawBlade(boss)     // arc math from https://forums.alliedmods.net/showthread.php?t=175600
+void ThrowSawBlade(int boss)     // arc math from https://forums.alliedmods.net/showthread.php?t=175600
 {
-    decl Float:fPlayerPos[3];
-    decl Float:fPlayerAngles[3];
-    decl Float:fThrowingVector[3];
+    static float fPlayerPos[3];
+    static float fPlayerAngles[3];
+    static float fThrowingVector[3];
 
     GetClientEyeAngles( boss, fPlayerAngles );
     GetClientEyePosition( boss, fPlayerPos );
 
     EmitAmbientSound(SOUND_OOGIEBOOGIE_TOSS, fPlayerPos);
     
-    new Float:fLen = OOGIEBOOGIE_SAWBLADE_THROW_OFFSET * Sine( DegToRad( fPlayerAngles[0] + 90.0 ) );
+    float fLen = OOGIEBOOGIE_SAWBLADE_THROW_OFFSET * Sine( DegToRad( fPlayerAngles[0] + 90.0 ) );
     
     fPlayerPos[0] = fPlayerPos[0] + fLen * Cosine( DegToRad( fPlayerAngles[1] ) );
     fPlayerPos[1] = fPlayerPos[1] + fLen * Sine( DegToRad( fPlayerAngles[1] ) );
     fPlayerPos[2] = fPlayerPos[2] + OOGIEBOOGIE_SAWBLADE_THROW_OFFSET * Sine( DegToRad( -1 * fPlayerAngles[0] ) ) ;
     
-    new entity = CreateEntityByName( "prop_physics_multiplayer" );
+    int entity = CreateEntityByName( "prop_physics_multiplayer" );
     if(entity != -1)        
     {
         DispatchKeyValueVector(entity, "origin", fPlayerPos);
@@ -219,11 +219,11 @@ ThrowSawBlade(boss)     // arc math from https://forums.alliedmods.net/showthrea
 
         SDKHook(entity, SDKHook_StartTouch, OogieboogieProjectileTouchHook);			// force projectile to deal damage on touch
 
-        new ref = EntIndexToEntRef(entity);
-        PushArrayCell(gh_oogieboogie_sawblades, ref);
+        int ref = EntIndexToEntRef(entity);
+        gh_oogieboogie_sawblades.Push(ref);
         CreateTimer(gf_oogieboogie_tossduration, Timer_RemoveEntity, ref, TIMER_FLAG_NO_MAPCHANGE);
 
-        new Float:fScal = gf_oogieboogie_tossforce * Sine( DegToRad( fPlayerAngles[0] + 90.0 ) );
+        float fScal = gf_oogieboogie_tossforce * Sine( DegToRad( fPlayerAngles[0] + 90.0 ) );
 
         fThrowingVector[0] = fScal * Cosine( DegToRad( fPlayerAngles[1] ) );
         fThrowingVector[1] = fScal * Sine( DegToRad( fPlayerAngles[1] ) );
@@ -233,18 +233,18 @@ ThrowSawBlade(boss)     // arc math from https://forums.alliedmods.net/showthrea
     }
 }
 
-public Action:OogieboogieProjectileTouchHook(entity, other)
+public Action OogieboogieProjectileTouchHook(int entity, int other)
 {
-    static Float:lasthit[MAXPLAYERS+1];
-    static Float:time;
+    static float lasthit[MAXPLAYERS+1];
+    static float time;
 
     if(other > 0 && other != g_boss)
     {
-        decl bool:fail;
-        decl Float:speed;
+        bool fail;
+        static float speed;
         if(gb_SDKsv)
         {
-            decl Float:vel[3];
+            static float vel[3];
             SDKCall(g_hSDKGetSmoothedVelocity, entity, vel);
             speed = GetVectorLength(vel);
             if(speed < gf_oogieboogie_tossforcemin)
@@ -264,10 +264,10 @@ public Action:OogieboogieProjectileTouchHook(entity, other)
 
         if(!fail)
         {
-            new Float:ratio = speed/gf_oogieboogie_tossforce;
+            float ratio = speed/gf_oogieboogie_tossforce;
             if(other > MaxClients)
             {
-                decl String:classname[5];
+                char classname[5];
                 if(!(GetEntityClassname(other, classname, 5) && StrEqual(classname, "obj_")))
                 {
                     SetVariantInt(RoundToCeil(ratio*gf_oogieboogie_tossdamage));
@@ -290,7 +290,7 @@ public Action:OogieboogieProjectileTouchHook(entity, other)
     }
 }
 
-public bool:TraceRayWorld(entityhit, mask)
+public bool TraceRayWorld(int entityhit, int mask)
 {
     if(!entityhit)
     {
@@ -300,7 +300,7 @@ public bool:TraceRayWorld(entityhit, mask)
     {
         return false;
     }
-    decl String:classname[64];
+    char classname[64];
     GetEntPropString(entityhit, Prop_Data, "m_iClassname", classname, 64);
     if(StrEqual(classname, "worldspawn") || !StrContains(classname, "prop_"))
     {
@@ -310,11 +310,11 @@ public bool:TraceRayWorld(entityhit, mask)
     return false;
 }
 
-Rage_UseOogieboogiesaw(index)
+void Rage_UseOogieboogiesaw(int index)
 {
-    decl Handle:TraceRay;
-    decl Float:StartOrigin[3], Float:Angles[3];
-    new client = GetClientOfUserId(FF2_GetBossUserId(index));
+    Handle TraceRay;
+    static float StartOrigin[3], Angles[3];
+    int client = GetClientOfUserId(FF2_GetBossUserId(index));
     GetClientEyeAngles(client, Angles);
     GetClientEyePosition(client, StartOrigin);
 
@@ -322,13 +322,13 @@ Rage_UseOogieboogiesaw(index)
 
     if(TR_DidHit(TraceRay))
     {
-        decl Float:EndOrigin[3];
+        static float EndOrigin[3];
         TR_GetEndPosition(EndOrigin, TraceRay);
 
-        new ent = CreateEntityByName("prop_dynamic");
+        int ent = CreateEntityByName("prop_dynamic");
         if (ent != -1)
         {
-            decl Float:normal[3], Float:tempangles[3];
+            static float normal[3], tempangles[3];
             TR_GetPlaneNormal(TraceRay, normal);		// this is a forward vector
 
             EndOrigin[0] += normal[0]*90.0;
@@ -360,9 +360,9 @@ Rage_UseOogieboogiesaw(index)
             SetEntProp(ent, Prop_Send, "m_CollisionGroup", 13);
             SetEntProp(ent, Prop_Send, "m_usSolidFlags", 8);
 
-            new ref = EntIndexToEntRef(ent);
+            int ref = EntIndexToEntRef(ent);
 
-            PushArrayCell(gh_oogieboogie_sawblades, ref);
+            gh_oogieboogie_sawblades.Push(ref);
             CreateTimer(gf_oogieboogie_largesawactivate, Timer_ActivateSaw, ref, TIMER_FLAG_NO_MAPCHANGE);
             CreateTimer(gf_oogieboogie_largesawduration, Timer_RemoveEntity, ref, TIMER_FLAG_NO_MAPCHANGE);
         }
@@ -371,9 +371,9 @@ Rage_UseOogieboogiesaw(index)
     CloseHandle(TraceRay);
 }
 
-public Action:Timer_ActivateSaw(Handle:timer, any:ref)
+public Action Timer_ActivateSaw(Handle timer, any ref)
 {
-    new ent = EntRefToEntIndex(ref);
+    int ent = EntRefToEntIndex(ref);
     if(ent != INVALID_ENT_REFERENCE)
     {
         SetVariantString("idle");
@@ -387,7 +387,7 @@ public Action:Timer_ActivateSaw(Handle:timer, any:ref)
         EmitSoundToAll(SOUND_OOGIEBOOGIE_SAW_SPINUP, ent, SNDCHAN_VOICE);
     }
 }
-public Action:OnStartTouchOogieSawZone(prop, entity)
+public Action OnStartTouchOogieSawZone(int prop, int entity)
 {
     if(entity >0 && entity <=MaxClients && IsClientInGame(entity) && GetClientTeam(entity) == g_bossteam)
     {
@@ -395,10 +395,10 @@ public Action:OnStartTouchOogieSawZone(prop, entity)
     }
     return Plugin_Continue;
 }
-public Action:OnTouchOogieSawZone(prop, entity)
+public Action OnTouchOogieSawZone(int prop, int entity)
 {
-    static Float:lasthit[MAXPLAYERS+1];
-    static Float:time;
+    static float lasthit[MAXPLAYERS+1];
+    static float time;
 
     if(entity >0 && entity <=MaxClients && IsClientInGame(entity) && GetClientTeam(entity) == g_otherteam)
     {
@@ -411,7 +411,7 @@ public Action:OnTouchOogieSawZone(prop, entity)
             SDKHooks_TakeDamage(entity, g_boss, g_boss, g_oogieboogie_largesawdamage);
             EmitSoundToAll(gs_oogieboogiesaws[GetRandomInt(0, sizeof(gs_oogieboogiesaws)-1)], entity);
 
-            decl Float:clientpos[3];
+            static float clientpos[3];
             GetClientAbsOrigin(entity, clientpos);
             clientpos[0] += GetRandomFloat(-10.0, 10.0);
             clientpos[1] += GetRandomFloat(-10.0, 10.0);

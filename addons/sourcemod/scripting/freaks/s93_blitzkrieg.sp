@@ -94,7 +94,6 @@ public Plugin:myinfo = {
 	version=PLUGIN_VERSION,
 };
 
-
 // HUD
 #define MaxArgIncrement 10000 // MUST BE MULTIPLES OF 100!
 new String:BHS_BossHud[MAXPLAYERS+1][MAX_CENTER_TEXT_LENGTH]; // HUD type: Boss
@@ -573,14 +572,18 @@ public void Event_TeamplayRoundStart(Event event, const char[] name, bool dontBr
 	Blitzkrieg_FindBlitzkriegAt=GetEngineTime()+0.6;
 }
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+public APLRes AskPluginLoad2(Handle Plugin, bool late, char[] err, int err_max)
 {
+	strcopy(err, err_max, "[FF2] There is no point in using this old plugin.\nUse BatFoxKid's Blitzkrieg instead");
+	return APLRes_Failure;
+	/*
 	#if defined _revivemarkers_included_
 	MarkNativeAsOptional("SpawnRMarker");
 	MarkNativeAsOptional("DespawnRMarker");
 	MarkNativeAsOptional("SetReviveCount");
 	MarkNativeAsOptional("setDecayTime");
 	#endif
+	*/
 }
 
 public OnLibraryAdded(const String: name[])
@@ -2825,7 +2828,7 @@ public Blitz_SetRocketBounce(entity, const String: classname[])
 	}
 }
 
-public Action:RemoveEntity(Handle:timer, any:entid)
+public Action:Timer_RemoveEntity(Handle:timer, any:entid)
 {
 	new entity = EntRefToEntIndex(entid);
 	if (IsValidEdict(entity) && entity > MaxClients)
@@ -3479,7 +3482,7 @@ stock int ParticleEffectAt(float position[3], char[] effectName, float duration 
 		ActivateEntity(particle);
 		AcceptEntityInput(particle, "start");
 		if (duration > 0.0)
-			CreateTimer(duration, RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(duration, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 	}
 	return particle;
 }

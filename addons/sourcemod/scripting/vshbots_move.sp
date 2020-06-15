@@ -1,13 +1,14 @@
-#pragma semicolon 1
 
-#include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
 
-new Float:flag_pos[3];
-new Float:ClientPosition[3];
+#pragma semicolon 1
+#pragma newdecls required
 
-public Plugin:myinfo=
+float flag_pos[3];
+float ClientPosition[3];
+
+public Plugin myinfo=
 {
 	name= "VSH/FF2 Bots[moving]",
 	author= "tRololo312312",
@@ -16,9 +17,9 @@ public Plugin:myinfo=
 	url= "http://steamcommunity.com/profiles/76561198039186809"
 }
 
-public OnAllPluginsLoaded()
+public void OnAllPluginsLoaded()
 {
-	new Handle:PFind = FindPluginByFile("vshbots_logic.smx");
+	Handle PFind = FindPluginByFile("vshbots_logic.smx");
 	if(PFind != INVALID_HANDLE)
 	{
 		if(GetPluginStatus(PFind) != Plugin_Running)
@@ -32,17 +33,17 @@ public OnAllPluginsLoaded()
 	}
 }
 
-public OnPluginStart()
+public void OnPluginStart()
 {
 	HookEvent("arena_round_start", RoundStarted);
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
 	CreateTimer(0.1, MoveTimer,_,TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public Action:OnFlagTouch(point, client)
+public Action OnFlagTouch(int point, int client)
 {
 	for(client=1;client<=MaxClients;client++)
 	{
@@ -55,16 +56,16 @@ public Action:OnFlagTouch(point, client)
 	return Plugin_Continue;
 }
 
-public Action:RoundStarted(Handle: event , const String: name[] , bool: dontBroadcast)
+public Action RoundStarted(Handle  event , const char[] name , bool dontBroadcast)
 {
 	CreateTimer(1.0, LoadStuff);
 	CreateTimer(1.0, LoadStuff2);
 	CreateTimer(2.0, FindFlag);
 }
 
-public Action:LoadStuff(Handle:timer)
+public Action LoadStuff(Handle timer)
 {
-	new teamflags = CreateEntityByName("item_teamflag");
+	int teamflags = CreateEntityByName("item_teamflag");
 	if(IsValidEntity(teamflags))
 	{
 		DispatchKeyValue(teamflags, "trail_effect", "0");
@@ -75,9 +76,9 @@ public Action:LoadStuff(Handle:timer)
 	}
 }
 
-public Action:LoadStuff2(Handle:timer)
+public Action LoadStuff2(Handle timer)
 {
-	new teamflags2 = CreateEntityByName("item_teamflag");
+	int teamflags2 = CreateEntityByName("item_teamflag");
 	if(IsValidEntity(teamflags2))
 	{
 		DispatchKeyValue(teamflags2, "trail_effect", "0");
@@ -88,9 +89,9 @@ public Action:LoadStuff2(Handle:timer)
 	}
 }
 
-public Action:FindFlag(Handle:timer)
+public Action FindFlag(Handle timer)
 {
-	new ent = -1;
+	int ent = -1;
 	while ((ent = FindEntityByClassname(ent, "item_teamflag"))!=INVALID_ENT_REFERENCE)
 	{
 		SDKHook(ent, SDKHook_StartTouch, OnFlagTouch );
@@ -98,25 +99,25 @@ public Action:FindFlag(Handle:timer)
 	}
 }
 
-public Action:MoveTimer(Handle:timer)
+public Action MoveTimer(Handle timer)
 {
-	for(new client=1;client<=MaxClients;client++)
+	for(int client=1;client<=MaxClients;client++)
 	{
 		if(IsClientInGame(client))
 		{
 			if(IsPlayerAlive(client))
 			{
-				new entIndex = -1;
-				new entIndex2 = -1;
+				int entIndex = -1;
+				int entIndex2 = -1;
 				GetClientAbsOrigin(client, ClientPosition);
-				new Ent = Client_GetClosest(ClientPosition, client);
-				new team = GetClientTeam(client);
+				int Ent = Client_GetClosest(ClientPosition, client);
+				int team = GetClientTeam(client);
 				if(team == 3)
 				{
 					GetClientAbsOrigin(client, flag_pos);
 					while((entIndex = FindEntityByClassname(entIndex, "item_teamflag")) != INVALID_ENT_REFERENCE)
 					{
-						new iTeamNum = GetEntProp(entIndex, Prop_Send, "m_iTeamNum");
+						int iTeamNum = GetEntProp(entIndex, Prop_Send, "m_iTeamNum");
 						if (iTeamNum == 3)
 						{
 							TeleportEntity(entIndex, flag_pos, NULL_VECTOR, NULL_VECTOR);
@@ -125,11 +126,11 @@ public Action:MoveTimer(Handle:timer)
 				}
 				if(Ent != -1 && team == 3)
 				{
-					decl Float:ClosestClient[3];
+					static float ClosestClient[3];
 					GetClientAbsOrigin(Ent, ClosestClient);
 					while((entIndex2 = FindEntityByClassname(entIndex2, "item_teamflag")) != INVALID_ENT_REFERENCE)
 					{
-						new iTeamNum = GetEntProp(entIndex2, Prop_Send, "m_iTeamNum");
+						int iTeamNum = GetEntProp(entIndex2, Prop_Send, "m_iTeamNum");
 						if (iTeamNum == 2)
 						{
 							TeleportEntity(entIndex2, ClosestClient, NULL_VECTOR, NULL_VECTOR);
@@ -141,19 +142,19 @@ public Action:MoveTimer(Handle:timer)
 	}
 }
 
-stock Client_GetClosest(Float:vecOrigin_center[3], const client)
+stock int Client_GetClosest(float vecOrigin_center[3], const int client)
 {
-	decl Float:vecOrigin_edict[3];
-	new Float:distance = -1.0;
-	new closestEdict = -1;
-	for(new i=1;i<=MaxClients;i++)
+	static float vecOrigin_edict[3];
+	float distance = -1.0;
+	int closestEdict = -1;
+	for(int i=1;i<=MaxClients;i++)
 	{
 		if (!IsClientInGame(i) || !IsPlayerAlive(i) || (i == client))
 			continue;
 		GetClientAbsOrigin(i, vecOrigin_edict);
 		if(GetClientTeam(i) != GetClientTeam(client))
 		{
-			new Float:edict_distance = GetVectorDistance(vecOrigin_center, vecOrigin_edict);
+			float edict_distance = GetVectorDistance(vecOrigin_center, vecOrigin_edict);
 			if((edict_distance < distance) || (distance == -1.0))
 			{
 				distance = edict_distance;

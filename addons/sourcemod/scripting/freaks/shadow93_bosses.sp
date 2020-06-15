@@ -56,6 +56,7 @@
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <ff2_dynamic_defaults>
+#include <ff2_ams2>
 #include <freak_fortress_2>
 #include <freak_fortress_2_subplugin>
 
@@ -179,39 +180,40 @@ public void HookAbilities()
 		SummonerIndex[client] = -1;
 		EndBabifyAt[client]=INACTIVE;
 		CheckBabifyAt[client]=INACTIVE;
-		int boss=FF2_GetBossIndex(client);
-		if(boss>=0)
-		{
-			if(FF2_HasAbility(boss, this_plugin_name, JACK_MINION_SPAWN))
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, JACK_MINION_SPAWN, "JMS"); // Important function to tell AMS that this subplugin supports it
-			}
-			if(FF2_HasAbility(boss, this_plugin_name, JACK_RANDOM_BUFF))
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, JACK_RANDOM_BUFF, "JRB"); // Important function to tell AMS that this subplugin supports it
-			}
-			if(FF2_HasAbility(boss, this_plugin_name, FEMHEAVY_BABIFY))
-			{
-				AMS_InitSubability(boss, client, this_plugin_name, FEMHEAVY_BABIFY, "FHB"); // Important function to tell AMS that this subplugin supports it
-			}			
-		}
 	}
 	disableclone = false;
-
 }
+
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss=FF2_GetBossIndex(client);
+	if(FF2_HasAbility(boss, this_plugin_name, JACK_MINION_SPAWN))
+	{
+		AMS_REG(client)(hj_spawnclone.JMS);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, JACK_RANDOM_BUFF))
+	{
+		AMS_REG(client)(hj_randombuff.JRB);
+	}
+	if(FF2_HasAbility(boss, this_plugin_name, FEMHEAVY_BABIFY))
+	{
+		AMS_REG(client)(fh_babify.FHB);
+	}
+}
+
 // Minion Spawn
 
-public bool JMS_CanInvoke(int client)
+public AMSResult JMS_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public void JMS_Invoke(int client)
+public void JMS_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	EmitSoundToAll(JACK_CLOAK, client);
@@ -220,17 +222,17 @@ public void JMS_Invoke(int client)
 
 // Random Buff
 
-public bool JRB_CanInvoke(int client)
+public AMSResult JRB_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public void JRB_Invoke(int client)
+public void JRB_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	switch(GetRandomInt(1,4))
@@ -244,14 +246,14 @@ public void JRB_Invoke(int client)
 
 // Babify
 
-public bool FHB_CanInvoke(int client)
+public AMSResult FHB_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return false;
-	if(TF2_IsPlayerInCondition(client, TFCond_MeleeOnly)) return false;
-	return true;
+	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return AMS_Deny;
+	if(TF2_IsPlayerInCondition(client, TFCond_MeleeOnly)) return AMS_Deny;
+	return AMS_Accept;
 }
 
-public void FHB_Invoke(int client)
+public void FHB_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	EmitSoundToAll(HEAVY_MELEE,client);
@@ -644,57 +646,6 @@ void Teleport_Me(int client)
 	SetVariantInt(team);
 	AcceptEntityInput(entity, "SetWinner");
 }*/
-
-// call AMS from epic scout's subplugin via reflection:
-stock Handle FindPlugin(char[] pluginName)
-{
-	char buffer[256];
-	char path[PLATFORM_MAX_PATH];
-	Handle iter = GetPluginIterator();
-	Handle pl = null;
-	
-	while (MorePlugins(iter))
-	{
-		pl = ReadPlugin(iter);
-		Format(path, sizeof(path), "%s.ff2", pluginName);
-		GetPluginFilename(pl, buffer, sizeof(buffer));
-		if (StrContains(buffer, path, false) >= 0)
-			break;
-		else
-			pl = null;
-	}
-	
-	delete iter;
-
-	return pl;
-}
-
-#define MAX_STR_LENGTH 256
-// this will tell AMS that the abilities listed on PrepareAbilities() supports AMS
-stock void AMS_InitSubability(int bossIdx, int clientIdx, const char[] pluginName, const char[] abilityName, const char[] prefix)
-{
-	Handle plugin = FindPlugin("ff2_sarysapub3");
-	if (plugin != null)
-	{
-		Function func = GetFunctionByName(plugin, "AMS_InitSubability");
-		if (func != INVALID_FUNCTION)
-		{
-			
-			Call_StartFunction(plugin, func);
-			Call_PushCell(bossIdx);
-			Call_PushCell(clientIdx);
-			Call_PushString(pluginName);
-			Call_PushString(abilityName);
-			Call_PushString(prefix);
-			Call_Finish();
-		}
-		else
-			LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability()");
-	}
-	else
-		LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
-
-}
 
 stock bool IsValidBoss(int client)
 {
