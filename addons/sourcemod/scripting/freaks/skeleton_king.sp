@@ -382,7 +382,8 @@ void Charge_RocketSpawn(const char[] ability_name, int index, int slot, int acti
 	float zero_charge = FF2_GetBossCharge(index,0);
 	if(zero_charge<10)
 		return;
-	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	int userid=FF2_GetBossUserId(index);
+	int boss=GetClientOfUserId(userid);
 	float see=FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,1,5.0);
 	float charge=FF2_GetBossCharge(index,slot);
 	switch(action)
@@ -455,8 +456,8 @@ void Charge_RocketSpawn(const char[] ability_name, int index, int slot, int acti
 				
 				DataPack data;
 				CreateDataTimer(0.2, Timer_StartCD, data, TIMER_FLAG_NO_MAPCHANGE);
-				data.WriteCell(GetClientSerial(slot));
-				data.WriteCell(index);
+				data.WriteCell(userid);
+				data.WriteCell(slot);
 				data.WriteFloat(-FF2_GetAbilityArgumentFloat(index,this_plugin_name,ability_name,2,5.0));
 				data.Reset();
 			}
@@ -466,10 +467,12 @@ void Charge_RocketSpawn(const char[] ability_name, int index, int slot, int acti
 
 public Action Timer_StartCD(Handle hTimer, DataPack data)
 {
-	int index = GetClientFromSerial(data.ReadCell());
-	int slot = data.ReadCell();
-	float see = data.ReadFloat();
-	FF2_SetBossCharge(index, slot, see);
+	int index = FF2_GetBossIndex(GetClientOfUserId(data.ReadCell()));
+	if (index != -1) {
+		int slot = data.ReadCell();
+		float see = data.ReadFloat();
+		FF2_SetBossCharge(index, slot, see);
+	}
 }
 
 void Rage_Eruption(const char[] ability_name, int index, int slot)
