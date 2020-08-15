@@ -1323,7 +1323,7 @@ public void IOC_Invoke(int client, int aidx)
 			data.WriteFloat(vStart[1]);
 			data.WriteFloat(vStart[2]);
 			data.WriteCell(distance);
-			data.WriteCell(0.0);
+			data.WriteFloat(0.0);
 			data.WriteCell(IOCDist);
 			data.WriteCell(IOCdamage);
 			data.Reset();
