@@ -101,7 +101,7 @@ float AMS_HudUpdate[MAXCLIENTS];
 int AMS_Position[MAXCLIENTS][MAXPOSITION], AMS_Color[MAXCLIENTS][2];
 static char GlobalFormat[MAXCLIENTS][MAXFORMATS][360];
 
-#include "ams_helper.sp"
+#include "include/ams_helper.sp"
 
 public Plugin myinfo = 
 {

@@ -24,7 +24,7 @@ enum {
 };
 GlobalForward Forwards[MAX_FORWARDS];
 
-#include "menu_helper.sp"
+#include "include/menu_helper.sp"
 
 public Plugin myinfo = 
 {

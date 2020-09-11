@@ -16,6 +16,10 @@ jobs:
         run: |
           echo ::set-env name=SM_VERSION::1.10
       
+      - name: SourceMod
+        run: |
+          bash scripts/sourcemod.sh
+      
       - name: Install
         run: |
           bash scripts/install.sh
