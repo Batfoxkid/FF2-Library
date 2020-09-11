@@ -13,8 +13,6 @@ rage_overlay:	arg0 - slot (def.0)
 
 #pragma newdecls required
 
-int BossTeam=view_as<int>(TFTeam_Blue);
-
 #define PLUGIN_VERSION "1.9.3"
 
 public Plugin myinfo=
@@ -32,19 +30,12 @@ public void OnPluginStart2()
 
 public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
-	CreateTimer(0.3, Timer_GetBossTeam, _, TIMER_FLAG_NO_MAPCHANGE);
-	return Plugin_Continue;
-}
-
-public Action Timer_GetBossTeam(Handle hTimer)
-{
-	BossTeam=FF2_GetBossTeam();
 	return Plugin_Continue;
 }
 
 public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
 {
-	if(!strcmp(ability_name, "rage_overlay"))
+	if(!StrContains(ability_name, "rage_overlay"))
 	{
 		Rage_Overlay(boss, ability_name);
 	}
@@ -54,27 +45,28 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 void Rage_Overlay(int boss, const char[] ability_name)
 {
 	char overlay[PLATFORM_MAX_PATH];
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 1, overlay, PLATFORM_MAX_PATH);
-	Format(overlay, PLATFORM_MAX_PATH, "r_screenoverlay \"%s\"", overlay);
+	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
+	FF2_GetArgS(boss, this_plugin_name, ability_name, "path", 1, overlay, sizeof(overlay));
+	Format(overlay, sizeof(overlay), "r_screenoverlay \"%s\"", overlay);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	for(int target=1; target<=MaxClients; target++)
 	{
-		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
+		if(IsClientInGame(target) && IsPlayerAlive(target) && TF2_GetClientTeam(target)!=TF2_GetClientTeam(client))
 		{
 			ClientCommand(target, overlay);
 		}
 	}
 
-	CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 2, 6.0), Timer_Remove_Overlay, _, TIMER_FLAG_NO_MAPCHANGE);
+	CreateTimer(FF2_GetArgF(boss, this_plugin_name, ability_name, "duration", 2, 6.0), Timer_Remove_Overlay, TF2_GetClientTeam(client), TIMER_FLAG_NO_MAPCHANGE);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
 }
 
-public Action Timer_Remove_Overlay(Handle timer)
+public Action Timer_Remove_Overlay(Handle timer, TFTeam boss_team_num)
 {
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	for(int target=1; target<=MaxClients; target++)
 	{
-		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=BossTeam)
+		if(IsClientInGame(target) && IsPlayerAlive(target) && TF2_GetClientTeam(target)!=boss_team_num)
 		{
 			ClientCommand(target, "r_screenoverlay off");
 		}

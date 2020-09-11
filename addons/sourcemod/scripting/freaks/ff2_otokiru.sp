@@ -32,7 +32,7 @@ bool RGen_AMSMode[MAXPLAYERS+1];
 public Plugin myinfo = {
 	name = "Freak Fortress 2: Saxtoner Ability Pack",
 	author = "Otokiru, updated by SHADow93",
-	version = "1.6.6",
+	version = "1.7",
 };
 
 public void OnPluginStart2()
@@ -430,9 +430,11 @@ public void MEN_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	float pos[3], pos2[3];
+	char message[256];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
 	float duration=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,"rage_gentlemen",1,6.0);
 	float ragedist=FF2_GetAbilityArgumentFloat(boss,this_plugin_name,"rage_gentlemen",2,FF2_GetRageDist(boss,this_plugin_name,"rage_gentlemen")); // user-specified distance (or use FF2's ragedist)
+	FF2_GetAbilityArgumentString(boss,this_plugin_name,"rage_gentlemen",3,message, sizeof(message)); // message
 	for(int target=1;target<=MaxClients;target++)
 	{
 		if(IsValidLivingClient(target) && GetClientTeam(target)!=FF2_GetBossTeam())
@@ -457,6 +459,10 @@ public void MEN_Invoke(int client, int index)
 					SetEntityFlags(target, FL_DUCKING);
 				}
 				TF2_AddCondition(target, TFCond_Ubercharged, 1.0);
+				if(!IsNullString(message))
+				{
+					ShowGameText(client, _, FF2_GetBossTeam(), message, sizeof(message));
+				}
 			}
 			CreateTimer(duration, Back2Karkan, target);
 		}
@@ -893,4 +899,31 @@ public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
+}
+
+stock bool ShowGameText(int client, const char[] icon="leaderboard_streak", int color=0, const char[] buffer, any ...)
+{
+	BfWrite bf;
+	if(!client)
+	{
+		bf = view_as<BfWrite>(StartMessageAll("HudNotifyCustom"));
+	}
+	else
+	{
+		bf = view_as<BfWrite>(StartMessageOne("HudNotifyCustom", client));
+	}
+
+	if(bf == null)
+		return false;
+
+	static char message[512];
+	SetGlobalTransTarget(client);
+	VFormat(message, sizeof(message), buffer, 5);
+	ReplaceString(message, sizeof(message), "\n", "");
+
+	bf.WriteString(message);
+	bf.WriteString(icon);
+	bf.WriteByte(color);
+	EndMessage();
+	return true;
 }

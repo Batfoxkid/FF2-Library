@@ -89,7 +89,7 @@ stock bool FunctionExists(char[] pluginName, char[] functionName)
  *	@param abilityName		Ability Name
  *	@return 				True if ability is ready to be used with AMS, otherwise false
  **/
-stock bool AMS_IsSubabilityReady(int bossIdx, char[] pluginName, char[] abilityName)
+stock bool AMS_IsSubabilityReady(int bossIdx, const char[] pluginName, const char[] abilityName)
 {
 	return FunctionExists("ff2_sarysapub3.ff2", "AMS_InitSubability") && FF2_HasAbility(bossIdx, "ff2_sarysapub3", "ability_management_system") && !FF2_GetAbilityArgument(bossIdx, pluginName, abilityName, 0);
 }
@@ -104,29 +104,32 @@ stock bool AMS_IsSubabilityReady(int bossIdx, char[] pluginName, char[] abilityN
  *	@param prefix			Prefix (up to 5 characters long) used for <prefix>_CanInvoke(clientIdx) && <prefix>_Invoke(clientIdx) analogues
  *	@noreturn
  **/
-stock void AMS_InitSubability(int bossIdx, int clientIdx, const char[] pluginName, const char[] abilityName, const char[] prefix)
+stock void AMS_InitSubability(int bossIdx, int clientIdx,const char[] pluginName, const char[] abilityName, const char[] prefix)
 {
-	Handle plugin=FindPlugin("ff2_sarysapub3.ff2");
-	if(plugin!=null)
+	if(AMS_IsSubabilityReady(bossIdx, pluginName, abilityName))
 	{
-		Function func=GetFunctionByName(plugin, "AMS_InitSubability");
-		if(func!=INVALID_FUNCTION)
-        {
-			Call_StartFunction(plugin, func);
-			Call_PushCell(bossIdx);
-			Call_PushCell(clientIdx);
-			Call_PushString(pluginName);
-			Call_PushString(abilityName);
-			Call_PushString(prefix);
-			Call_Finish();
+		Handle plugin=FindPlugin("ff2_sarysapub3.ff2");
+		if(plugin!=null)
+		{
+			Function func=GetFunctionByName(plugin, "AMS_InitSubability");
+			if(func!=INVALID_FUNCTION)
+			{
+				Call_StartFunction(plugin, func);
+				Call_PushCell(bossIdx);
+				Call_PushCell(clientIdx);
+				Call_PushString(pluginName);
+				Call_PushString(abilityName);
+				Call_PushString(prefix);
+				Call_Finish();
+			}
+			else
+			{
+				LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability()");
+			}
 		}
 		else
 		{
-			LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability()");
+			LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
 		}
-	}
-	else
-	{
-		LogError("ERROR: Unable to initialize ff2_sarysapub3:AMS_InitSubability(). Make sure this plugin exists!");
 	}
 }

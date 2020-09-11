@@ -1,6 +1,0 @@
-[attr]ff2text	text eol=lf whitespace=trailing-space,space-before-tab,tabwidth=8
-
-*.sp	ff2text	diff=cpp
-*.inc	ff2text	diff=cpp
-*.txt	ff2text
-*.cfg	ff2text

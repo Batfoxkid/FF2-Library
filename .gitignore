@@ -1,0 +1,7 @@
+*.dat
+*.exe
+*.ff2
+*.smx
+[Cc]compiled/
+[Dd]esktop.ini
+[Tt]humbs.db

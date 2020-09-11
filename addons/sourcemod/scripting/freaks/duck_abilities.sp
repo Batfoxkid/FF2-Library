@@ -5,27 +5,30 @@
 #include <freak_fortress_2_subplugin> 
 #include <tf2_stocks>  
 
+#pragma semicolon 1
+#pragma newdecls required
+
 #define BOSS_DUCKPYRO_KEY "special_duckpyro"
 
 #define MODEL_DUCK		"models/workshop/player/items/pyro/eotl_ducky/eotl_bonus_duck.mdl"
 #define DUCK_SCALE		1.0
 #define SOUND_DUCKED	"misc/halloween/merasmus_spell.wav"
 
-new Float:gf_DiedDuckPyro[MAXPLAYERS + 1];
-new Float:gf_DiedDuckStomp[MAXPLAYERS + 1];
+float gf_DiedDuckPyro[MAXPLAYERS + 1];
+float gf_DiedDuckStomp[MAXPLAYERS + 1];
 
-new Float:gf_duckpyro_zapangle;
-new Float:gf_duckpyro_zapdistance;
-new Float:gf_duckpyro_zapdamage;
-new Float:gf_duckpyro_ducktime;
-new g_duckpyro_duckmax;
+float gf_duckpyro_zapangle;
+float gf_duckpyro_zapdistance;
+float gf_duckpyro_zapdamage;
+float gf_duckpyro_ducktime;
+int g_duckpyro_duckmax;
 
-new g_duck_entref[MAXPLAYERS + 1] =  { INVALID_ENT_REFERENCE, ... };
+int g_duck_entref[MAXPLAYERS + 1] =  { INVALID_ENT_REFERENCE, ... };
 
-new g_boss;
-new g_bossteam;
+int g_boss;
+int g_bossteam;
 
-public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:ability_name[], action)
+public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] ability_name, int action)
 {
 	if (!strcmp(ability_name, BOSS_DUCKPYRO_KEY))
 	{
@@ -33,7 +36,7 @@ public Action:FF2_OnAbility2(index, const String:plugin_name[], const String:abi
 	}
 }
 
-public OnPluginStart2()
+void OnPluginStart2()
 {
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy); // I guess this is for noaml maps?
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy);
@@ -41,19 +44,19 @@ public OnPluginStart2()
 	HookEvent("teamplay_round_win", event_end, EventHookMode_PostNoCopy);
 }
 
-public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast)
+public Action event_player_death(Handle hEvent, char[] name, bool dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+	int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	if (client > 0 && client <= MaxClients)
 	{
 		if (client == g_boss)
 		{
-			new prop = CreateEntityByName("prop_physics_override");
+			int prop = CreateEntityByName("prop_physics_override");
 			if (prop != -1)
 			{
 				RemoveRagdoll(client);
 				
-				decl Float:pos[3], Float:ang[3];
+				float pos[3], ang[3];
 				
 				GetClientAbsOrigin(client, pos);
 				GetClientAbsAngles(client, ang);
@@ -80,7 +83,7 @@ public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast
 		}
 		else
 		{
-			new Float:time = GetEngineTime();
+			float time = GetEngineTime();
 			if (gf_DiedDuckPyro[client] > time)
 			{
 				SetEventString(hEvent, "weapon_logclassname", "Duck Doom");
@@ -92,7 +95,7 @@ public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast
 				SetEventString(hEvent, "weapon", "mantreads");
 			}
 			
-			new duck = EntRefToEntIndex(g_duck_entref[client]);
+			int duck = EntRefToEntIndex(g_duck_entref[client]);
 			if (duck != INVALID_ENT_REFERENCE)
 			{
 				RemoveRagdoll(client);
@@ -102,19 +105,19 @@ public event_player_death(Handle:hEvent, const String:name[], bool:dontBroadcast
 	}
 }
 
-public event_end(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_end(Handle event, char[] name, bool dontBroadcast)
 {
 	g_boss = 0;
 }
 
-public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
+public void event_round_active(Handle event, char[] name, bool dontBroadcast)
 {
 	g_boss = 0;
 	
-	new userid = FF2_GetBossUserId(0);
+	int userid = FF2_GetBossUserId(0);
 	if (userid > 0)
 	{
-		new client = GetClientOfUserId(userid);
+		int client = GetClientOfUserId(userid);
 		if (client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			if (FF2_HasAbility(0, this_plugin_name, BOSS_DUCKPYRO_KEY))
@@ -139,7 +142,7 @@ public event_round_active(Handle:event, const String:name[], bool:dontBroadcast)
 	}
 }
 
-public DuckPyro_HookTouch(boss, entity)
+public void DuckPyro_HookTouch(int boss, int entity)
 {
 	if (boss != g_boss)
 	{
@@ -158,14 +161,14 @@ public DuckPyro_HookTouch(boss, entity)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////  active
-DoDuckPyroRage(boss)
+void DoDuckPyroRage(int boss)
 {
-	new Float:time = GetEngineTime() + 0.1;
+	float time = GetEngineTime() + 0.1;
 	
-	decl Float:bosspos[3], Float:targetpos[3], Float:ang[3], Float:rt[3], Float:up[3], Float:targetvector[3];
+	float bosspos[3], targetpos[3], ang[3], rt[3], up[3], targetvector[3];
 	
-	decl playerarray[MAXPLAYERS + 1];
-	new players;
+	int playerarray[MAXPLAYERS + 1];
+	int players;
 	
 	GetClientEyePosition(boss, bosspos);
 	GetClientAbsAngles(boss, ang);
@@ -175,7 +178,7 @@ DoDuckPyroRage(boss)
 	bosspos[1] += rt[1] * 30.0 - up[1] * 35.0;
 	bosspos[2] += rt[2] * 30.0 - up[2] * 35.0;
 	
-	for (new player = 1; player <= MaxClients; player++)
+	for (int player = 1; player <= MaxClients; player++)
 	{
 		if (IsClientInGame(player) && IsPlayerAlive(player) && GetClientTeam(player) != g_bossteam)
 		{
@@ -197,7 +200,7 @@ DoDuckPyroRage(boss)
 	
 	array_shuffle(playerarray, players);
 	
-	for (new i; i < players; i++)
+	for (int i; i < players; i++)
 	{
 		if (i >= g_duckpyro_duckmax)
 		{
@@ -220,7 +223,7 @@ DoDuckPyroRage(boss)
 			NULL_VECTOR,  // offset to maintain
 			GetRandomFloat(0.0, 0.25));
 		
-		new duck = EntRefToEntIndex(g_duck_entref[playerarray[i]]);
+		int duck = EntRefToEntIndex(g_duck_entref[playerarray[i]]);
 		if (duck == INVALID_ENT_REFERENCE)
 		{
 			CreateTimer(0.1, Timer_Duckify, GetClientUserId(playerarray[i]), TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
@@ -228,11 +231,11 @@ DoDuckPyroRage(boss)
 	}
 }
 
-public Action:Timer_Duckify(Handle:timer, any:userid)
+public Action Timer_Duckify(Handle timer, any userid)
 {
 	if (g_boss && IsClientInGame(g_boss))
 	{
-		new client = GetClientOfUserId(userid);
+		int client = GetClientOfUserId(userid);
 		if (client && IsClientInGame(client) && IsPlayerAlive(client))
 		{
 			if (GetEntityFlags(client) & FL_ONGROUND)
@@ -246,13 +249,13 @@ public Action:Timer_Duckify(Handle:timer, any:userid)
 				SetEntityRenderColor(client, 255, 255, 255, 0);
 				SetEntityMoveType(client, MOVETYPE_NONE);
 				
-				new prop = EntRefToEntIndex(g_duck_entref[client]);
+				int prop = EntRefToEntIndex(g_duck_entref[client]);
 				if (prop != INVALID_ENT_REFERENCE)
 				{
 					AcceptEntityInput(prop, "Kill");
 				}
 				
-				decl Float:pos[3], Float:ang[3];
+				float pos[3], ang[3];
 				GetClientAbsOrigin(client, pos);
 				GetClientAbsAngles(client, ang);
 				
@@ -268,8 +271,8 @@ public Action:Timer_Duckify(Handle:timer, any:userid)
 					DispatchKeyValue(prop, "model", MODEL_DUCK);
 					DispatchKeyValue(prop, "disableshadows", "1");
 					
-					decl String:skin[3];
-					IntToString(2 + _:TF2_GetPlayerClass(client), skin, sizeof(skin));
+					char skin[3];
+					IntToString(2 + view_as<int>(TF2_GetPlayerClass(client)), skin, sizeof(skin));
 					DispatchKeyValue(prop, "skin", skin);
 					
 					SetEntProp(prop, Prop_Send, "m_CollisionGroup", 1);
@@ -285,7 +288,7 @@ public Action:Timer_Duckify(Handle:timer, any:userid)
 					g_duck_entref[client] = EntIndexToEntRef(prop);
 				}
 				
-				new ent = CreateEntityByName("info_particle_system");
+				int ent = CreateEntityByName("info_particle_system");
 				if (ent != -1)
 				{
 					DispatchKeyValueVector(ent, "origin", pos);
@@ -326,9 +329,9 @@ public Action:Timer_Duckify(Handle:timer, any:userid)
 	return Plugin_Stop;
 }
 
-public Action:Timer_UnDuckify(Handle:timer, any:userid)
+public Action Timer_UnDuckify(Handle timer, any userid)
 {
-	new client = GetClientOfUserId(userid);
+	int client = GetClientOfUserId(userid);
 	if (client && IsClientInGame(client))
 	{
 		SetEntityRenderColor(client, 255, 255, 255, 255);
@@ -338,16 +341,16 @@ public Action:Timer_UnDuckify(Handle:timer, any:userid)
 		{
 			SetEntityMoveType(client, MOVETYPE_WALK);
 			
-			new prop = EntRefToEntIndex(g_duck_entref[client]);
+			int prop = EntRefToEntIndex(g_duck_entref[client]);
 			if (prop != INVALID_ENT_REFERENCE)
 			{
 				AcceptEntityInput(prop, "Kill");
 			}
 			
-			new ent = CreateEntityByName("info_particle_system");
+			int ent = CreateEntityByName("info_particle_system");
 			if (ent != -1)
 			{
-				decl Float:pos[3];
+				float pos[3];
 				GetClientAbsOrigin(client, pos);
 				pos[2] += 40.0;
 				EmitAmbientSound(SOUND_DUCKED, pos);
@@ -365,27 +368,27 @@ public Action:Timer_UnDuckify(Handle:timer, any:userid)
 	}
 }
 
-bool:DuckPyro_CanSeeTarget(Float:startpos[3], Float:targetpos[3], target)
+bool DuckPyro_CanSeeTarget(float startpos[3], float targetpos[3], int target)
 {
 	TR_TraceRayFilter(startpos, targetpos, MASK_SHOT, RayType_EndPoint, DuckPyro__TraceRayFilterClients, target);
 	return (TR_GetEntityIndex() == target);
 }
 
-public bool:DuckPyro__TraceRayFilterClients(entity, mask, any:target)
+public bool DuckPyro__TraceRayFilterClients(int entity, int mask, any target)
 {
 	return (entity == target);
 }
 
 /////////////// stock stuff copypasted to make this one file
 
-array_shuffle(array[], count)
+void array_shuffle(int[] array, int count)
 {
 	if (count > 1)
 	{
-		decl temp;
-		for (new i; i < count; i++)
+		int temp;
+		for (int i; i < count; i++)
 		{
-			new target = GetRandomInt(0, count - 1);
+			int target = GetRandomInt(0, count - 1);
 			temp = array[i];
 			array[i] = array[target];
 			array[target] = temp;
@@ -393,16 +396,17 @@ array_shuffle(array[], count)
 	}
 }
 
-stock RemoveRagdoll(client)
+stock void RemoveRagdoll(int client)
 {
 	RequestFrame(Frame_RemoveRagdoll, GetClientUserId(client));
 }
-public Frame_RemoveRagdoll(any:userid)
+
+public void Frame_RemoveRagdoll(any userid)
 {
-	new client = GetClientOfUserId(userid);
+	int client = GetClientOfUserId(userid);
 	if (client && IsClientInGame(client))
 	{
-		new ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
+		int ragdoll = GetEntPropEnt(client, Prop_Send, "m_hRagdoll");
 		if (ragdoll > MaxClients)
 		{
 			AcceptEntityInput(ragdoll, "Kill");
@@ -410,21 +414,21 @@ public Frame_RemoveRagdoll(any:userid)
 	}
 }
 
-stock TE_Particle(String:Name[], Float:origin[3] = NULL_VECTOR, Float:start[3] = NULL_VECTOR, Float:angles[3] = NULL_VECTOR, 
-	entindex = -1,  // entity to attach to
-	attachtype = -1,  // start_at_origin(1), start_at_attachment(2), follow_origin(3), follow_attachment(4)
-	attachpoint = -1,  // attachment point index on entity
-	bool:resetParticles = true, 
-	customcolors = 0,  // probably 0/1/2
-	Float:color1[3] = NULL_VECTOR,  // rgb colors?
-	Float:color2[3] = NULL_VECTOR,  // rgb colors?
-	controlpoint = -1,  // second entity to attach to
-	controlpointattachment = -1,  // attach type
-	Float:controlpointoffset[3] = NULL_VECTOR,  // offset to maintain
-	Float:delay = 0.0)
+stock void TE_Particle(char[] Name, float origin[3] = NULL_VECTOR, float start[3] = NULL_VECTOR, float angles[3] = NULL_VECTOR, 
+	int entindex = -1,  // entity to attach to
+	int attachtype = -1,  // start_at_origin(1), start_at_attachment(2), follow_origin(3), follow_attachment(4)
+	int attachpoint = -1,  // attachment point index on entity
+	bool resetParticles = true, 
+	int customcolors = 0,  // probably 0/1/2
+	float color1[3] = NULL_VECTOR,  // rgb colors?
+	float color2[3] = NULL_VECTOR,  // rgb colors?
+	int controlpoint = -1,  // second entity to attach to
+	int controlpointattachment = -1,  // attach type
+	float controlpointoffset[3] = NULL_VECTOR,  // offset to maintain
+	float delay = 0.0)
 {
 	// find string table
-	new tblidx = FindStringTable("ParticleEffectNames");
+	int tblidx = FindStringTable("ParticleEffectNames");
 	if (tblidx == INVALID_STRING_TABLE)
 	{
 		LogError("Could not find string table: ParticleEffectNames");
@@ -432,11 +436,10 @@ stock TE_Particle(String:Name[], Float:origin[3] = NULL_VECTOR, Float:start[3] =
 	}
 	
 	// find particle index
-	new String:tmp[256];
-	new count = GetStringTableNumStrings(tblidx);
-	new stridx = INVALID_STRING_INDEX;
-	new i;
-	for (i = 0; i < count; i++)
+	char tmp[256];
+	int count = GetStringTableNumStrings(tblidx);
+	int stridx = INVALID_STRING_INDEX;
+	for (int i; i < count; i++)
 	{
 		ReadStringTable(tblidx, i, tmp, sizeof(tmp));
 		if (StrEqual(tmp, Name, false))
@@ -498,9 +501,9 @@ stock TE_Particle(String:Name[], Float:origin[3] = NULL_VECTOR, Float:start[3] =
 	TE_SendToAll(delay);
 }
 
-stock SetItemVisibility(client, RenderMode:rmode)
+stock void SetItemVisibility(int client, RenderMode rmode)
 {
-	new ent = MaxClients + 1;
+	int ent = MaxClients + 1;
 	while ((ent = FindEntityByClassname2(ent, "tf_wearable")) != -1)
 	{
 		if (GetEntPropEnt(ent, Prop_Send, "m_hOwnerEntity") == client)
@@ -521,7 +524,7 @@ stock SetItemVisibility(client, RenderMode:rmode)
 	{
 		if (GetEntPropEnt(ent, Prop_Send, "m_hOwnerEntity") == client && !GetEntProp(ent, Prop_Send, "m_bDisguiseWeapon"))
 		{
-			new ew = GetEntPropEnt(ent, Prop_Send, "m_hExtraWearable");
+			int ew = GetEntPropEnt(ent, Prop_Send, "m_hExtraWearable");
 			if (IsValidEntity(ew))
 			{
 				SetEntityRenderMode(ew, rmode);
@@ -538,16 +541,16 @@ stock SetItemVisibility(client, RenderMode:rmode)
 	}
 }
 
-public Action:Timer_RemoveEntity(Handle:timer, any:ref)
+public Action Timer_RemoveEntity(Handle timer, any ref)
 {
-	new ent = EntRefToEntIndex(ref);
+	int ent = EntRefToEntIndex(ref);
 	if (ent != INVALID_ENT_REFERENCE)
 	{
 		AcceptEntityInput(ent, "Kill");
 	}
 }
 
-stock FindEntityByClassname2(iStart, const String:strClassname[])
+stock int FindEntityByClassname2(int iStart, char[] strClassname)
 {
 	while (iStart > -1 && !IsValidEntity(iStart))iStart--;
 	return FindEntityByClassname(iStart, strClassname);

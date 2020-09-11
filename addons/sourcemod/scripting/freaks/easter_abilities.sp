@@ -29,23 +29,6 @@ public void OnPluginStart2()
 	PrecacheSound("items/pumpkin_pickup.wav");
 }
 
-/*public Action FF2_OnSpecialSelected(int boss, int &special, char[] specialName)  //Re-enable in v2 or whenever the late-loading forward bug is fixed
-{
-	if(FF2_HasAbility(boss, this_plugin_name, OBJECTS))
-	{
-		char model[PLATFORM_MAX_PATH];
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS, 2, model, sizeof(model));
-		PrecacheModel(model);
-	}
-	else if(FF2_HasAbility(boss, this_plugin_name, OBJECTS_DEATH))
-	{
-		char model[PLATFORM_MAX_PATH];
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS_DEATH, 2, model, sizeof(model));
-		PrecacheModel(model);
-	}
-	return Plugin_Continue;
-}*/
-
 public void OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
 {
 	int client=GetClientOfUserId(GetEventInt(event, "userid"));
@@ -59,11 +42,11 @@ public void OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
 	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, OBJECTS))
 	{
 		char classname[PLATFORM_MAX_PATH], model[PLATFORM_MAX_PATH];
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS, 1, classname, sizeof(classname));
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS, 2, model, sizeof(model));
-		int skin=FF2_GetAbilityArgument(boss, this_plugin_name, OBJECTS, 3);
-		int count=FF2_GetAbilityArgument(boss, this_plugin_name, OBJECTS, 4, 14);
-		float distance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, OBJECTS, 5, 30.0);
+		FF2_GetArgS(boss, this_plugin_name, OBJECTS, "classname", 1, classname, sizeof(classname));
+		FF2_GetArgS(boss, this_plugin_name, OBJECTS, "model", 2, model, sizeof(model));
+		int skin=FF2_GetArgI(boss, this_plugin_name, OBJECTS, "skin", 3);
+		int count=FF2_GetArgI(boss, this_plugin_name, OBJECTS, "amount", 4, 14);
+		float distance=FF2_GetArgF(boss, this_plugin_name, OBJECTS, "distance", 5, 30.0);
 		SpawnManyObjects(classname, client, model, skin, count, distance);
 		return;
 	}
@@ -72,11 +55,11 @@ public void OnPlayerDeath(Handle event, const char[] name, bool dontBroadcast)
 	if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, OBJECTS_DEATH))
 	{
 		char classname[PLATFORM_MAX_PATH], model[PLATFORM_MAX_PATH];
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS_DEATH, 1, classname, sizeof(classname));
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, OBJECTS_DEATH, 2, model, sizeof(model));
-		int skin=FF2_GetAbilityArgument(boss, this_plugin_name, OBJECTS_DEATH, 3);
-		int count=FF2_GetAbilityArgument(boss, this_plugin_name, OBJECTS_DEATH, 4, 14);
-		float distance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, OBJECTS_DEATH, 5, 30.0);
+		FF2_GetArgS(boss, this_plugin_name, OBJECTS_DEATH, "classname", 1, classname, sizeof(classname));
+		FF2_GetArgS(boss, this_plugin_name, OBJECTS_DEATH, "model", 2, model, sizeof(model));
+		int skin=FF2_GetArgI(boss, this_plugin_name, OBJECTS_DEATH, "skin", 3);
+		int count=FF2_GetArgI(boss, this_plugin_name, OBJECTS_DEATH, "amount", 4, 14);
+		float distance=FF2_GetArgF(boss, this_plugin_name, OBJECTS_DEATH, "distance", 5, 30.0);
 		SpawnManyObjects(classname, client, model, skin, count, distance);
 		return;
 	}
@@ -99,14 +82,21 @@ public void OnProjectileSpawned(int entity)
 		if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, PROJECTILE))
 		{
 			char projectile[PLATFORM_MAX_PATH];
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, PROJECTILE, 1, projectile, sizeof(projectile));
+			FF2_GetArgS(boss, this_plugin_name, PROJECTILE, "classname", 1, projectile, sizeof(projectile));
 
 			char classname[PLATFORM_MAX_PATH];
 			GetEntityClassname(entity, classname, sizeof(classname));
 			if(StrEqual(classname, projectile, false))
 			{
 				char model[PLATFORM_MAX_PATH];
-				FF2_GetAbilityArgumentString(boss, this_plugin_name, PROJECTILE, 2, model, sizeof(model));
+				FF2_GetArgS(boss, this_plugin_name, PROJECTILE, "model", 2, model, sizeof(model));
+				if(model[0]=='\0')
+				{
+					char bossName[64];
+					FF2_GetBossSpecial(boss, bossName, sizeof(bossName));
+					LogError("[FF2 Bosses] Empty model string (used by boss %s for ability %s)!", bossName, PROJECTILE);
+					return;
+				}
 				if(IsModelPrecached(model))
 				{
 					SetEntityModel(entity, model);
@@ -156,7 +146,7 @@ void SpawnManyObjects(char[] classname, int client, char[] model, int skin=0, in
 		SetEntProp(entity, Prop_Send, "m_triggerBloat", 24);
 		SetEntProp(entity, Prop_Send, "m_CollisionGroup", 1);
 		SetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity", client);
-		SetEntProp(entity, Prop_Send, "m_iTeamNum", 2);
+		SetEntProp(entity, Prop_Send, "m_iTeamNum", view_as<int>((TF2_GetClientTeam(client)==TFTeam_Blue ? TFTeam_Red : TFTeam_Blue)));
 		DispatchSpawn(entity);
 		TeleportEntity(entity, position, angle, velocity);
 		SetEntProp(entity, Prop_Data, "m_iHealth", 900);

@@ -16,12 +16,15 @@
 #define MAXTF2PLAYERS	36	// 32 players + console + 2 tvs + 1
 #define MAXABILITYNAME	32
 #define MAXPLUGINNAME	32
+#define MAXARGNAME	32
 #define MAXSOUNDNAME	32
 #define MAXSOUNDPATH	80
 #define MAXPREFIXNAME	6	// 5 limit + 1
 #define MAXABILITIES	12	// 10 ams + 1 rage + 1
 #define MAXRAGES	10	// 10 rages
 #define LESSLOAD	false
+
+bool UnofficialFF2;
 
 // FF2_DoAbility Arguments
 char AbilityName[MAXTF2PLAYERS][MAXABILITIES][MAXRAGES][MAXABILITYNAME];	// argX1
@@ -52,14 +55,38 @@ public Plugin myinfo =
 	name		=	"Freak Fortress 2: AMS Do Ability",
 	author		=	"Batfoxkid",
 	description	=	"A way for non-ams abilities to use the Ability Management System",
-	version		=	"1.0.2"
+	version		=	"1.1.1"
 };
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	#if defined _FFBAT_included
+	MarkNativeAsOptional("FF2_EmitVoiceToAll");
+	MarkNativeAsOptional("FF2_GetForkVersion");
+	#endif
+	return APLRes_Success;
+}
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", OnRoundStart);
+	int version[3];
+	FF2_GetFF2Version(version);
+	if(version[0] != 1)
+		SetFailState("This subplugin is only for FF2 v1.0 versions!");
+
+	#if defined _FFBAT_included
+	if(version[1] > 10)
+	{
+		FF2_GetForkVersion(version);
+		//if(version[0]==1 && (version[1]>18 || (version[1]==18 && version[2]>5)))	Unofficial never had an official
+		if(version[0] && version[1])	// version of 1.11 until it's 1.19, by that time everything here is included
+			UnofficialFF2 = true;
+	}
+	#endif
+
+	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
 	if(FF2_IsFF2Enabled() && FF2_GetRoundState()==1)
-		OnRoundStart(INVALID_HANDLE, "plugin_lateload", false);
+		OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
 
 	for(int ability; ability<(MAXABILITIES-1); ability++)
 	{
@@ -69,13 +96,12 @@ public void OnPluginStart2()
 
 // TF2 Events
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled())
-		return Plugin_Continue;
+		return;
 
-	char abilityFormat[MAXABILITYNAME];
-	char abilityPrefix[MAXPREFIXNAME];
+	char abilityFormat[MAXABILITYNAME], abilityArg[MAXARGNAME], abilityPrefix[MAXPREFIXNAME];
 	int client;
 	for(int boss; boss<=MaxClients; boss++)
 	{
@@ -98,8 +124,10 @@ public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 			{
 				for(int rage; rage<MAXRAGES; rage++)
 				{
-					FF2_GetAbilityArgumentString(boss, this_plugin_name, abilityFormat, (rage*10)+1, AbilityName[client][ability][rage], MAXABILITYNAME);
-					FF2_GetAbilityArgumentString(boss, this_plugin_name, abilityFormat, (rage*10)+2, PluginName[client][ability][rage], MAXABILITYNAME);
+					Format(abilityArg, MAXARGNAME, "ability%i", rage+1);
+					FF2_GetArgS(boss, this_plugin_name, abilityFormat, abilityArg, (rage*10)+1, AbilityName[client][ability][rage], MAXABILITYNAME);
+					Format(abilityArg, MAXARGNAME, "plugin%i", rage+1);
+					FF2_GetArgS(boss, this_plugin_name, abilityFormat, abilityArg, (rage*10)+2, PluginName[client][ability][rage], MAXABILITYNAME);
 				}
 
 				if(ability)
@@ -132,20 +160,25 @@ public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 
 				for(int rage; rage<MAXRAGES; rage++)
 				{
-					AbilitySlot[client][ability][rage] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, (rage*10)+3);
-					Buttonmode[client][ability][rage] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, (rage*10)+4);
+					Format(abilityArg, MAXARGNAME, "slot%i", rage+1);
+					AbilitySlot[client][ability][rage] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, abilityArg, (rage*10)+3);
+					if(!AbilitySlot[client][ability][rage])
+						AbilitySlot[client][ability][rage] = -1;
+
+					Format(abilityArg, MAXARGNAME, "button%i", rage+1);
+					Buttonmode[client][ability][rage] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, abilityArg, (rage*10)+4);
 				}
 
-				MinPlayers[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 101);
-				MaxPlayers[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 102);
-				MinHealth[client][ability] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, abilityFormat, 103);
-				MaxHealth[client][ability] = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, abilityFormat, 104);
-				MinMinions[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 105);
-				MaxMinions[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 106);
-				MinDead[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 107);
-				MaxDead[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 108);
-				MinLives[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 109);
-				MaxLives[client][ability] = FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, 110);
+				MinPlayers[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "alive min", 101);
+				MaxPlayers[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "alive max", 102);
+				MinHealth[client][ability] = FF2_GetArgF(boss, this_plugin_name, abilityFormat, "health min", 103);
+				MaxHealth[client][ability] = FF2_GetArgF(boss, this_plugin_name, abilityFormat, "health max", 104);
+				MinMinions[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "clone min", 105);
+				MaxMinions[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "clone max", 106);
+				MinDead[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "dead min", 107);
+				MaxDead[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "dead max", 108);
+				MinLives[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "life min", 109);
+				MaxLives[client][ability] = FF2_GetArgI(boss, this_plugin_name, abilityFormat, "life max", 110);
 			}
 	#if LESSLOAD
 			else if(ability)
@@ -155,7 +188,6 @@ public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 	#endif
 		}
 	}
-	return Plugin_Continue;
 }
 
 // FF2 Events
@@ -178,13 +210,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 		char sound[MAXSOUNDPATH];
 		if(FF2_RandomSound(SOUNDRAGE, sound, MAXSOUNDPATH, boss))
-		{
-		#if defined _FFBAT_included
-			FF2_EmitVoiceToAll(sound);
-		#else
-			EmitSoundToAll(sound);
-		#endif
-		}
+			EmitVoiceToAll(sound);
 
 		char pluginName[MAXPLUGINNAME], abilityName[MAXABILITYNAME];
 		for(int rage; rage<MAXRAGES; rage++)
@@ -209,7 +235,7 @@ public void FF2_OnAlivePlayersChanged(int players, int bosses)
 	Bosses = bosses;
 }
 
-public int FF2_PreAbility(int boss, const char[] pluginName, const char[] abilityName, int slot, bool &enabled)
+public void FF2_PreAbility(int boss, const char[] pluginName, const char[] abilityName, int slot, bool &enabled)
 {
 	if(UsingAbility[boss])
 		return;
@@ -220,12 +246,13 @@ public int FF2_PreAbility(int boss, const char[] pluginName, const char[] abilit
 			//return;
 
 		int client = GetClientOfUserId(FF2_GetBossUserId(boss));
-		char pluginName2[MAXPLUGINNAME], abilityName2[MAXABILITYNAME];
+		char pluginName2[MAXPLUGINNAME], abilityName2[MAXABILITYNAME], argName[MAXABILITYNAME];
 		for(int rage; rage<MAXRAGES; rage++)
 		{
 			strcopy(pluginName2, MAXPLUGINNAME, PluginName[client][0][rage]);
 			strcopy(abilityName2, MAXABILITYNAME, AbilityName[client][0][rage]);
-			if(StrEqual(pluginName, pluginName2, false) && StrEqual(abilityName, abilityName2, false) && FF2_GetAbilityArgument(boss, this_plugin_name, ABILITYRAGE, (rage*10)+5, 1))
+			Format(argName, MAXARGNAME, "block%i", rage+1);
+			if(StrEqual(pluginName, pluginName2, false) && StrEqual(abilityName, abilityName2, false) && FF2_GetArgI(boss, this_plugin_name, ABILITYRAGE, argName, (rage*10)+5, 1))
 			{
 				enabled = false;
 				return;
@@ -249,7 +276,8 @@ public int FF2_PreAbility(int boss, const char[] pluginName, const char[] abilit
 			{
 				strcopy(pluginName2, MAXPLUGINNAME, PluginName[client][ability][rage]);
 				strcopy(abilityName2, MAXABILITYNAME, AbilityName[client][ability][rage]);
-				if(StrEqual(pluginName, pluginName2, false) && StrEqual(abilityName, abilityName2, false) && FF2_GetAbilityArgument(boss, this_plugin_name, abilityFormat, (rage*10)+5, 1))
+				Format(abilityFormat, MAXARGNAME, "block%i", rage+1);
+				if(StrEqual(pluginName, pluginName2, false) && StrEqual(abilityName, abilityName2, false) && FF2_GetArgI(boss, this_plugin_name, ABILITYRAGE, abilityFormat, (rage*10)+5, 1))
 				{
 					enabled = false;
 					return;
@@ -470,15 +498,13 @@ public void Global_Invoke(int client, int abililty)
 
 	char sound[MAXSOUNDPATH];
 	if(FF2_RandomSound(SoundNames[abililty], sound, MAXSOUNDPATH, boss))
-	{
-	#if defined _FFBAT_included
-		FF2_EmitVoiceToAll(sound);
-	#else
-		EmitSoundToAll(sound);
-	#endif
-	}
+		EmitVoiceToAll(sound);
 
-	char pluginName[MAXPLUGINNAME], abilityName[MAXABILITYNAME];
+	char abilityName[MAXABILITYNAME];
+	/*Format(abilityName, MAXABILITYNAME, "%s%i", ABILITY-1);
+	FF2_SetBossCharge(boss, 0, FF2_GetBossCharge(boss, 0)+FF2_GetAbilityArgument(boss, this_plugin_name, abilityName, 1005));*/
+
+	char pluginName[MAXPLUGINNAME];
 	for(int rage; rage<MAXRAGES; rage++)
 	{
 		strcopy(pluginName, MAXPLUGINNAME, PluginName[client][abililty][rage]);
@@ -517,6 +543,22 @@ stock bool IsValidClient(int client, bool replaycheck=true)
 		return false;
 
 	return true;
+}
+
+stock void EmitVoiceToAll(const char[] sample, int entity=SOUND_FROM_PLAYER)
+{
+	#if defined _FFBAT_included
+	if(UnofficialFF2)
+	{
+		FF2_EmitVoiceToAll(sample, entity);
+	}
+	else
+	{
+		EmitSoundToAll(sample, entity);
+	}
+	#else
+	EmitSoundToAll(sample, entity);
+	#endif
 }
 
 #file "FF2 Subplugin: AMS Do Ability"
