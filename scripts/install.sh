@@ -1,8 +1,17 @@
-mkdir build
-cd build
+mkdir sm
+cd sm
 
 wget --input-file=http://sourcemod.net/smdrop/$SM_VERSION/sourcemod-latest-linux
 tar -xzf $(cat sourcemod-latest-linux)
+
+mkdir build
+cd build
+
+cp -r ../addons/sourcemod/scripting addons/sourcemod
+cp -r ../sm/addons/sourcemod/scripting/include addons/sourcemod/scripting
+cp -r ../sm/addons/sourcemod/scripting/compile.sh addons/sourcemod/scripting
+cp -r ../sm/addons/sourcemod/scripting/spcomp addons/sourcemod/scripting
+cd addons/sourcemod/scripting
 
 wget "https://raw.githubusercontent.com/Batfoxkid/FreakFortressBat/master/addons/sourcemod/scripting/include/freak_fortress_2.inc" -O include/freak_fortress_2.inc
 wget "https://raw.githubusercontent.com/Batfoxkid/FreakFortressBat/master/addons/sourcemod/scripting/include/freak_fortress_2_stocks.inc" -O include/freak_fortress_2_stocks.inc
@@ -20,8 +29,3 @@ wget "https://raw.githubusercontent.com/Silenci0/SMAC/master/addons/sourcemod/sc
 wget "https://forums.alliedmods.net/attachment.php?attachmentid=116849&d=1377667508" -O include/tf2attributes.inc
 
 sed -i'' 's/required = 1/#if defined REQUIRE_PLUGIN\nrequired = 1\n\#else\nrequired = 0/' include/rtd.inc
-
-cp -r ../addons/sourcemod/scripting/include addons/sourcemod/scripting
-cp -r ../addons/sourcemod/scripting/compile.sh addons/sourcemod/scripting
-cp -r ../addons/sourcemod/scripting/spcomp addons/sourcemod/scripting
-cd addons/sourcemod/scripting
