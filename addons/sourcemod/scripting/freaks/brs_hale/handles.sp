@@ -1,9 +1,9 @@
-#include "brs_hale/medigun.sp"
-#include "brs_hale/stun_gun.sp"
-#include "brs_hale/homing.sp"
-#include "brs_hale/upgrade.sp"
-#include "brs_hale/wrap.sp"
-#include "brs_hale/multiple.sp"
+#include "freaks/brs_hale/medigun.sp"
+#include "freaks/brs_hale/stun_gun.sp"
+#include "freaks/brs_hale/homing.sp"
+#include "freaks/brs_hale/upgrade.sp"
+#include "freaks/brs_hale/wrap.sp"
+#include "freaks/brs_hale/multiple.sp"
 
 static const char SpecialAb[][] = {
 	"invalid",
