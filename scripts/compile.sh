@@ -23,4 +23,6 @@ cd build/addons/sourcemod/scripting
 ./compile.sh tts.sp
 ./compile.sh vshbots_logic.sp
 ./compile.sh vshbots_move.sp
-./compile.sh freaks/*.sp
+
+cd freaks
+./compile.sh *.sp
