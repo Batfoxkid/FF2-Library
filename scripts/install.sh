@@ -21,5 +21,6 @@ wget "https://raw.githubusercontent.com/Phil25/RTD/master/scripting/include/rtd2
 wget "https://raw.githubusercontent.com/Silenci0/SMAC/master/addons/sourcemod/scripting/include/smac.inc" -O include/smac.inc
 wget "https://raw.githubusercontent.com/Silenci0/SMAC/master/addons/sourcemod/scripting/include/smac_stocks.inc" -O include/smac_stocks.inc
 wget "https://forums.alliedmods.net/attachment.php?attachmentid=116849&d=1377667508" -O include/tf2attributes.inc
+wget "https://raw.githubusercontent.com/nosoop/SM-TFCustAttr/master/scripting/include/tf_custom_attributes.inc" -O include/tf_custom_attributes.inc
 
 sed -i'' 's/required = 1/#if defined REQUIRE_PLUGIN\nrequired = 1\n\#else\nrequired = 0/' include/rtd.inc
