@@ -26,9 +26,7 @@ jobs:
       
       - name: Compile
         run: |
-          cd build/addons/sourcemod/scripting
-          ./compile.sh *.sp
-          ./compile.sh freaks/*.sp
+          bash scripts/compile.sh
       
       - name: Package
         run: |
