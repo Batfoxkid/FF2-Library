@@ -1,16 +1,10 @@
-mkdir sm
-cd sm
+mkdir build
+cd build
 
 wget --input-file=http://sourcemod.net/smdrop/$SM_VERSION/sourcemod-latest-linux
 tar -xzf $(cat sourcemod-latest-linux)
 
-mkdir build/addons/sourcemod
-cd build
-
 cp -r ../addons/sourcemod/scripting addons/sourcemod
-cp -r ../sm/addons/sourcemod/scripting/include addons/sourcemod/scripting
-cp -r ../sm/addons/sourcemod/scripting/compile.sh addons/sourcemod/scripting
-cp -r ../sm/addons/sourcemod/scripting/spcomp addons/sourcemod/scripting
 cd addons/sourcemod/scripting
 
 wget "https://raw.githubusercontent.com/Batfoxkid/FreakFortressBat/master/addons/sourcemod/scripting/include/freak_fortress_2.inc" -O include/freak_fortress_2.inc
