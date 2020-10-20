@@ -221,7 +221,7 @@ public void OnPluginStart2()
 	HookEvent("teamplay_round_start", Event_Countdown, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_Pre);
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_Pre);
-	HookEvent("player_death", Event_PlayerDeath, EventHookMode_PostNoCopy);
+	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
 	AddNormalSoundHook(SoundHook);
 	
 	// Notification Sounds
