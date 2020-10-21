@@ -324,6 +324,7 @@ float DDG_DestroyAt[MAX_GEMS];
 #define BH_KEY_RELOAD 1
 #define BH_KEY_SPECIAL 2
 bool BH_ActiveThisRound;
+bool BH_MedicHookd;
 bool BH_CanUse[MAX_PLAYERS_ARRAY];
 bool BH_IsDOT[MAX_PLAYERS_ARRAY]; // internal
 int BH_ProjectileEntRef[MAX_PLAYERS_ARRAY]; // internal, there can only be one at a time
@@ -3186,14 +3187,16 @@ public Action BH_MedicCommand(int clientIdx, const char[] command, int argc)
  
 public void BH_Initialize()
 {
-	bool medicHooked = false;
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (BH_CanUse[clientIdx] && !(BH_IsDOT[clientIdx] || BH_KeyID[clientIdx] != BH_KEY_MEDIC))
 		{
-			if (!medicHooked)
+			if(!BH_MedicHooked)
+			{
+				BH_MedicHooked = true;
 				AddCommandListener(BH_MedicCommand, "voicemenu");
-			medicHooked = true;
+				break;
+			}
 		}
 	}
 }
@@ -3201,7 +3204,11 @@ public void BH_Initialize()
 public void BH_Cleanup()
 {
 	BH_ActiveThisRound = false;
-	RemoveCommandListener(BH_MedicCommand, "voicemenu");
+	if(BH_MedicHooked)
+	{
+		RemoveCommandListener(BH_MedicCommand, "voicemenu");
+		BH_MedicHooked = false;
+	}
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsClientInGame(clientIdx))
