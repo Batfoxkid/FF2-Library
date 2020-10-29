@@ -324,7 +324,7 @@ float DDG_DestroyAt[MAX_GEMS];
 #define BH_KEY_RELOAD 1
 #define BH_KEY_SPECIAL 2
 bool BH_ActiveThisRound;
-bool BH_MedicHookd;
+bool BH_MedicHooked;
 bool BH_CanUse[MAX_PLAYERS_ARRAY];
 bool BH_IsDOT[MAX_PLAYERS_ARRAY]; // internal
 int BH_ProjectileEntRef[MAX_PLAYERS_ARRAY]; // internal, there can only be one at a time
