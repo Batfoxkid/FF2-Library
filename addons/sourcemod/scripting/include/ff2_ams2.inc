@@ -6,6 +6,8 @@
 #endif
 #define _FF2AMS_Redux
 
+#include <freak_fortress_2>
+
 enum AMSResult {
 	AMS_INVALID = -1,
 	AMS_Ignore,
@@ -14,23 +16,22 @@ enum AMSResult {
 	AMS_Overwrite
 };
 
-
 /**
  *	Action FF2AMS_PreAbility(int, int&, AMSResult&);
  *
  *	@brief			: Called whenever an ams rage attempt to start
  *
  * @param client	: client index
- * @param index	: AMS index
+ * @param index		: Current Data
  * @param result	: new action to overwrite
  *
  * @return	Plugin_Stop will stop the rage from happening
- *				Any value other than Plugin_Continue will overwrite the index
+ *				Any value other than Plugin_Continue will overwrite the indexPushTo
  *				return Plugin_Handled with new AMSResult to confirm the operation
  *
  * @call		PREFIX_CanInvoke()
  */
-forward Action FF2AMS_PreAbility(int client, int& index, AMSResult& result);
+forward Action FF2AMS_PreAbility(int client, StringMap& data, AMSResult& result);
 
 /**
  *	void FF2AMS_OnAbility(int, int, const char[], const char[]);
@@ -38,15 +39,13 @@ forward Action FF2AMS_PreAbility(int client, int& index, AMSResult& result);
  *	@brief			: called right after FF2AMS_PreAbility() when the action taken was success
  *
  * @param client	: client index
- * @param index	: AMS index
- * @param plugin	: plugin_name
- * @param ability	: ability_name
+ * @param index	: Current Data
  *
  * @noreturn
  *
- * @call		PREFIX_Invoke()
+ * @call		AMS_REGPREFIX_Invoke()
  */
-forward void FF2AMS_OnAbility(int client, int index, const char[] plugin, const char[] ability);
+forward void FF2AMS_OnAbility(int client, const StringMap data);
 
 /**
  *	Action FF2AMS_OnForceEnd(int, int&, AMSResult&);
@@ -54,7 +53,7 @@ forward void FF2AMS_OnAbility(int client, int index, const char[] plugin, const 
  *	@brief			: Called when an ability is about to be manually deactivated
  *
  * @param client	: client index
- * @param index	: AMS index
+ * @param index	: Current data
  * @param plugin	: plugin_name
  * @param ability	: ability_name
  *
@@ -63,19 +62,16 @@ forward void FF2AMS_OnAbility(int client, int index, const char[] plugin, const 
  *
  * @call		PREFIX_EndAbility()
  */
-forward Action FF2AMS_OnForceEnd(int client, int& index, AMSResult& result);
+forward Action FF2AMS_OnForceEnd(int client, StringMap& data, AMSResult& result);
 
 /**
  *	void FF2AMS_PreRoundStart(int)
  *
  *	@brief			: Called before round start & when player successfully acquire pass ams checks
  *
- * @param client	: client index
- *
  * @noreturn	
  */
 forward void FF2AMS_PreRoundStart(int client);
-
 
 /**
  *	int FF2AMS_PushToAMSEx(int, char[], const char[], const char[]);
@@ -109,41 +105,16 @@ native int FF2AMS_PushToAMSEx(int client, const char[] plugin, const char[] abil
 native bool FF2AMS_PushToAMS(int client, const char[] plugin, const char[] ability, const char[] prefix);
 
 /**
- *	int FF2AMS_GetTotalAbilities(int);
- *
- *	@brief			: gets max number of abilities that were pushed to the following client
- *
- * @param client	: client index
- *
- * @return
- * @error			: invalid client index
- */
-native int FF2AMS_GetTotalAbilities(int client);
-
-/**
- *	StringMap FF2AMS_GetAMSHashMap(int, int);
+ *	ArrayList FF2AMS_GetAMSAbilities(int, int);
  *
  *	@brief			: given the client and ability index, return ability's StringHashMap pointer
  *
  * @param client	: client index
- * @param index	: ability index
  *
- * @return			: a valid string-hashmap on success, null on failure
- * @error			: invalid client index, client doesn't have an ams ability, or ams index out of bounds
- */
-native StringMap FF2AMS_GetAMSHashMap(int client, int index);
-
-/**
- *	StringMap FF2AMS_GetGlobalAMSHashMap(int);
- *
- *	@brief			: given a client index, return global AMS-StringHashMap pointer
- *
- * @param client	: client index
- *
- * @return			a valid string-hashmap on success, null on failure
+ * @return			: a valid arraylist on success, null if player doesn't have ams
  * @error			: invalid client index
  */
-native StringMap FF2AMS_GetGlobalAMSHashMap(int client);
+native ArrayList FF2AMS_GetAMSAbilities(int client);
 
 /**
  *	bool FF2AMS_IsAMSActivatedFor(int);
@@ -175,7 +146,7 @@ native bool FF2AMS_IsAMSActive();
  * @return			: AMS_Result==AMS_Overwrite will call PREFIX_OverWrite();
  *						any value other than AMS_Accept will block the ability
  */
-typedef CanInvoke = function AMSResult(int client, int index);
+typedef CanInvokefn = function AMSResult(int client, StringMap data);
 
 /**
  *	void PREFIX_Invoke(int, int);
@@ -184,7 +155,7 @@ typedef CanInvoke = function AMSResult(int client, int index);
  *
  * @noreturn
  */
-typedef DoInvoke = function void(int client, int index);
+typedef DoInvokefn = function void(int client, const StringMap data);
 
 /**
  *	void PREFIX_Overwrite(int, int);
@@ -193,7 +164,7 @@ typedef DoInvoke = function void(int client, int index);
  *
  * @noreturn
  */
-typedef DoOverwrite = function void(int client, int index);
+typedef DoOverwritefn = function void(int client, const StringMap data);
 
 /**
  *	void PREFIX_EndAbility(int, int);
@@ -202,16 +173,14 @@ typedef DoOverwrite = function void(int client, int index);
  *
  * @noreturn
  */
-typedef EndAbility = function void(int client, int index);
+typedef EndAbilityfn = function void(int client, const StringMap data);
 
 #if !defined REQUIRE_PLUGIN
 public __pl_INTERFACE_SetNTVOptional()
 {
 	MarkNativeAsOptional("FF2AMS_PushToAMS");
 	MarkNativeAsOptional("FF2AMS_PushToAMSEx");
-	MarkNativeAsOptional("FF2AMS_GetTotalAbilities");
-	MarkNativeAsOptional("FF2AMS_GetAMSHashMap");
-	MarkNativeAsOptional("FF2AMS_GetGlobalAMSHashMap");
+	MarkNativeAsOptional("FF2AMS_GetAMSAbilities");
 	MarkNativeAsOptional("FF2AMS_IsAMSActivatedFor");
 	MarkNativeAsOptional("FF2AMS_IsAMSActive");
 }
