@@ -1,33 +1,3 @@
-/*
-	"ams_sys"
-	{
-		"activation"	"0"		//0 : E rage, reload, mouse3 or mouse2
-		"selection"		"reload"	//reload, mouse3 or mouse2
-		"reverse"		"mouse3" //reload, mouse3 or mouse2
-		
-		"hud"
-		{
-			"cinactive"	"0xC00000FF"
-			"inactive"	"%s (%.2f rage) [RELOAD (R) to change]\n%s\nAbility is currently unavailable."
-			
-			"cactive"	"0xFFFFFFFF"
-			"active"	"%s (%.2f rage) [RELOAD (R) to change]\n%s\nAbility is available. (press E)"
-			
-			"y"			"0.68"
-		}
-		
-		"cast-particle"	"eb_tp_normal_bits"
-	}
-	
-	"ability: *"
-	{
-		"initial cd"	"15.0"
-		"ability cd"	"15.0"
-		"this_name"	"Ack!"
-		"display_desc"	"Hello"
-		"cost"		"40.0"
-	}
-*/
 #include <sourcemod>
 #include <tf2_stocks>
 #include <freak_fortress_2>
@@ -37,7 +7,8 @@
 
 #define ToAMSUser(%0) view_as<AMSUser>(%0)
 #define MAXCLIENTS MAXPLAYERS + 1
-
+#define _AMS_TAG "ams_sys." ... 
+Handle hAMSHud;
 
 FF2GameMode ff2_gm;
 
@@ -63,14 +34,13 @@ public Plugin myinfo =
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	AMSForward[hPreAbility] 	= new GlobalForward("FF2AMS_PreAbility", 	ET_Event, 	Param_Cell, Param_CellByRef, 	Param_CellByRef);
-	AMSForward[hOnAbility] 		= new GlobalForward("FF2AMS_OnAbility", 	ET_Ignore, 	Param_Cell,	Param_Cell);
+	AMSForward[hOnAbility] 		= new GlobalForward("FF2AMS_OnAbility", 	ET_Ignore, 	Param_Cell, Param_Cell);
 	AMSForward[hPreForceEnd] 	= new GlobalForward("FF2AMS_OnForceEnd", 	ET_Event, 	Param_Cell, Param_CellByRef,	Param_CellByRef);
 	AMSForward[hPreRoundStart] 	= new GlobalForward("FF2AMS_PreRoundStart", 	ET_Ignore, 	Param_Cell);
 	
 	CreateNative("FF2AMS_PushToAMS",			Native_PushToAMS);
 	CreateNative("FF2AMS_PushToAMSEx", 			Native_PushToAMSEx);
 	CreateNative("FF2AMS_GetAMSAbilities",		Native_GetAMSAbilities);
-	CreateNative("FF2AMS_GetGlobalAMSHashMap", 	Native_GetAMSGlobalHandle);
 	CreateNative("FF2AMS_IsAMSActivatedFor",	Native_IsAMSReadyFor);
 	CreateNative("FF2AMS_IsAMSActive", 			Native_IsAMSActive);
 	
@@ -86,12 +56,10 @@ public void OnLibraryAdded(const char[] name)
 {
 	if(!strcmp(name, "VSH2")) {
 		VSH2_Hook(OnRoundStart, 	_OnRoundStart);
-		HookEvent("arena_win_panel", _OnRoundEndInfo, EventHookMode_PostNoCopy);
+		HookEvent("arena_win_panel", _OnRoundEnd, EventHookMode_PostNoCopy);
 		VSH2_Hook(OnBossThink, 		_OnBossThink);
 		VSH2_Hook(OnBossMedicCall, 	_OnBossRage);
 		VSH2_Hook(OnBossTaunt, 		_OnBossRage);
-		
-		g_hDeleteStack = new DeleteStack();
 		
 		if(ff2_gm.RoundState == StateRunning) {
 			VSH2Player[] pl2 = new VSH2Player[MaxClients];
@@ -105,13 +73,10 @@ public void OnLibraryRemoved(const char[] name)
 {
 	if(!strcmp(name, "VSH2")) {
 		VSH2_Unhook(OnRoundStart, _OnRoundStart);
-		UnhookEvent("arena_round_end", _OnRoundEndInfo, EventHookMode_PostNoCopy);
+		UnhookEvent("arena_round_end", _OnRoundEnd, EventHookMode_PostNoCopy);
 		VSH2_Unhook(OnBossThink, _OnBossThink);
 		VSH2_Unhook(OnBossMedicCall, _OnBossRage);
 		VSH2_Unhook(OnBossTaunt, _OnBossRage);
-		
-		g_hDeleteStack.Flush();
-		delete g_hDeleteStack;
 	}
 }
 
@@ -141,7 +106,7 @@ public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const
 		FF2GameMode.SetProp("bAMSExists", true);
 }
 
-public void _OnRoundEndInfo(Event hEvent, const char[] nName, bool bBroadcast)
+public void _OnRoundEnd(Event hEvent, const char[] nName, bool bBroadcast)
 {
 	if(!FF2GameMode.GetPropAny("bAMSExists"))
 		return;
@@ -160,8 +125,6 @@ public void _OnRoundEndInfo(Event hEvent, const char[] nName, bool bBroadcast)
 			ResetPlayer(client);
 		}
 	}
-	
-	g_hDeleteStack.Flush();
 	
 	FF2GameMode.SetProp("bAMSExists", false);
 }
@@ -186,16 +149,6 @@ public Action _OnBossRage(const VSH2Player vsh2player)
 		
 	player.bWantsToRage = true;
 	return Plugin_Stop;
-}
-
-public void NextFrame_RevertRage(DataPack oldData)
-{
-	oldData.Reset();
-	AMSUser player = oldData.ReadCell();
-	if(player.index)
-		player.SetPropFloat("flRAGE", oldData.ReadFloat());
-	
-	delete oldData;
 }
 
 
@@ -254,7 +207,7 @@ void Handle_AMSThink(const AMSUser player)
 			
 			if(FF2_GetAMSType(player, hash) == AMS_Accept)
 			{
-				Handle_AMSOnAbility(player.index, hash);
+				Handle_AMSOnAbility(player, hash);
 				
 				player.SetPropFloat("flRAGE", player.GetPropFloat("flRAGE") - hash.flCost);
 				AMS_HudUpdate[client] = curTime;
@@ -275,8 +228,8 @@ void Handle_AMSThink(const AMSUser player)
 		hash.GetString("this_name", other, sizeof(other));
 		hash.GetString("ability desc", other2, sizeof(other2));
 		
-		
 		static int color[4]; GetRGBA(available ? player.rgba_on : player.rgba_off, color);
+		
 		SetHudTextParams(-1.0, 
 						data.flHudPos, 
 						0.21, 
@@ -308,10 +261,15 @@ static AMSResult FF2_GetAMSType(AMSUser player, AMSHash _data, bool hud=false)
 
 void GetRGBA(const int hex, int color[4])
 {
+	static char fmt[10], c[2];
+	FormatEx(fmt, sizeof(fmt), "%08X", hex);
 	for(int i; i < 4; i++)
-		color[i] = (hex >> 0x8 * i) & 0xFF;
+	{
+		c[0] = fmt[i * 2];
+		c[1] = fmt[i * 2 + 1];
+		color[i] = StringToInt(c, 16);
+	}
 }
-
 
 
 
@@ -361,20 +319,13 @@ public any Native_GetAMSAbilities(Handle pContext, int Params)
 	return AMSData[client].hAbilities;
 }
 
-public any Native_GetAMSGlobalHandle(Handle pContext, int Params)
-{
-	int client = GetNativeCell(1);
-	if (client <= 0 || client > MaxClients)
-		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
-	return g_hAMSMap[client];
-}
-
 public any Native_IsAMSReadyFor(Handle pContext, int Params)
 {
 	int client = GetNativeCell(1);
 	if(client <= 0 || client > MaxClients)
 		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
-	return g_hAMSMap[client] != null;
+	
+	return AMSData[client].hAbilities != null;
 }
 
 public any Native_IsAMSActive(Handle pContext, int Params)
@@ -391,6 +342,4 @@ static void ResetPlayer(const int client)
 			
 	delete AMSData[client].hAbilities;
 	AMSData[client].Pos = 0;
-	
-	g_hAMSMap[client] = null;
 }
