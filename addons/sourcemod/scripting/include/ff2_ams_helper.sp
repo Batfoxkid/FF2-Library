@@ -1,4 +1,5 @@
 
+
 enum AMSResult 
 {
 	AMS_INVALID = -1,
@@ -106,8 +107,8 @@ methodmap AMSSettings < ArrayList {
 
 
 enum struct AMSData_t {
-	char szActive[124];
-	char szInactive[124];
+	char szActive[128];
+	char szInactive[128];
 	float flHudPos;
 	
 	int iForwardKey;
@@ -185,56 +186,13 @@ methodmap AMSUser < FF2Player
 			this.SetPropFloat("ams_flLastThink", f);
 		}
 	}
-}
-
-
-methodmap DeleteStack < ArrayStack {
-	public DeleteStack() 
-	{ 
-		return view_as<DeleteStack>(new ArrayStack());
-	}
 	
-	public void Flush()
+	
+	public int GetButton(const char[] key) 
 	{
-		if(!this)
-			return;
-		
-		ConfigMap curCfg;
-		while(!this.Empty)
-		{
-			curCfg = this.Pop();
-			DeleteCfg(curCfg);
-		}
-	}
-}
-DeleteStack g_hDeleteStack;
-
-
-methodmap AMSMap < ConfigMap 
-{
-	public AMSMap GetSection(const char[] section) {
-		return view_as<AMSMap>(this.GetSection(section));
-	}
-	
-	public AMSMap(const char[] path) {
-		
-		AMSMap cfg = view_as<AMSMap>(new ConfigMap(path));
-		
-		AMSMap ams_base = cfg.GetSection("character.ams_sys");
-		if(!ams_base) {
-			DeleteCfg(view_as<ConfigMap>(cfg));
-			return null;
-		}
-		
-		g_hDeleteStack.Push(cfg);
-		
-		return ams_base;
-	}
-	
-	public int GetButton(const char[] key) {
 		char val[8];
-		if(!this.Get(key, val, sizeof(val)))
-			return IN_RELOAD;
+		if(!this.GetString(key, val, sizeof(val)))
+			return 0;
 		
 		if(!strcmp(val, "reload"))
 			return IN_RELOAD;
@@ -247,45 +205,35 @@ methodmap AMSMap < ConfigMap
 	}
 }
 
-AMSMap g_hAMSMap[MAXCLIENTS];
-
-Handle hAMSHud;
-
 
 bool CreateAMS(const AMSUser player)
 {
-	char path[PLATFORM_MAX_PATH];
-	player.GetConfigName(path, sizeof(path));
-	Format(path, sizeof(path), "configs/freak_fortress_2/%s.cfg", path);
 	int client = player.index;
 	
-	if( !(g_hAMSMap[client] = new AMSMap(path)) )
+	if( !player.GetString(_AMS_TAG "hud.active", AMSData[client].szActive, sizeof(AMSData_t::szActive)) ||
+		!player.GetString(_AMS_TAG "hud.inactive", AMSData[client].szInactive, sizeof(AMSData_t::szInactive)) )
 		return false;
-	
-	AMSMap data = g_hAMSMap[client];
-	AMSMap hud_data = data.GetSection("hud");
-	
-	int res;
-	if(!hud_data.Get("cactive", path, sizeof(path)))
-		res = 0x00FF00FF;
-	else res = StringToInt(path, 16);
-	player.rgba_on = res;
-	
-	if(!hud_data.Get("cinactive", path, sizeof(path)))
-		res = 0x00FF00FF;
-	else res = StringToInt(path, 16);
-	player.rgba_off = res;
-	
-	AMSData[client].iActivateKey = data.GetButton("activation");
-	AMSData[client].iForwardKey = data.GetButton("selection");
-	AMSData[client].iReverseKey = data.GetButton("reverse");
-	
-	hud_data.Get("active", AMSData[client].szActive, sizeof(AMSData_t::szActive));
-	hud_data.Get("inactive", AMSData[client].szInactive, sizeof(AMSData_t::szInactive));
-	hud_data.GetFloat("y", AMSData[client].flHudPos);
 	
 	ReplaceString(AMSData[client].szActive, sizeof(AMSData_t::szActive), "\\n", "\n");
 	ReplaceString(AMSData[client].szInactive, sizeof(AMSData_t::szInactive), "\\n", "\n");
+	
+	char buffer[10];
+	int res;
+	if(!player.GetString(_AMS_TAG "hud.cactive", buffer, sizeof(buffer)))
+		res = 0x0000FFFF;
+	else res = StringToInt(buffer, 16);
+	player.rgba_on = res;
+	
+	if(!player.GetString(_AMS_TAG "hud.cinactive", buffer, sizeof(buffer)))
+		res = 0xFF0000FF;
+	else res = StringToInt(buffer, 16);
+	player.rgba_off = res;
+	
+	AMSData[client].iActivateKey = player.GetButton(_AMS_TAG "activation");
+	AMSData[client].iForwardKey = player.GetButton(_AMS_TAG "selection");
+	AMSData[client].iReverseKey = player.GetButton(_AMS_TAG "reverse");
+	
+	player.GetFloat(_AMS_TAG "hud.y", AMSData[client].flHudPos);
 	
 	AMSData[client].hAbilities = new AMSSettings();
 	AMSData[client].Pos = 0;
@@ -316,14 +264,15 @@ AMSResult Handle_AMSPreAbility(int client, AMSHash data)
 	return AMS_CanInvoke(client, data);
 }
 
-void Handle_AMSOnAbility(int client, AMSHash data)
+void Handle_AMSOnAbility(FF2Player player, AMSHash data)
 {
+	int client = player.index;
 	Call_StartForward(AMSForward[hOnAbility]);
 	Call_PushCell(client);
 	Call_PushCell(data);
 	Call_Finish();
 	
-	AMS_DoInvoke(client, data);
+	AMS_DoInvoke(player, data);
 }
 
 void Handle_AMSOnEnd(int client, AMSHash data)
@@ -374,18 +323,19 @@ static AMSResult AMS_CanInvoke(int client, AMSHash data)
 	return AMSAction;
 }
 
-static void AMS_DoInvoke(int client, AMSHash data)
+static void AMS_DoInvoke(FF2Player player, AMSHash data)
 {
 	Handle hPlugin;
 	Function hFunc;
 	if(AMS_GetCallback(data, "%s_Invoke", hPlugin, hFunc)) {
+		int client = player.index;
 		Call_StartFunction(hPlugin, hFunc);
 		Call_PushCell(client);
 		Call_PushCell(data);
 		Call_Finish();
 		
 		static char buffer[64];
-		g_hAMSMap[client].GetString("cast-particle", buffer, sizeof(buffer));
+		player.GetString(_AMS_TAG "cast-particle", buffer, sizeof(buffer));
 		if(buffer[0])
 			CreateTimedParticle(client, buffer, 1.0);
 	}
