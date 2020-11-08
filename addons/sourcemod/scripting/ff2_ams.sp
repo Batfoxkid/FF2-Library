@@ -34,9 +34,9 @@ public Plugin myinfo =
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	AMSForward[hPreAbility] 	= new GlobalForward("FF2AMS_PreAbility", 	ET_Event, 	Param_Cell, Param_CellByRef, 	Param_CellByRef);
-	AMSForward[hOnAbility] 		= new GlobalForward("FF2AMS_OnAbility", 	ET_Ignore, 	Param_Cell, Param_Cell);
+	AMSForward[hOnAbility] 		= new GlobalForward("FF2AMS_OnAbility", 	ET_Ignore, 	Param_Cell,	Param_Cell);
 	AMSForward[hPreForceEnd] 	= new GlobalForward("FF2AMS_OnForceEnd", 	ET_Event, 	Param_Cell, Param_CellByRef,	Param_CellByRef);
-	AMSForward[hPreRoundStart] 	= new GlobalForward("FF2AMS_PreRoundStart", 	ET_Ignore, 	Param_Cell);
+	AMSForward[hPreRoundStart] 	= new GlobalForward("FF2AMS_PreRoundStart", ET_Ignore, 	Param_Cell);
 	
 	CreateNative("FF2AMS_PushToAMS",			Native_PushToAMS);
 	CreateNative("FF2AMS_PushToAMSEx", 			Native_PushToAMSEx);
@@ -232,8 +232,8 @@ void Handle_AMSThink(const AMSUser player)
 		
 		SetHudTextParams(-1.0, 
 						data.flHudPos, 
-						0.21, 
-						color[0], color[1], color[2], color[3]);
+						0.25, 
+						color[0], color[1], color[2], 255);
 		
 		ShowSyncHudText(client, 
 						hAMSHud, 
@@ -261,12 +261,12 @@ static AMSResult FF2_GetAMSType(AMSUser player, AMSHash _data, bool hud=false)
 
 void GetRGBA(const int hex, int color[4])
 {
-	static char fmt[10], c[2];
-	FormatEx(fmt, sizeof(fmt), "%08X", hex);
+	static char fmt[16], c[2];
+	FormatEx(fmt, sizeof(fmt), "%8x", hex);
 	for(int i; i < 4; i++)
 	{
-		c[0] = fmt[i * 2];
-		c[1] = fmt[i * 2 + 1];
+		c[0] = fmt[i * 2] & 0xFF;
+		c[1] = fmt[i * 2 + 1] & 0xFF;
 		color[i] = StringToInt(c, 16);
 	}
 }
