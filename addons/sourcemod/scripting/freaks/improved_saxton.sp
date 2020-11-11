@@ -1,9 +1,10 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #if defined VSP_VERSION
 native int FF2_GetBossMax(int index=0); // hidden in ff2...
 #endif
@@ -51,7 +52,6 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
  
-bool DEBUG_FORCE_RAGE = true;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = false;
@@ -250,20 +250,6 @@ TFCond SAO_BerserkConditions[MAX_PLAYERS_ARRAY][MAX_CONDITIONS]; // arg3
 // args 12-19 aren't initialized
 #define MAX_KILL_ID_LENGTH 33
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in improved_saxton.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
- 
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
@@ -274,11 +260,7 @@ public void OnPluginStart2()
 	SH_NormalHUDHandle = CreateHudSynchronizer(); // All you need to use ShowSyncHudText is to initialize this handle once in OnPluginStart()
 	SH_AlertHUDHandle = CreateHudSynchronizer();  // Then use a unique handle for what hudtext you want sync'd to not overlap itself.
 	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
+	Event_RoundStart(null, "", false);
 }
 
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
@@ -422,7 +404,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		{
 			PluginActiveThisRound = true;
 			SH_ActiveThisRound = true;
-			SH_NextHUDAt[clientIdx] = GetEngineTime();
+			SH_NextHUDAt[clientIdx] = GetGameTime();
 			SH_HUDInterval[clientIdx] = 0.1;
 			if (FF2_HasAbility(bossIdx, "ff2_dynamic_defaults", "dynamic_jump") || FF2_HasAbility(bossIdx, "ff2_dynamic_defaults", "dynamic_teleport"))
 				SH_HUDInterval[clientIdx] = 0.2;
@@ -496,7 +478,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 		// HUD hiding settings. done after delay because of possible load order issues with Dynamic Defaults
 		if (SH_CanUse[clientIdx])
 		{
-			FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx)|FF2FLAG_HUDDISABLED);
+			FF2Player(clientIdx).SetPropAny("bHideHUD", true);
 			DD_SetForceHUDEnabled(clientIdx, true);
 		}
 	}
@@ -537,7 +519,7 @@ public void Saxton_Cleanup()
 				SDKUnhook(clientIdx, SDKHook_PreThink, Saxton_PreThink);
 				
 				// the below will leak across multiple rounds. at least on old versions of FF2.
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx)&~FF2FLAG_HUDDISABLED);
+				FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 
 				if (IsLivingPlayer(clientIdx))
 				{
@@ -562,58 +544,20 @@ public void Saxton_Cleanup()
 	}
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0) // strictly enforce plugin match
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
-		return Plugin_Continue;
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
+		return;
 		
 	if (!strcmp(ability_name, SB_STRING))
 	{
-		Rage_SaxtonBerserk(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_SaxtonBerserk(player.index);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[improved_saxton] Initiating Saxton Berserk");
 	}
-
-	return Plugin_Handled; // don't waste time continuing the search? honestly I don't know if FF2 gives a damn what this response is.
 }
 
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("lunge", unparsedArgs))
-	{
-		SL_Initiate(GetClientOfUserId(FF2_GetBossUserId(0)), GetEngineTime());
-		PrintToConsole(user, "Forced boss to use saxton lunge");
-		return Plugin_Handled;
-	}
-	else if (!strcmp("slam", unparsedArgs))
-	{
-		SS_Initiate(GetClientOfUserId(FF2_GetBossUserId(0)), GetEngineTime());
-		PrintToConsole(user, "Forced boss to use saxton slam");
-		return Plugin_Handled;
-	}
-	else if (!strcmp("berserk", unparsedArgs))
-	{
-		Rage_SaxtonBerserk(GetClientOfUserId(FF2_GetBossUserId(0)));
-		PrintToConsole(user, "Forced boss to use saxton berserk");
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[improved_saxton] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
-}
 
 /**
  * Shared
@@ -754,12 +698,12 @@ public Action Saxton_OnTakeDamage(int victim, int& attacker, int& inflictor,
 				if ((SB_Flags[attacker] & SB_FLAG_IGNITE_SOLDIER) != 0 && !TF2_IsPlayerInCondition(victim, TFCond_OnFire))
 				{
 					TF2_IgnitePlayer(victim, attacker);
-					SB_FireExpiresAt[victim] = GetEngineTime() + SB_FireTimeLimit[attacker];
+					SB_FireExpiresAt[victim] = GetGameTime() + SB_FireTimeLimit[attacker];
 				}
 			}
 			else if (weapon == GetEntPropEnt(attacker, Prop_Send, "m_hActiveWeapon"))
 			{
-				SB_FireExpiresAt[victim] = GetEngineTime() + SB_FireTimeLimit[attacker];
+				SB_FireExpiresAt[victim] = GetGameTime() + SB_FireTimeLimit[attacker];
 			}
 		}
 		else if (SB_CanUse[victim] && SB_UsingUntil[victim] != FAR_FUTURE)
@@ -974,7 +918,7 @@ public void SL_HitSoundsAndEffects(int clientIdx, int victim, float victimPos[3]
 
 public void SL_PreThink(int clientIdx)
 {
-	float curTime = GetEngineTime();
+	float curTime = GetGameTime();
 	
 	if (SL_IsUsing[clientIdx])
 	{
@@ -1282,7 +1226,7 @@ public void SS_OnPlayerRunCmd(int clientIdx, int buttons, float curTime)
 
 public void SS_PreThink(int clientIdx)
 {
-	float curTime = GetEngineTime();
+	float curTime = GetGameTime();
 	
 	if (SS_IsUsing[clientIdx])
 	{
@@ -1514,7 +1458,7 @@ public void SB_PreThink(int clientIdx)
 {
 	if (SB_UsingUntil[clientIdx] != FAR_FUTURE)
 	{
-		if (GetEngineTime() >= SB_UsingUntil[clientIdx])
+		if (GetGameTime() >= SB_UsingUntil[clientIdx])
 		{
 			SB_UsingUntil[clientIdx] = FAR_FUTURE;
 			if (TF2_GetPlayerClass(clientIdx) != SB_OriginalClass[clientIdx])
@@ -1589,7 +1533,7 @@ public void Rage_SaxtonBerserk(int clientIdx)
 			TF2_SetPlayerClass(clientIdx, SB_TempClass[clientIdx]);
 		SB_SwapWeapon(clientIdx, true);
 	}
-	SB_UsingUntil[clientIdx] = GetEngineTime() + SB_Duration[clientIdx];
+	SB_UsingUntil[clientIdx] = GetGameTime() + SB_Duration[clientIdx];
 	if (SB_Flags[clientIdx] & SB_FLAG_MEGAHEAL)
 		TF2_AddCondition(clientIdx, TFCond_MegaHeal, -1.0);
 	Saxton_AddConditions(clientIdx, SAO_BerserkConditions[clientIdx]);
@@ -1603,7 +1547,7 @@ public void SH_PreThink(int clientIdx)
 	if (GetClientButtons(clientIdx) & IN_SCORE)
 		return; // Don't show hud when player is viewing scoreboard, as it will only flash violently
 
-	float curTime = GetEngineTime();
+	float curTime = GetGameTime();
 	
 	if (curTime >= SH_NextHUDAt[clientIdx])
 	{
@@ -1678,7 +1622,7 @@ public void OnGameFrame()
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 	
-	float curTime = GetEngineTime();
+	float curTime = GetGameTime();
 	
 	// this is best done on the game frame since it'll be either before or after movement checks are made
 	// reducing the likelihood of this failing
@@ -1753,9 +1697,9 @@ public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse,
 	Action ret = Plugin_Continue;
 		
 	if (SS_ActiveThisRound && SS_CanUse[clientIdx])
-		SS_OnPlayerRunCmd(clientIdx, buttons, GetEngineTime());
+		SS_OnPlayerRunCmd(clientIdx, buttons, GetGameTime());
 	if (SL_ActiveThisRound && SL_CanUse[clientIdx])
-		SL_OnPlayerRunCmd(clientIdx, buttons, GetEngineTime());
+		SL_OnPlayerRunCmd(clientIdx, buttons, GetGameTime());
 	if (SB_ActiveThisRound && SB_CanUse[clientIdx])
 		ret = SB_OnPlayerRunCmd(clientIdx, buttons);
 	

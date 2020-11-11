@@ -1,9 +1,10 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 
@@ -48,7 +49,6 @@
  * - Once again used a modified version of asherkin and voogru's rocket creation code.
  */
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -442,20 +442,6 @@ float US_EndSpeed[MAX_PLAYERS_ARRAY]; // arg2
 #define WB_ABILITY_HIGHEST 99 // inclusive
 #define WB_ABILITY_STRLEN 30
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysamods6.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
- 
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
@@ -468,12 +454,6 @@ public void OnPluginStart2()
 	{
 		WA_OverlayOptOut[clientIdx] = false;
 		WA_OOOUserId[clientIdx] = 0;
-	}
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
 	}
 }
 
@@ -1079,80 +1059,42 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	UC_ActiveThisRound = false;
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 		
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = bossPlayer.index;
 
 	if (!strcmp(ability_name, RHS_STRING))
 	{
-		HS_StartHaywire(clientIdx, GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1));
+		HS_StartHaywire(clientIdx, GetEngineTime() + FF2_GetAbilityArgumentFloat(bossPlayer.userid, this_plugin_name, ability_name, 1));
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Initiating haywire sentries. Expires at %f", HS_DeactivateAt[clientIdx]);
 	}
 	else if (!strcmp(ability_name, RB_STRING))
 	{
-		Rage_RocketBarrage(ability_name, bossIdx);
+		Rage_RocketBarrage(ability_name, bossPlayer.userid);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Rocket Barrage rage.");
 	}
 	else if (!strcmp(ability_name, MC_STRING))
 	{
-		Rage_MercConditions(ability_name, bossIdx);
+		Rage_MercConditions(ability_name, bossPlayer.userid);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Merc Conditions rage.");
 	}
 	else if (!strcmp(ability_name, TA_STRING))
 	{
-		Rage_TorpedoAttack(ability_name, bossIdx);
+		Rage_TorpedoAttack(ability_name, bossPlayer.userid);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Torpedo Attack rage.");
 	}
 		
-	return Plugin_Continue;
-}
-
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("barrage", unparsedArgs))
-	{
-		PrintToConsole(user, "Will trigger Rocket Barrage.");
-		Rage_RocketBarrage(RB_STRING, 0);
-		
-		return Plugin_Handled;
-	}
-	else if (!strcmp("haywire", unparsedArgs))
-	{
-		PrintToConsole(user, "Will trigger Haywire Sentries.");
-		// TODO
-		return Plugin_Handled;
-	}
-	else if (!strcmp("necro", unparsedArgs))
-	{
-		PrintToConsole(user, "Will trigger necro minion.");
-		NM_ReviveLast(GetClientOfUserId(FF2_GetBossUserId(0)));
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysamods6] Rage not found: %s", unparsedArgs);
 	return Plugin_Continue;
 }
 
@@ -2494,7 +2436,6 @@ public int NM_ReviveLast(int clientIdx)
 	// revive the player
 	int minion = NM_LastDeadPlayer;
 	NM_LastClass[minion] = TF2_GetPlayerClass(minion);
-	FF2_SetFF2flags(minion, FF2_GetFF2flags(minion) | FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 	ChangeClientTeam(minion, BossTeam);
 	TF2_RespawnPlayer(minion);
 	TF2_SetPlayerClass(minion, view_as<TFClassType>(NM_MinionClass[clientIdx]));
@@ -2511,7 +2452,7 @@ public int NM_ReviveLast(int clientIdx)
 	int weapon;
 	TF2_RemoveAllWeapons(minion);
 	weapon = SpawnWeapon(minion, weaponName, NM_MinionWeaponIdx[clientIdx], 101, 5, weaponArgs);
-	if (IsValidEdict(weapon))
+	if (IsValidEntity(weapon))
 	{
 		SetEntPropEnt(minion, Prop_Send, "m_hActiveWeapon", weapon);
 		if (NM_MinionWeaponVisibility[clientIdx] == 0)

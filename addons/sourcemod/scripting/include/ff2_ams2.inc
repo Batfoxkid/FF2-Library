@@ -8,6 +8,10 @@
 
 #include <freak_fortress_2>
 
+#define ToAMSUser(%0)		view_as<AMSUser>(%0)
+#define INVALID_AMS_INDEX	-1
+
+
 enum AMSResult {
 	AMS_INVALID = -1,
 	AMS_Ignore,
@@ -105,7 +109,7 @@ native int FF2AMS_PushToAMSEx(int client, const char[] plugin, const char[] abil
 native bool FF2AMS_PushToAMS(int client, const char[] plugin, const char[] ability, const char[] prefix);
 
 /**
- *	ArrayList FF2AMS_GetAMSAbilities(int, int);
+ *	ArrayList FF2AMS_GetAMSAbilities(int);
  *
  *	@brief			: given the client and ability index, return ability's StringHashMap pointer
  *
@@ -174,6 +178,31 @@ typedef DoOverwritefn = function void(int client, const StringMap data);
  * @noreturn
  */
 typedef EndAbilityfn = function void(int client, const StringMap data);
+
+
+methodmap AMSUser < FF2Player 
+{
+	public AMSUser(const int index, bool userid = false) {
+		return ToAMSUser(FF2Player(index, userid));
+	}
+	
+	property bool HasAMS {
+		public get() {
+			return FF2AMS_IsAMSActivatedFor(this.index);
+		}
+	}
+	
+	property ArrayList Abilities {
+		public get() {
+			return FF2AMS_GetAMSAbilities(this.index);
+		}
+	}
+	
+	public int Push(const char[] pl_name, const char[] ab_name, const char[] tag)
+	{
+		return FF2AMS_PushToAMSEx(this.index, pl_name, ab_name, tag);
+	}
+}
 
 #if !defined REQUIRE_PLUGIN
 public __pl_INTERFACE_SetNTVOptional()

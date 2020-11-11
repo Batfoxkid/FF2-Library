@@ -1,9 +1,10 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 #include <ff2_dynamic_defaults>
@@ -53,7 +54,6 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -667,20 +667,7 @@ int LPDB_ActiveThisRound;
 int LPDB_CanUse[MAX_PLAYERS_ARRAY];
 float LPDB_DamageMultiplier[MAX_PLAYERS_ARRAY]; // internal, no arguments are stored.
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysamods8.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
- 
-#define CMD_FORCE_RAGE "rage"
+
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
@@ -688,12 +675,6 @@ public void OnPluginStart2()
 	PrecacheSound(NOPE_AVI); // DO NOT DELETE IN FUTURE MOD PACKS
 	for (int i = 0; i < MAX_PLAYERS_ARRAY; i++) // MAX_PLAYERS_ARRAY is correct here, this one time
 		NULL_BLACKLIST[i] = false;
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 	
 	RegisterForceTaunt();
 }
@@ -1449,15 +1430,17 @@ public Action Timer_PostRoundStartInits(Handle timer)
 	// initialize head collection
 	if (HC_ActiveThisRound)
 		HC_Initialize();
-
+	
+	FF2Player player;
 	// finish initialization of stuff
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (HCR_CanUse[clientIdx] && IsLivingPlayer(clientIdx))
 		{
+			player = FF2Player(clientIdx);
 			if (HCR_HideFF2HUD[clientIdx])
 			{
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) | FF2FLAG_HUDDISABLED);
+				player.SetPropAny("bHideHUD", true);
 				if (!HCR_HideDDHUD[clientIdx])
 					DD_SetForceHUDEnabled(clientIdx, true);
 			}
@@ -1470,8 +1453,10 @@ public Action Timer_PostRoundStartInits(Handle timer)
 
 		if (FNAP_CanUse[clientIdx])
 		{
+			player = FF2Player(clientIdx);
+			
 			FNAP_UpdateWeapon(clientIdx);
-			FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) | FF2FLAG_HUDDISABLED);
+			player.SetPropAny("bHideHUD", true);
 			DD_SetForceHUDEnabled(clientIdx, true);
 		}
 	}
@@ -1531,7 +1516,7 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (HCR_CanUse[clientIdx] && IsClientInGame(clientIdx))
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & (~FF2FLAG_HUDDISABLED));
+				FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 		}
 	}
 	
@@ -1603,7 +1588,7 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			if (FNAP_CanUse[clientIdx] && IsClientInGame(clientIdx))
 			{
 				SDKUnhook(clientIdx, SDKHook_PreThink, FNAP_PreThink);
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & (~FF2FLAG_HUDDISABLED));
+				FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 			}
 		}
 	}
@@ -1667,156 +1652,35 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	PluginActiveThisRound = false;
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int  status)
+public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t calltype)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
-		return Plugin_Continue;
-		
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
+		return;
+	
 	if (!strcmp(ability_name, EM_STRING))
-	{
-		if (!Rage_EarthquakeMachine(ability_name, bossIdx))
-			return Plugin_Stop;
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods8] Initiating Earthquake Machine");
-	}
+		Rage_EarthquakeMachine(player.userid);
 	else if (!strcmp(ability_name, MM_STRING))
-	{
-		Rage_MedicMinion(bossIdx);
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods8] Initiating Medic Minion");
-	}
+		Rage_MedicMinion(player.userid);
 	else if (!strcmp(ability_name, SR_STRING))
-	{
-		Rage_SafeResize(bossIdx);
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods8] Initiating Safe Resize");
-	}
+		Rage_SafeResize(player.userid);
 	else if (!strcmp(ability_name, HA_STRING))
-	{
-		Rage_HeadAnnihilation(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods8] Initiating Head Annihilation");
-	}
+		Rage_HeadAnnihilation(player.index);
 	else if (!strcmp(ability_name, FNAP_STRING))
-	{
-		Rage_FNAPRages(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
-		
-		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods8] FNAP Rages...user must have lost a life.");
-	}
+		Rage_FNAPRages(player.index);
 	else if (!strcmp(ability_name, PB_STRING))
-		Rage_PropBuff(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_PropBuff(player.index);
 	else if (!strcmp(ability_name, PT_STRING))
-		Rage_PickupTrap(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_PickupTrap(player.index);
 	else if (!strcmp(ability_name, SBV_STRING))
-		Rage_SpeedByViews(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_SpeedByViews(player.index);
 	else if (!strcmp(ability_name, TA_STRING))
-		Rage_TwistedAttraction(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_TwistedAttraction(player.index);
 	else if (!strcmp(ability_name, IT_STRING))
-		Rage_InstantTeleports(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_InstantTeleports(player.index);
 	else if (!strcmp(ability_name, CS_STRING))
-		Rage_CrippleStacks(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_CrippleStacks(player.index);
 	else if (!strcmp(ability_name, FNAP2_STRING))
-		Rage_FNAPSentryStun(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
-
-	return Plugin_Continue;
-}
-
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("guitar", unparsedArgs))
-	{
-		PrintToConsole(user, "Will trigger guitar hero.");
-		OnDOTAbilityActivated(GetClientOfUserId(FF2_GetBossUserId(0)));
-		
-		return Plugin_Handled;
-	}
-	else if (StrContains(unparsedArgs, "ddtest") == 0)
-	{
-		int clientIdx = GetClientOfUserId(FF2_GetBossUserId(0));
-	
-		if (unparsedArgs[6] == '0')
-			DD_SetDisabled(clientIdx, true, false, false);
-		else if (unparsedArgs[6] == '1')
-			DJ_SetUsesRemaining(clientIdx, 3);
-		else if (unparsedArgs[6] == '2')
-			DJ_CooldownUntil(clientIdx, GetEngineTime() + 20.0);
-		else if (unparsedArgs[6] == '3')
-			DJ_ChangeFundamentalStats(clientIdx, 3.0, 2.0, 1.5);
-		else if (unparsedArgs[6] == '4')
-			DT_SetUsesRemaining(clientIdx, 2);
-		else if (unparsedArgs[6] == '5')
-			DT_CooldownUntil(clientIdx, FAR_FUTURE);
-		else if (unparsedArgs[6] == '6')
-			DT_ChangeFundamentalStats(clientIdx, 1.0, 10.0, 10.0);
-		else if (unparsedArgs[6] == '7')
-			DW_SetUsesRemaining(clientIdx, 5);
-		else if (unparsedArgs[6] == '8')
-			DW_CooldownUntil(clientIdx, GetEngineTime() + 5.0);
-		else if (unparsedArgs[6] == '9')
-			DW_SetDefaultGravity(clientIdx, 0.5);
-		else
-		{
-			PrintToConsole(user, "DD_PerformTeleport(%d, %f, %d, %d, %d, %d)", clientIdx, 3.0, true, false, unparsedArgs[6] % 4 > 1, unparsedArgs[6] % 2 == 1);
-			DD_PerformTeleport(clientIdx, 3.0, true, false, unparsedArgs[6] % 4 > 1, unparsedArgs[6] % 2 == 1);
-		}
-			
-		PrintToConsole(user, "Performed dynamic test %d", unparsedArgs[6] - '0');
-			
-		return Plugin_Handled;
-	}
-	else if (StrContains(unparsedArgs, "headtest") == 0)
-	{
-		int clientIdx = GetClientOfUserId(FF2_GetBossUserId(0));
-		
-		int randomRed = FindRandomPlayer(false);
-		if (randomRed != -1)
-		{
-			SDKHooks_TakeDamage(randomRed, clientIdx, clientIdx, 9999.0, DMG_GENERIC, -1);
-			PrintToConsole(user, "Player %d killed, unless they're uber.", randomRed);
-		}
-			
-		return Plugin_Handled;
-	}
-	else if (StrContains(unparsedArgs, "loveme") == 0)
-	{
-		DS_OnActivation(GetClientOfUserId(FF2_GetBossUserId(0)));
-		PrintToConsole(user, "Activated DOT Stare");
-		return Plugin_Handled;
-	}
-	else if (StrContains(unparsedArgs, "sadasdasd") == 0)
-	{
-		DT_SetTargetTeam(0, false);
-		DT_SetIsReverse(0, false);
-	}
-	else if (StrContains(unparsedArgs, "fnap") == 0)
-	{
-		Rage_PropBuff(GetClientOfUserId(FF2_GetBossUserId(0)));
-		Rage_PickupTrap(GetClientOfUserId(FF2_GetBossUserId(0)));
-		Rage_SpeedByViews(GetClientOfUserId(FF2_GetBossUserId(0)));
-		Rage_TwistedAttraction(GetClientOfUserId(FF2_GetBossUserId(0)));
-		Rage_InstantTeleports(GetClientOfUserId(FF2_GetBossUserId(0)));
-		Rage_CrippleStacks(GetClientOfUserId(FF2_GetBossUserId(0)));
-	}
-	
-	PrintToServer("[sarysamods8] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
+		Rage_FNAPSentryStun(player.index);
 }
 
 /**
@@ -2381,12 +2245,12 @@ public void EM_CreateLandedMachine(int clientIdx, float pos[3], float yaw)
 	EM_DespawnAt[clientIdx] = GetEngineTime() + EM_Duration[clientIdx];
 }
  
-public bool Rage_EarthquakeMachine(const char[] ability_name, int bossIdx)
+public bool Rage_EarthquakeMachine(int bossIdx)
 {
 	if (!EM_ActiveThisRound)
 		return true; // in case the rage is invalid
 
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = GetClientOfUserId(bossIdx);
 	
 	if (EM_Flags[clientIdx] & EM_FLAG_PREVENT_RESUMMON)
 	{
@@ -2762,7 +2626,6 @@ public void Rage_MedicMinion(int bossIdx)
 	
 	// revive the player
 	MMM_LastClass[minion] = TF2_GetPlayerClass(minion);
-	FF2_SetFF2flags(minion, FF2_GetFF2flags(minion) | FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 	ChangeClientTeam(minion, BossTeam);
 	TF2_RespawnPlayer(minion);
 	TF2_SetPlayerClass(minion, classType);
@@ -4774,8 +4637,9 @@ public void FNAP_UpdateWeapon(int clientIdx)
 #define HUD_HIDE_POINT_RAGE (1<<6)
 #define HUD_HIDE_CHAT (1<<7)
 #define HUD_HIDE_RETICLE (1<<8)
-public Action FNAP_RemoveOverlay(Handle hTimer, any victim)
+public Action FNAP_RemoveOverlay(Handle hTimer, any userid)
 {
+	int victim = GetClientOfUserId(userid);
 	if (IsClientInGame(victim))
 	{
 		int flags = GetCommandFlags("r_screenoverlay");
@@ -4784,7 +4648,7 @@ public Action FNAP_RemoveOverlay(Handle hTimer, any victim)
 		SetCommandFlags("r_screenoverlay", flags);
 		
 		//SetEntProp(victim, Prop_Send, "m_iHideHUD", HUD_HIDE_NONE);
-		FF2_SetFF2flags(victim, FF2_GetFF2flags(victim) & (~FF2FLAG_HUDDISABLED));
+		FF2Player(victim).SetPropAny("bHideHUD", false);
 	}
 	return Plugin_Continue;
 }
@@ -4814,9 +4678,9 @@ public Action FNAP_PlayerDeath(Event event, const char[] name, bool dontBroadcas
 				
 				// hide HUD briefly
 				//SetEntProp(victim, Prop_Send, "m_iHideHUD", HUD_HIDE_RETICLE_AVATAR_AMMO | HUD_HIDE_POINT_RAGE | HUD_HIDE_CHAT | HUD_HIDE_ALL);
-				FF2_SetFF2flags(victim, FF2_GetFF2flags(victim) | FF2FLAG_HUDDISABLED);
+				FF2Player(victim).SetPropAny("bHideHUD", true);
 				
-				CreateTimer(FNAP_OverlayDuration, FNAP_RemoveOverlay, victim, TIMER_FLAG_NO_MAPCHANGE);
+				CreateTimer(FNAP_OverlayDuration, FNAP_RemoveOverlay, GetClientUserId(victim), TIMER_FLAG_NO_MAPCHANGE);
 			}
 			
 			// kill sound

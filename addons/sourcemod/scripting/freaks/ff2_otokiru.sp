@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 
@@ -442,24 +443,12 @@ public void MEN_Invoke(int client, int index)
 			GetEntPropVector(target, Prop_Send, "m_vecOrigin", pos2);
 			if (GetVectorDistance(pos,pos2)<ragedist && !TF2_IsPlayerInCondition(target,TFCond_Ubercharged))
 			{
+				FF2Player player = FF2Player(target);
 				EmitSoundToAll(GENTLEMEN_START, _, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, _, _, NULL_VECTOR, false, 0.0);
-				FF2_SetFF2flags(target,FF2_GetFF2flags(target)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
+				player.ConvertToMinion(0.1);
+				CreateTimer(0.11, _ResolvebDucked, player, TIMER_FLAG_NO_MAPCHANGE);
 				SummonerIndex[target]=boss;
-				SetEntProp(target, Prop_Send, "m_lifeState", 2);
-				ChangeClientTeam(target, FF2_GetBossTeam());
-				SetEntProp(target, Prop_Send, "m_lifeState", 0);
-				if(GetEntProp(target, Prop_Send, "m_bDucked"))
-				{
-					float collisionvec[3];
-					collisionvec[0] = 24.0;
-					collisionvec[1] = 24.0;
-					collisionvec[2] = 62.0;
-					SetEntPropVector(target, Prop_Send, "m_vecMaxs", collisionvec);
-					SetEntProp(target, Prop_Send, "m_bDucked", 1);
-					SetEntityFlags(target, FL_DUCKING);
-				}
-				TF2_AddCondition(target, TFCond_Ubercharged, 1.0);
-				if(!IsNullString(message))
+				if(message[0])
 				{
 					ShowGameText(client, _, FF2_GetBossTeam(), message, sizeof(message));
 				}
@@ -713,7 +702,6 @@ public Action Back2Karkan(Handle timer,any target)
 			SetEntProp(target, Prop_Send, "m_bDucked", 1);
 			SetEntityFlags(target, FL_DUCKING);
 		}
-		FF2_SetFF2flags(target, FF2_GetFF2flags(target) & ~FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 	}
 }
 
@@ -790,11 +778,12 @@ void Charge_Salmon(const char[] ability_name, int boss, int client, int slot, in
 					ii = GetRandomDeadPlayer();
 					if(ii != -1)
 					{
-						FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-						ChangeClientTeam(ii,FF2_GetBossTeam());
-						TF2_RespawnPlayer(ii);
+						FF2Player(ii).ConvertToMinion(0.1);
+						DataPack pack;
+						CreateDataTimer(0.11, _SetUbercharge, pack, TIMER_FLAG_NO_MAPCHANGE);
+						pack.WriteCell(ii);
+						pack.WriteFloat(duration);
 						SummonerIndex[ii]=boss;
-						TF2_AddCondition(ii, TFCond_Ubercharged, duration);
 					}
 				}
 			}			
@@ -926,4 +915,31 @@ stock bool ShowGameText(int client, const char[] icon="leaderboard_streak", int 
 	bf.WriteByte(color);
 	EndMessage();
 	return true;
+}
+
+public Action _ResolvebDucked(Handle timer, FF2Player player)
+{
+	int target = player.index;
+	if(target)
+	{
+		if(GetEntProp(target, Prop_Send, "m_bDucked"))
+		{
+			static const float collisionvec[3] =  { 24.0, 24.0, 62.0 };
+			SetEntPropVector(target, Prop_Send, "m_vecMaxs", collisionvec);
+			SetEntProp(target, Prop_Send, "m_bDucked", 1);
+			SetEntityFlags(target, FL_DUCKING);
+		}
+		TF2_AddCondition(target, TFCond_Ubercharged, 1.0);
+	}
+}
+
+public Action _SetUbercharge(Handle timer, DataPack pack)
+{
+	pack.Reset();
+	int target = ToFF2Player(pack.ReadCell()).index;
+	if(target)
+	{
+		float duration = pack.ReadFloat();
+		TF2_AddCondition(target, TFCond_Ubercharged, duration);
+	}
 }

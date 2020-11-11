@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required

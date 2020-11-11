@@ -1,9 +1,10 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 #include <tf2attributes>
@@ -90,7 +91,6 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -633,18 +633,6 @@ int MAB_Model[MAX_PLAYERS_ARRAY]; // arg8, derived from a model import
 bool MAB_IsLooseCannon[MAX_PLAYERS_ARRAY]; // arg9
 int MAB_MaxProjectiles[MAX_PLAYERS_ARRAY]; // arg10
 		
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysamods7.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
  
 #define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
@@ -662,12 +650,6 @@ public void OnPluginStart2()
 	RegConsoleCmd("mega7", MA_MegaCommand);
 	RegConsoleCmd("mega8", MA_MegaCommand);
 	RegConsoleCmd("mega9", MA_MegaCommand);
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 }
 
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
@@ -1487,7 +1469,7 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 		// must re-enable HUD...this actually leaks into the next round!
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 			if (MA_CanUse[clientIdx])
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & (~FF2FLAG_HUDDISABLED));
+			FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 	}
 	
 	if (MR_ActiveThisRound)
@@ -1536,59 +1518,33 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 		
 	if (!strcmp(ability_name, RR_STRING))
 	{
-		Rage_RocketRing(ability_name, bossIdx);
+		Rage_RocketRing(player.userid);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Rocket Ring");
 	}
 	else if (!strcmp(ability_name, SN_STRING))
 	{
-		Rage_SkyNuke(ability_name, bossIdx);
+		Rage_SkyNuke(player.userid);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Sky Nuke");
 	}
 	else if (!strcmp(ability_name, MA_STRING))
 	{
-		int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+		int clientIdx = player.index;
 		PrintToServer("[sarysamods7] Super rare edge case of rage executing with %s, this code isn't useless! Yay.", MA_STRING);
 		
 		MA_EnergyPercent[clientIdx] = 100.0;
 	}
 		
-	return Plugin_Continue;
-}
-
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("fixme", unparsedArgs))
-	{
-		PrintToConsole(user, "Will trigger fixme.");
-		//Rage_RocketBarrage(RB_STRING, 0);
-		
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysamods7] Rage not found: %s", unparsedArgs);
 	return Plugin_Continue;
 }
 
@@ -2540,7 +2496,7 @@ public void RR_Tick(float curTime)
 		RR_ReorientAt = curTime + RR_RocketReangleInterval;
 }
 
-public void Rage_RocketRing(const char[] ability_name, int bossIdx)
+public void Rage_RocketRing(int bossIdx)
 {
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
@@ -3372,7 +3328,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 	}
 }
 
-public void Rage_SkyNuke(const char[] ability_name, int bossIdx)
+public void Rage_SkyNuke(int bossIdx)
 {
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
@@ -4652,7 +4608,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 	}
 	
 	// just do this always. heh. also those lowercase f's bother the hell out of me.
-	FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) | FF2FLAG_HUDDISABLED);
+	FF2Player(clientIdx).SetPropAny("bHideHUD", true);
 	
 	// constantly deplete the FF2 rage meter. we're managing it ourselves and don't want
 	// pressing E to screw things up

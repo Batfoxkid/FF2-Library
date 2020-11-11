@@ -1,11 +1,10 @@
 /**
  * sarysa's Public Pack #1
  */
-
+#define FF2_USING_AUTO_PLUGIN
 
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <tf2_stocks>
 
 #pragma semicolon 1
@@ -36,7 +35,6 @@
  *		    Friagram for pointing out some improvements for some of my earlier stocks.
  */
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -46,21 +44,15 @@ bool DEBUG_HUD = false;
 // text string limits
 #define MAX_SOUND_FILE_LENGTH 80
 #define MAX_MODEL_FILE_LENGTH 128
-#define MAX_MATERIAL_FILE_LENGTH 128
 #define MAX_WEAPON_NAME_LENGTH 64
 #define MAX_WEAPON_ARG_LENGTH 256
 #define MAX_EFFECT_NAME_LENGTH 48
 #define MAX_ENTITY_CLASSNAME_LENGTH 48
 #define MAX_CENTER_TEXT_LENGTH 170
-#define MAX_RANGE_STRING_LENGTH 66
 #define MAX_HULL_STRING_LENGTH 197
-#define COLOR_BUFFER_SIZE 12
-#define HEX_OR_DEC_STRING_LENGTH 12 // max -2 billion is 11 chars + null termination
 
-#define MAX_PLAYERS_ARRAY 36
-#define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
-
-int BossTeam = view_as<int>(TFTeam_Blue);
+#define MAX_PLAYERS_ARRAY MAXPLAYERS + 1
+#define MAX_PLAYERS MaxClients
 
 int RoundInProgress = false;
 bool PluginActiveThisRound = false;
@@ -196,7 +188,7 @@ float RWI_HomeAngle[RW_MAX_WEAPONS];
 #define FIREBOMB_EXPLOSION_RADIUS "150" // it's input as a string, so...lol
 #define FIREBOMB_EXPLOSION_DISTANCE_BETWEEN 100.0
 int RMR_Spec[MAX_ROCKETS];
-int RMR_RocketEntRef[MAX_ROCKETS];
+int RMR_RocketEntRef[MAX_ROCKETS] =  { INVALID_ENT_REFERENCE, ... };
 float RMR_NextDeviationAt[MAX_ROCKETS];
 float RMR_HomingPerSecond[MAX_ROCKETS];
 float RMR_RandomDeviationPerSecond[MAX_ROCKETS];
@@ -246,30 +238,11 @@ int PROP_Type[MAX_PROPS];
 float PROP_NextTriggerTime[MAX_PROPS][MAX_PLAYERS_ARRAY]; // yes, this has a large data size. but it's for the best.
 int PROP_OwnerUserId[MAX_PROPS];
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysapub1.sp is set to true!       *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
  
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 }
 
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
@@ -481,7 +454,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		if (RW_CanUse[clientIdx] || RP_CanUse[clientIdx])
 		{
 			ROTT_UpdateHUD(clientIdx);
-			ROTT_HudRefreshAt[clientIdx] = GetEngineTime();
+			ROTT_HudRefreshAt[clientIdx] = GetGameTime();
 		}
 	}
 	
@@ -497,7 +470,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		for (int i = 0; i < ROCKET_QUEUE_SIZE; i++)
 			RocketQueue[i] = -1;
 		for (int i = 0; i < MAX_ROCKETS; i++)
-			RMR_RocketEntRef[i] = 0;
+			RMR_RocketEntRef[i] = INVALID_ENT_REFERENCE;
 			
 		// object destroyed event
 //		HookEvent("object_destroyed", RW_ObjectDestroyed, EventHookMode_Pre);
@@ -546,7 +519,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 			
 			SpawnWeapon(clientIdx, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 			
-			RIP_NextAwardTime[clientIdx] = GetEngineTime() + RIP_AWARD_INTERVAL;
+			RIP_NextAwardTime[clientIdx] = GetGameTime() + RIP_AWARD_INTERVAL;
 			RIP_AwardAmmoCount[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 5);
 			RIP_IsPrimary[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RIP_STRING, 6) == 1;
 		}
@@ -583,7 +556,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 			
 			SpawnWeapon(clientIdx, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
 			
-			RIP_NextAwardTime[clientIdx] = GetEngineTime() + RIP_AWARD_INTERVAL;
+			RIP_NextAwardTime[clientIdx] = GetGameTime() + RIP_AWARD_INTERVAL;
 			RIP_AwardAmmoCount[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 5);
 			RIP_IsPrimary[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RSW_STRING, 6) == 1;
 			
@@ -634,48 +607,17 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t callType)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if(RoundInProgress)
 		return Plugin_Continue;
 
-	if (!strcmp(ability_name, RW_STRING))
-		Rage_ROTTWeapons(ability_name, bossIdx);
-	// ROTT props not activated this way
+	if(!strcmp(ability_name, RW_STRING))
+		Rage_ROTTWeapons(player);
 		
 	return Plugin_Continue;
 }
 
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("rott", unparsedArgs))
-	{
-		PrintToConsole(user, "ROTT weapons rage.");
-		Rage_ROTTWeapons(RW_STRING, 0);
-		return Plugin_Handled;
-	}
-	else if (!strcmp("prop", unparsedArgs))
-	{
-		RP_FreeProps = !RP_FreeProps;
-		PrintToConsole(user, "ROTT props 'free' cheat toggled. Currently %s", (RP_FreeProps ? "ON" : "OFF"));
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysapub1] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
-}
 
 /**
  * Shared
@@ -696,7 +638,7 @@ public void ROTT_UpdateHUD(int clientIdx)
 			weaponMessage[0] = 0;
 		else
 			weaponMessage = RW_Messages[RW_ActiveMessageIndex[clientIdx]];
-		//PrintToServer("Current weapon (%d / %f / %f) message: %s", RW_ActiveMessageIndex[clientIdx], RW_MessageActiveUntil, GetEngineTime(), weaponMessage);
+		//PrintToServer("Current weapon (%d / %f / %f) message: %s", RW_ActiveMessageIndex[clientIdx], RW_MessageActiveUntil, GetGameTime(), weaponMessage);
 	}
 	
 	if (RP_ActiveThisRound && RP_CanUse[clientIdx])
@@ -704,7 +646,7 @@ public void ROTT_UpdateHUD(int clientIdx)
 		int curProp = RP_CurrentlySelectedProp[clientIdx];
 		Format(propsMessage, PROPS_MESSAGE_MAX, RP_HUDMessage, RP_PropName[curProp], RP_PropRageCost[clientIdx][curProp]);
 		
-		if (RP_ActiveErrorState[clientIdx] != RP_ERROR_STATE_NONE && RP_DisplayErrorUntil[clientIdx] > GetEngineTime())
+		if (RP_ActiveErrorState[clientIdx] != RP_ERROR_STATE_NONE && RP_DisplayErrorUntil[clientIdx] > GetGameTime())
 		{
 			if (RP_ActiveErrorState[clientIdx] == RP_ERROR_STATE_NEED_RAGE)
 				errorMessage = RP_StrNotEnoughRage;
@@ -736,9 +678,10 @@ public void ROTT_UpdateHUD(int clientIdx)
 /**
  * ROTT Weapons
  */
-public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
+public void Rage_ROTTWeapons(FF2Player bossPlayer)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int bossIdx = bossPlayer.userid;
+	int clientIdx = bossPlayer.index;
 	
 	// pick a random weapon
 	int randomInt = GetRandomInt(1, 100);
@@ -759,7 +702,7 @@ public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
 	{
 		PrintToServer("[sarysapub1] ERROR: Player didn't get a weapon because the chances didn't add up to 100%. (player rolled %d)", randomInt);
 		RW_ActiveMessageIndex[clientIdx] = RW_INVALID_INDEX;
-		RW_MessageActiveUntil[clientIdx] = GetEngineTime() + 20.0;
+		RW_MessageActiveUntil[clientIdx] = GetGameTime() + 20.0;
 		return;
 	}
 	
@@ -777,7 +720,7 @@ public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
 		{
 			PrintToServer("sarysapub1] ERROR: Melee weapon must be specified with %s or %s. Cannot give the hale armor.", RFM_STRING, RSW_STRING);
 			RW_ActiveMessageIndex[clientIdx] = RW_MISSING_MELEE;
-			RW_MessageActiveUntil[clientIdx] = GetEngineTime() + 20.0;
+			RW_MessageActiveUntil[clientIdx] = GetGameTime() + 20.0;
 			return;
 		}
 		
@@ -804,7 +747,7 @@ public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
 			
 		// start the timer
 		RW_ArmorActive[clientIdx] = true;
-		RW_ArmorActiveUntil[clientIdx] = GetEngineTime() + RWI_Duration[weaponSpec];
+		RW_ArmorActiveUntil[clientIdx] = GetGameTime() + RWI_Duration[weaponSpec];
 	}
 
 	// read in the weapon to give to the player
@@ -869,15 +812,15 @@ public void Rage_ROTTWeapons(const char[] ability_name, int bossIdx)
 				TF2_AddCondition(clientIdx, TFCond_MegaHeal, -1.0);
 
 				RW_GodModeActive[clientIdx] = true;
-				RW_GodModeActiveUntil[clientIdx] = GetEngineTime() + RWI_Duration[weaponSpec];
-				RW_NextGodModeSoundAt[clientIdx] = GetEngineTime() + 2.5;
+				RW_GodModeActiveUntil[clientIdx] = GetGameTime() + RWI_Duration[weaponSpec];
+				RW_NextGodModeSoundAt[clientIdx] = GetGameTime() + 2.5;
 			}
 		}
 	}
 		
 	// display the message to the user
 	RW_ActiveMessageIndex[clientIdx] = weaponSpec;
-	RW_MessageActiveUntil[clientIdx] = GetEngineTime() + 5.0;
+	RW_MessageActiveUntil[clientIdx] = GetGameTime() + 5.0;
 	ROTT_UpdateHUD(clientIdx);
 	
 	// play the rage sound
@@ -922,9 +865,9 @@ public int DuplicateRocket(int clientIdx, int baseRocket, float speed, float spa
 	SetEntDataFloat(rocket, damageOffset, GetEntDataFloat(baseRocket, damageOffset), true);
 	SetEntProp(rocket, Prop_Send, "m_nSkin", 1); // set skin to blue team's
 	SetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity", clientIdx);
-	SetVariantInt(BossTeam);
+	SetVariantInt(VSH2Team_Boss);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
-	SetVariantInt(BossTeam);
+	SetVariantInt(VSH2Team_Boss);
 	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
 	
 	// I found this offset while trying to fix the sudden-explode issue with these rockets. it's another instance
@@ -989,7 +932,7 @@ public void MonitorRocket(int clientIdx, int rocket, float velocity)
 	int rocketIdx = -1;
 	for (int i = 0; i < MAX_ROCKETS; i++)
 	{
-		if (RMR_RocketEntRef[i] == 0)
+		if (RMR_RocketEntRef[i] == INVALID_ENT_REFERENCE)
 		{
 			rocketIdx = i;
 			break;
@@ -1006,7 +949,7 @@ public void MonitorRocket(int clientIdx, int rocket, float velocity)
 	// now just do copies and inits, simple stuff
 	RMR_Spec[rocketIdx] = spec;
 	RMR_RocketEntRef[rocketIdx] = EntIndexToEntRef(rocket);
-	RMR_NextDeviationAt[rocketIdx] = GetEngineTime() + RW_HomingInterval;
+	RMR_NextDeviationAt[rocketIdx] = GetGameTime() + RW_HomingInterval;
 	RMR_HomingPerSecond[rocketIdx] = RWI_HomingDegreesPerSecond[spec];
 	RMR_RandomDeviationPerSecond[rocketIdx] = RWI_RandomDeviationPerSecond[spec];
 	RMR_CurrentHomingTarget[rocketIdx] = -1;
@@ -1058,8 +1001,9 @@ public void RemoveRocketAt(int rocketIdx, bool keepAlive)
 		RMR_LastAngle[i][1] = RMR_LastAngle[i+1][1];
 		RMR_LastAngle[i][2] = RMR_LastAngle[i+1][2];
 	}
-	RMR_RocketEntRef[MAX_ROCKETS - 1] = 0;
+	RMR_RocketEntRef[MAX_ROCKETS - 1] = INVALID_ENT_REFERENCE;
 }
+
 
 public void OnEntityCreated(int rocket, const char[] classname)
 {
@@ -1161,11 +1105,11 @@ public bool RW_IsValidHomingTarget(int target)
 {
 	if (!IsLivingPlayer(target))
 		return false;
-	else if (GetClientTeam(target) == BossTeam)
+	else if (GetClientTeam(target) == VSH2Team_Boss)
 		return false;
 	else if (TF2_IsPlayerInCondition(target, TFCond_Cloaked) || TF2_IsPlayerInCondition(target, TFCond_Stealthed))
 		return false;
-	else if (TF2_IsPlayerInCondition(target, TFCond_Disguised) && GetEntProp(target, Prop_Send, "m_nDisguiseTeam") == BossTeam)
+	else if (TF2_IsPlayerInCondition(target, TFCond_Disguised) && GetEntProp(target, Prop_Send, "m_nDisguiseTeam") == VSH2Team_Boss)
 		return false;
 		
 	return true;
@@ -1187,7 +1131,7 @@ public Action ROTTDamageMonitor(int victim, int& attacker, int& inflictor,
 	
 	if (RW_ActiveThisRound)
 	{
-		if (GetClientTeam(victim) == BossTeam)
+		if (GetClientTeam(victim) == VSH2Team_Boss)
 		{
 			if (RW_ArmorActive[victim])
 			{
@@ -1213,7 +1157,7 @@ public Action OnPropDamaged(int prop, int& attacker, int& inflictor,
 	else if (!IsValidEntity(prop))
 		return Plugin_Continue;
 		
-	if ((damagetype & DMG_CLUB) && GetClientTeam(attacker) == BossTeam)
+	if ((damagetype & DMG_CLUB) && GetClientTeam(attacker) == VSH2Team_Boss)
 	{
 		// allow bosses to 3-shot the props with melee
 		damage = float(GetEntProp(prop, Prop_Data, "m_iMaxHealth") / 3);
@@ -1229,7 +1173,7 @@ public void RP_SetErrorState(int clientIdx, int errorState)
 		EmitSoundToClient(clientIdx, NOPE_AVI);
 		
 	RP_ActiveErrorState[clientIdx] = errorState;
-	RP_DisplayErrorUntil[clientIdx] = GetEngineTime() + 5.0;
+	RP_DisplayErrorUntil[clientIdx] = GetGameTime() + 5.0;
 	ROTT_UpdateHUD(clientIdx);
 }
  
@@ -1441,7 +1385,7 @@ public bool SpawnProp(int clientIdx)
 	PROP_EntRef[propIdx] = EntIndexToEntRef(prop);
 	PROP_Type[propIdx] = propType;
 	PROP_OwnerUserId[propIdx] = GetClientUserId(clientIdx);
-	float triggerTime = GetEngineTime() + (propType == PROP_SLICER ? RPS_DelayBeforeDamage : 0.0) - RP_EffectTriggerInterval[propType];
+	float triggerTime = GetGameTime() + (propType == PROP_SLICER ? RPS_DelayBeforeDamage : 0.0) - RP_EffectTriggerInterval[propType];
 	for (int i = 1; i < MAX_PLAYERS; i++)
 		PROP_NextTriggerTime[propIdx][i] = triggerTime;
 		
@@ -1498,7 +1442,7 @@ public void RP_TriggerJumpPad(int clientIdx, int propIdx)
 		PlaySoundLocal(clientIdx, RPJP_JumpPadSound, true, 2);
 		
 	// set trigger time
-	PROP_NextTriggerTime[propIdx][clientIdx] = GetEngineTime() + RP_EffectTriggerInterval[PROP_JUMP_PAD];
+	PROP_NextTriggerTime[propIdx][clientIdx] = GetGameTime() + RP_EffectTriggerInterval[PROP_JUMP_PAD];
 }
 
 public void RP_TriggerAnglePad(int clientIdx, int propIdx, float propAngles[3])
@@ -1536,7 +1480,7 @@ public void RP_TriggerAnglePad(int clientIdx, int propIdx, float propAngles[3])
 		PlaySoundLocal(clientIdx, RPJP_JumpPadSound, true, 2);
 
 	// set trigger time
-	PROP_NextTriggerTime[propIdx][clientIdx] = GetEngineTime() + RP_EffectTriggerInterval[PROP_ANGLE_PAD];
+	PROP_NextTriggerTime[propIdx][clientIdx] = GetGameTime() + RP_EffectTriggerInterval[PROP_ANGLE_PAD];
 }
 
 public void RP_TriggerSlicer(int clientIdx, int propIdx)
@@ -1552,7 +1496,7 @@ public void RP_TriggerSlicer(int clientIdx, int propIdx)
 	}
 
 	// set trigger time
-	PROP_NextTriggerTime[propIdx][clientIdx] = GetEngineTime() + RP_EffectTriggerInterval[PROP_SLICER];
+	PROP_NextTriggerTime[propIdx][clientIdx] = GetGameTime() + RP_EffectTriggerInterval[PROP_SLICER];
 }
 
 /**
@@ -1567,7 +1511,7 @@ public void OnGameFrame()
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
 
-	float curTime = GetEngineTime();
+	float curTime = GetGameTime();
 
 	// ROTT Props
 	if (RP_ActiveThisRound)
@@ -1687,7 +1631,7 @@ public void OnGameFrame()
 		// manage homing rockets and firebomb
 		for (int rocketIdx = MAX_ROCKETS - 1; rocketIdx >= 0; rocketIdx--)
 		{
-			if (RMR_RocketEntRef[rocketIdx] == 0)
+			if (RMR_RocketEntRef[rocketIdx] == INVALID_ENT_REFERENCE)
 				continue;
 			
 			int rocket = EntRefToEntIndex(RMR_RocketEntRef[rocketIdx]);
@@ -1746,7 +1690,7 @@ public void OnGameFrame()
 						if (knockbackVector[2] > 0.25 && (GetEntityFlags(RMR_RocketOwner[rocketIdx]) & FL_DUCKING) != 0)
 						{
 							RW_ActiveMessageIndex[RMR_RocketOwner[rocketIdx]] = RW_RJ_FAIL;
-							RW_MessageActiveUntil[RMR_RocketOwner[rocketIdx]] = GetEngineTime() + 10.0;
+							RW_MessageActiveUntil[RMR_RocketOwner[rocketIdx]] = GetGameTime() + 10.0;
 							EmitSoundToClient(RMR_RocketOwner[rocketIdx], NOPE_AVI);
 							ROTT_UpdateHUD(RMR_RocketOwner[rocketIdx]);
 						}
@@ -1832,7 +1776,7 @@ public void OnGameFrame()
 			
 			// if this rocket has been airblasted, it becomes an ordinary RED rocket (...I know...)
 			int owner = GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity");
-			if (!IsLivingPlayer(owner) || GetClientTeam(owner) != BossTeam)
+			if (!IsLivingPlayer(owner) || GetClientTeam(owner) != VSH2Team_Boss)
 			{
 				RemoveRocketAt(rocketIdx, true);
 				if (PRINT_DEBUG_SPAM)
@@ -2022,13 +1966,13 @@ public void OnGameFrame()
 	
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
-		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != BossTeam)
+		if (!IsLivingPlayer(clientIdx) || GetClientTeam(clientIdx) != VSH2Team_Boss)
 			continue;
 
 		// ROTT Infinity Pistol
 		if (RIP_ActiveThisRound && RIP_IsUsing[clientIdx])
 		{
-			if (RIP_NextAwardTime[clientIdx] <= GetEngineTime())
+			if (RIP_NextAwardTime[clientIdx] <= GetGameTime())
 			{
 				int pistol = GetPlayerWeaponSlot(clientIdx, RIP_IsPrimary[clientIdx] ? TFWeaponSlot_Primary : TFWeaponSlot_Secondary);
 				if (IsValidEntity(pistol))
@@ -2037,21 +1981,21 @@ public void OnGameFrame()
 					SetEntProp(pistol, Prop_Send, "m_iClip2", RIP_AwardAmmoCount[clientIdx]);
 				}
 
-				RIP_NextAwardTime[clientIdx] = GetEngineTime() + RIP_AWARD_INTERVAL;
+				RIP_NextAwardTime[clientIdx] = GetGameTime() + RIP_AWARD_INTERVAL;
 			}
 		}
 	
 		// ROTT weapons
 		if (RW_ActiveThisRound && RW_CanUse[clientIdx])
 		{
-			if (RW_ActiveMessageIndex[clientIdx] != -1 && RW_MessageActiveUntil[clientIdx] <= GetEngineTime())
+			if (RW_ActiveMessageIndex[clientIdx] != -1 && RW_MessageActiveUntil[clientIdx] <= GetGameTime())
 			{
 				RW_ActiveMessageIndex[clientIdx] = -1;
 				ROTT_UpdateHUD(clientIdx);
 			}
 
 			// is it time to remove armor and/or god mode?
-			if (RW_ArmorActive[clientIdx] && RW_ArmorActiveUntil[clientIdx] <= GetEngineTime())
+			if (RW_ArmorActive[clientIdx] && RW_ArmorActiveUntil[clientIdx] <= GetGameTime())
 			{
 				if (PRINT_DEBUG_INFO)
 					PrintToServer("[sarysapub1] Armor expired.");
@@ -2074,7 +2018,7 @@ public void OnGameFrame()
 				RW_ArmorActive[clientIdx] = false;
 			}
 
-			if (RW_GodModeActive[clientIdx] && RW_GodModeActiveUntil[clientIdx] <= GetEngineTime())
+			if (RW_GodModeActive[clientIdx] && RW_GodModeActiveUntil[clientIdx] <= GetGameTime())
 			{
 				if (PRINT_DEBUG_INFO)
 					PrintToServer("[sarysapub1] God mode expired.");
@@ -2087,7 +2031,7 @@ public void OnGameFrame()
 				SetEntPropEnt(clientIdx, Prop_Data, "m_hActiveWeapon", GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Melee));
 				RW_GodModeActive[clientIdx] = false;
 			}
-			else if (RW_GodModeActive[clientIdx] && RW_NextGodModeSoundAt[clientIdx] <= GetEngineTime())
+			else if (RW_GodModeActive[clientIdx] && RW_NextGodModeSoundAt[clientIdx] <= GetGameTime())
 			{
 				int highestSoundIndex = -1;
 				for (int i = 0; i < RW_MAX_GODMODE_SOUNDS; i++)
@@ -2104,19 +2048,19 @@ public void OnGameFrame()
 					EmitSoundToAll(RW_GodModeSounds[soundIdx]);
 				}
 
-				RW_NextGodModeSoundAt[clientIdx] = GetEngineTime() + 5.0;
+				RW_NextGodModeSoundAt[clientIdx] = GetGameTime() + 5.0;
 			}
 		}
 
 		// HUD
 		if ((RP_ActiveThisRound || RW_ActiveThisRound) && (RP_CanUse[clientIdx] || RW_CanUse[clientIdx]))
 		{
-			if (ROTT_HudRefreshAt[clientIdx] <= GetEngineTime())
+			if (ROTT_HudRefreshAt[clientIdx] <= GetGameTime())
 			{
 				// going with the FF2 timer values, since I'd like it to be fairly responsive
 				SetHudTextParams(-1.0, 0.6, 0.15, 255, 64, 64, 192);
 				ShowHudText(clientIdx, -1, ROTT_HudMessage[clientIdx]);
-				ROTT_HudRefreshAt[clientIdx] = GetEngineTime() + 0.1;
+				ROTT_HudRefreshAt[clientIdx] = GetGameTime() + 0.1;
 			}
 		}
 	}
@@ -2141,7 +2085,7 @@ public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float ve
 		RP_ReloadKeyDown[clientIdx] = (buttons & IN_RELOAD) != 0;
 		
 		// error state
-		if (RP_ActiveErrorState[clientIdx] != RP_ERROR_STATE_NONE && RP_DisplayErrorUntil[clientIdx] <= GetEngineTime())
+		if (RP_ActiveErrorState[clientIdx] != RP_ERROR_STATE_NONE && RP_DisplayErrorUntil[clientIdx] <= GetGameTime())
 		{
 			RP_ActiveErrorState[clientIdx] = RP_ERROR_STATE_NONE;
 			ROTT_UpdateHUD(clientIdx);
@@ -2237,7 +2181,7 @@ stock bool IsValidBoss(int clientIdx)
 	if (!IsLivingPlayer(clientIdx))
 		return false;
 		
-	return GetClientTeam(clientIdx) == BossTeam;
+	return GetClientTeam(clientIdx) == VSH2Team_Boss;
 }
 
 stock int FindRandomLivingMerc(int team = 2, int exclude = -1)

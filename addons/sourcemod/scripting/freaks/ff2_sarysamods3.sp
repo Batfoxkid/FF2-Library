@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 #include <ff2_dynamic_defaults>
@@ -604,25 +605,23 @@ Action OnDOTAbilityTick(int clientIdx, int tickCount)
 /**
  * METHODS USED BY NORMAL RAGES
  */
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RS_STRING))
-		Rage_RegenerationShockwave(ability_name, bossIdx);
+		Rage_RegenerationShockwave(bossPlayer.userid);
 	else if (!strcmp(ability_name, CS_STRING))
-		Rage_CharacterScramble(ability_name, bossIdx);
+		Rage_CharacterScramble(bossPlayer.userid);
 	else if (!strcmp(ability_name, MS_STRING))
-		Rage_MeterScramble(ability_name, bossIdx);
+		Rage_MeterScramble(bossPlayer.userid);
 	else if (!strcmp(ability_name, SD_STRING))
-		Rage_SentryDelevel(ability_name, bossIdx);
+		Rage_SentryDelevel(bossPlayer.userid);
 	else if (!strcmp(ability_name, FD_STRING))
-		Rage_FlamingDebris(ability_name, bossIdx);
+		Rage_FlamingDebris(bossPlayer.userid);
 	else if (!strcmp(ability_name, TARDIS_STRING))
-		Rage_Tardis(ability_name, bossIdx);
+		Rage_Tardis(bossPlayer.userid);
 
 	return Plugin_Continue;
 }
@@ -957,7 +956,7 @@ public void RS_Tick(int clientIdx, float curTime)
 	}
 }
  
-public void Rage_RegenerationShockwave(const char[] ability_name, int bossIdx)
+public void Rage_RegenerationShockwave(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 1);
 	int clientIdx = GetBossClientId(bossIdx);
@@ -1127,10 +1126,10 @@ public void CS_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_CharacterScramble(const char[] ability_name, int bossIdx)
+public void Rage_CharacterScramble(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	bool cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2) == 1;
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, CS_STRING, 1);
+	bool cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CS_STRING, 2) == 1;
 	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
@@ -1199,10 +1198,10 @@ public void MS_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_MeterScramble(const char[] ability_name, int bossIdx)
+public void Rage_MeterScramble(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	int flags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 1);
+	int flags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MS_STRING, 2);
 	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
@@ -1372,9 +1371,9 @@ public void SD_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_SentryDelevel(const char[] ability_name, int bossIdx)
+public void Rage_SentryDelevel(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SD_STRING, 1);
 	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
@@ -1487,9 +1486,9 @@ public void FD_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_FlamingDebris(const char[] ability_name, int bossIdx)
+public void Rage_FlamingDebris(int bossIdx)
 {
-	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 1);
 	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
@@ -1693,7 +1692,7 @@ public void TARDIS_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_Tardis(const char[] ability_name, int bossIdx)
+public void Rage_Tardis(int bossIdx)
 {
 	int clientIdx = GetBossClientId(bossIdx);
 
@@ -1702,9 +1701,9 @@ public void Rage_Tardis(const char[] ability_name, int bossIdx)
 	char tardisDimensionsStr[134];
 	char tardisDimensionsStrSplit[2][66];
 	char tardisStrIndividual[3][21];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 1, modelName, MAX_MODEL_FILE_LENGTH);
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 2, tardisDimensionsStr, 134);
-	float maxZDifference = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 1, modelName, MAX_MODEL_FILE_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 2, tardisDimensionsStr, 134);
+	float maxZDifference = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, TARDIS_STRING, 14);
 	
 	// split up and validate the dimensions first of all, necessary for proper spawning and verifying boss is within TARDIS borders
 	ExplodeString(tardisDimensionsStr, " ", tardisDimensionsStrSplit, 2, 66);
@@ -1726,12 +1725,12 @@ public void Rage_Tardis(const char[] ability_name, int bossIdx)
 	
 	// grab the entry sound, but can't play it yet
 	char entrySound[MAX_SOUND_FILE_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 3, entrySound, MAX_SOUND_FILE_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, TARDIS_STRING, 3, entrySound, MAX_SOUND_FILE_LENGTH);
 	// skip arg4 for now, not used here
 	
 	// random distance for TARDIS to spawn from rager
-	float minDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 5);
-	float maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 6);
+	float minDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, TARDIS_STRING, 5);
+	float maxDistance = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, TARDIS_STRING, 6);
 	if (maxDistance < minDistance)
 	{
 		PrintToServer("[sarysamods3] WARNING distance to spawn tardis from player, min is less than max. Correcting.");
@@ -1743,7 +1742,7 @@ public void Rage_Tardis(const char[] ability_name, int bossIdx)
 	}
 	
 	// health for our TARDIS
-	int health = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
+	int health = FF2_GetAbilityArgument(bossIdx, this_plugin_name, TARDIS_STRING, 7);
 	if (health <= 0)
 		health = 999999; // "invincible"
 	
@@ -2866,7 +2865,7 @@ stock void env_shake(float Origin[3], float Amplitude, float Radius, float Durat
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
+	if (IsValidEntity(entity))
 		RemoveEntity(entity);
 }
 

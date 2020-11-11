@@ -1,10 +1,11 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <ff2_ams2>
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 #include <tf2attributes>
@@ -60,7 +61,6 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -601,20 +601,6 @@ char WSS_AestheticName[WSS_MAX_WEAPONS][MAX_TERMINOLOGY_LENGTH]; // arg8 and arg
 float WSS_DOTDuration[WSS_MAX_WEAPONS]; // arg9 and arg19
 bool WSS_IsSingleReload[WSS_MAX_WEAPONS]; // arg10 and arg20
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysamods9.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
- 
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	// remove from pack10!
@@ -633,12 +619,6 @@ public void OnPluginStart2()
 		
 	// REMOVE IN PACK10
 	RegisterForceTaunt();
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 }
 
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
@@ -1316,7 +1296,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 		
 		if (BH_CanUse[clientIdx] && !(BH_IsDOT[clientIdx] || BH_KeyID[clientIdx] != BH_KEY_MEDIC))
 		{
-			FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) | FF2FLAG_HUDDISABLED);
+			FF2Player(clientIdx).SetPropAny("bHideHUD", true);
 			DD_SetForceHUDEnabled(clientIdx, true);
 		}
 
@@ -1552,11 +1532,9 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 		
 	if (!strcmp(ability_name, LC_STRING))
@@ -1564,75 +1542,30 @@ public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[]
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Love Curse");
 
-		Rage_LoveCurse(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_LoveCurse(bossPlayer.index);
 	}
 	else if (!strcmp(ability_name, BH_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Blink Hadouken (FF2 caught it rather than this mod)");
 
-		Rage_BlinkHadouken(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_BlinkHadouken(bossPlayer.index);
 	}
 	else if (!strcmp(ability_name, RE_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Equalize");
 
-		Rage_Equalize(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_Equalize(bossPlayer.index);
 	}
 	else if (!strcmp(ability_name, WS_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Weapon Selector");
 
-		Rage_WeaponSelector(GetClientOfUserId(FF2_GetBossUserId(bossIdx)));
+		Rage_WeaponSelector(bossPlayer.index);
 	}
 
-	return Plugin_Continue;
-}
-
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("jarate", unparsedArgs))
-	{
-		JP_HandleJarated(GetClientOfUserId(FF2_GetBossUserId(0)), user, GetEngineTime());
-		PrintToConsole(user, "Jarateing self.");
-		
-		return Plugin_Handled;
-	}
-	else if (!strcmp("lovecurse", unparsedArgs))
-	{
-		Rage_LoveCurse(GetClientOfUserId(FF2_GetBossUserId(0)));
-		PrintToConsole(user, "love curse rage");
-		
-		return Plugin_Handled;
-	}
-	else if (!strcmp("equalize", unparsedArgs))
-	{
-		Rage_Equalize(GetClientOfUserId(FF2_GetBossUserId(0)));
-		PrintToConsole(user, "equalize rage");
-		
-		return Plugin_Handled;
-	}
-	else if (!strcmp("dpe", unparsedArgs))
-	{
-		RE_OnDPActivate(GetClientOfUserId(FF2_GetBossUserId(0)));
-		PrintToConsole(user, "equalize pewpew");
-		
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysamods9] Rage not found: %s", unparsedArgs);
 	return Plugin_Continue;
 }
 
@@ -3212,7 +3145,7 @@ public void BH_Cleanup()
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsClientInGame(clientIdx))
-			FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & (~FF2FLAG_HUDDISABLED));
+			FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 	}
 }
 
@@ -3268,7 +3201,7 @@ public void BH_CreateHadouken(int clientIdx)
 	// store it, and do other settings
 	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		BH_AlreadyHit[victim] = false;
-	BH_ProjectileEntRef[clientIdx] = EntRefToEntIndex(rocket);
+	BH_ProjectileEntRef[clientIdx] = EntIndexToEntRef(rocket);
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", BH_LastSafePos[clientIdx]);
 	BH_LastActualPos[clientIdx][0] = spawnPos[0];
 	BH_LastActualPos[clientIdx][1] = spawnPos[1];
@@ -6234,7 +6167,7 @@ public void ForceUserToTaunt(int clientIdx, int itemdef)
 			PrintToServer("[sarysamods9] Couldn't find CEconItemView for taunt %d.", itemdef);
 			congaFailurePrintout = true;
 		}
-		RemoveEdict(ent);
+		RemoveEntity(ent);
 		return;
 	}
 	pEconItemView += view_as<Address>(FindSendPropInfo("CTFWearable", "m_Item"));

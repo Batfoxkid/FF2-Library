@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <drain_over_time>
 #include <drain_over_time_subplugin>
 
@@ -33,7 +34,6 @@
  
 // NOTE: Added this due to issues with the bots after the taunt change. Do not have this set to true on your live server!
 // otherwise, any admin could activate her rage at any time.
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -274,30 +274,10 @@ float EF_ReplacementDamageMultiplier[MAX_PLAYERS_ARRAY]; // arg5
 float EF_FrameTime[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE];
 float EF_FramePosition[MAX_PLAYERS_ARRAY][EF_FRAME_HISTORY_SIZE][3];
 
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysamods4.sp is set to true!      *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
- 
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 }
 
 public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
@@ -606,55 +586,21 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	}
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RR_STRING))
-		Rage_RollingRocks(ability_name, bossIdx);
+		Rage_RollingRocks(bossPlayer.userid);
 	else if (!strcmp(ability_name, GLIDE_STRING))
-		Rage_Glide(ability_name, bossIdx);
+		Rage_Glide(bossPlayer.userid);
 	else if (!strcmp(ability_name, IS_STRING))
-		Rage_ImprovedStun(ability_name, bossIdx);
+		Rage_ImprovedStun(bossPlayer.userid);
 	else if (!strcmp(ability_name, MS_STRING))
-		Rage_MeteorShower(ability_name, bossIdx);
+		Rage_MeteorShower(bossPlayer.userid);
 		
-	return Plugin_Continue;
-}
-
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("rocks", unparsedArgs))
-	{
-		Rage_RollingRocks(RR_STRING, 0);
-		return Plugin_Handled;
-	}
-	else if (!strcmp("stun", unparsedArgs))
-	{
-		Rage_ImprovedStun(IS_STRING, 0);
-		return Plugin_Handled;
-	}
-	else if (!strcmp("meteor", unparsedArgs))
-	{
-		Rage_MeteorShower(MS_STRING, 0);
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysamods4] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
+	return Plugin_Continue;		
 }
 
 /**
@@ -1033,7 +979,6 @@ public Action RR_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float
 			{
 				MI_EnableDamageAt[clientIdx] = FAR_FUTURE;
 				SetEntProp(clientIdx, Prop_Data, "m_takedamage", 2);
-				FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & ~FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 			}
 			
 			if (curTime >= MI_EquipModelAt[clientIdx])
@@ -1353,44 +1298,44 @@ public Action RR_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float
 	return Plugin_Continue;
 }
 
-public void Rage_RollingRocks(const char[] ability_name, int bossIdx)
+public void Rage_RollingRocks(int bossIdx)
 {
 	// classic parameters for rage_clone_attack
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	char modelName[MAX_MODEL_FILE_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 1, modelName, MAX_MODEL_FILE_LENGTH);
-	TFClassType classIdx = view_as<TFClassType>(FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 2));
-	float ratio = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 3);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 1, modelName, MAX_MODEL_FILE_LENGTH);
+	TFClassType classIdx = view_as<TFClassType>(FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 2));
+	float ratio = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 3);
 	char weaponName[MAX_ENTITY_CLASSNAME_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 4, weaponName, MAX_ENTITY_CLASSNAME_LENGTH);
-	int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 4, weaponName, MAX_ENTITY_CLASSNAME_LENGTH);
+	int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 5);
 	char attributes[MAX_WEAPON_ARG_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 6, attributes, MAX_WEAPON_ARG_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 6, attributes, MAX_WEAPON_ARG_LENGTH);
 	
 	// parameters specific to rage_rolling_rocks
 	char rangeStr[MAX_RANGE_STRING_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 7, rangeStr, MAX_RANGE_STRING_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 7, rangeStr, MAX_RANGE_STRING_LENGTH);
 	float minTurnSpeed;
 	float maxTurnSpeed;
 	ParseFloatRange(rangeStr, minTurnSpeed, maxTurnSpeed);
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 8, rangeStr, MAX_RANGE_STRING_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 8, rangeStr, MAX_RANGE_STRING_LENGTH);
 	float minSpeed;
 	float maxSpeed;
 	ParseFloatRange(rangeStr, minSpeed, maxSpeed);
-	float damageOnTouch = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 9);
-	int stunTypeOnTouch = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
-	float stunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 11);
-	float knockbackIntensityModifier = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 12);
-	float immunityDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 13);
+	float damageOnTouch = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 9);
+	int stunTypeOnTouch = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 10);
+	float stunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 11);
+	float knockbackIntensityModifier = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 12);
+	float immunityDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 13);
 	char hullStr[MAX_HULL_STRING_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 14, hullStr, MAX_HULL_STRING_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 14, hullStr, MAX_HULL_STRING_LENGTH);
 	float hull[2][3];
 	ParseHull(hullStr, hull);
-	float maxIncomingDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 15);
-	int maxHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 16);
-	float rockDamageStartDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 17);
-	float wasdDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 18);
-	int rockFlags = ReadHexOrDecString(bossIdx, ability_name, 19);
+	float maxIncomingDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 15);
+	int maxHealth = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 16);
+	float rockDamageStartDelay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 17);
+	float wasdDamage = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 18);
+	int rockFlags = ReadHexOrDecString(bossIdx, RR_STRING, 19);
 	
 	// an aesthetic that only happens at spawn time
 	char centerText[MAX_CENTER_TEXT_LENGTH];
@@ -1445,7 +1390,6 @@ public void Rage_RollingRocks(const char[] ability_name, int bossIdx)
 			MI_LastClass[clone] = TF2_GetPlayerClass(clone);
 
 		// respawn them as a blu
-		FF2_SetFF2flags(clone, FF2_GetFF2flags(clone) | FF2FLAG_ALLOWSPAWNINBOSSTEAM);
 		ChangeClientTeam(clone, BossTeam);
 		TF2_RespawnPlayer(clone);
 		TF2_SetPlayerClass(clone, classIdx);
@@ -1477,7 +1421,7 @@ public void Rage_RollingRocks(const char[] ability_name, int bossIdx)
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("[sarysamods4] Clone %d will be created, class %d weaponName=%s weaponIdx=%d weaponAtt=%s", clone, classIdx, weaponName, weaponIdx, tweakedAttributes);
 		weapon = SpawnWeapon(clone, weaponName, weaponIdx, 101, 5, tweakedAttributes);
-		if(IsValidEdict(weapon))
+		if(IsValidEntity(weapon))
 		{
 			SetEntPropEnt(clone, Prop_Send, "m_hActiveWeapon", weapon);
 			SetEntProp(weapon, Prop_Send, "m_iWorldModelIndex", -1);
@@ -1643,12 +1587,12 @@ public Action GLIDE_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, fl
 	return Plugin_Continue;
 }
 
-public void Rage_Glide(const char[] ability_name, int bossIdx)
+public void Rage_Glide(int bossIdx)
 {
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
 	if (GLIDE_RageOnly[clientIdx])
-		GLIDE_UsableUntil[clientIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 2);
+		GLIDE_UsableUntil[clientIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GLIDE_STRING, 2);
 }
 
 /**
@@ -1692,27 +1636,27 @@ public void IS_Tick(int clientIdx, float curTime)
 	}
 }
 
-public void Rage_ImprovedStun(const char[] ability_name, int bossIdx)
+public void Rage_ImprovedStun(int bossIdx)
 {
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 2);
-	bool isHardStun = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 3) == 1;
-	float slowdown = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 4);
-	bool playDefaultStunSound = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 5) == 1;
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 1);
+	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 2);
+	bool isHardStun = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 3) == 1;
+	float slowdown = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 4);
+	bool playDefaultStunSound = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 5) == 1;
 	char particleEffect[MAX_EFFECT_NAME_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 6, particleEffect, MAX_EFFECT_NAME_LENGTH);
-	int medigunUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 7);
-	int medigunPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 8);
-	int quickFixUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 9);
-	int quickFixPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 10);
-	int vaccinatorUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 11);
-	int vaccinatorPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 12);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, IS_STRING, 6, particleEffect, MAX_EFFECT_NAME_LENGTH);
+	int medigunUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 7);
+	int medigunPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 8);
+	int quickFixUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 9);
+	int quickFixPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 10);
+	int vaccinatorUserImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 11);
+	int vaccinatorPartnerImmune = FF2_GetAbilityArgument(bossIdx, this_plugin_name, IS_STRING, 12);
 	char flagOverrideStr[HEX_OR_DEC_STRING_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 13, flagOverrideStr, HEX_OR_DEC_STRING_LENGTH);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, IS_STRING, 13, flagOverrideStr, HEX_OR_DEC_STRING_LENGTH);
 	int flagOverride = ReadHexOrDecInt(flagOverrideStr);
-	float speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 14);
+	float speedFactor = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 14);
 	if (speedFactor <= 0.0)
 		speedFactor = 1.0;
 
@@ -2334,12 +2278,12 @@ public Action MS_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float
 	return Plugin_Continue;
 }
 
-public void Rage_MeteorShower(const char[] ability_name, int bossIdx)
+public void Rage_MeteorShower(int bossIdx)
 {
 	// all this method does is trigger the beginning of the meteor shower
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 1);
 	MS_SpawnMeteorsUntil[clientIdx] = GetEngineTime() + duration;
 	MS_IsUsing[clientIdx] = true;
 	MS_SpawnCount[clientIdx] = 0;

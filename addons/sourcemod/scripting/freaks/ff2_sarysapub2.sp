@@ -22,10 +22,11 @@
  * Basically, just give me credit if you reuse my code elsewhere. :P I didn't read through the above link either.
  */
 
+#define FF2_USING_AUTO_PLUGIN
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -100,7 +101,6 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
  
-bool DEBUG_FORCE_RAGE = false;
 #define ARG_LENGTH 256
  
 bool PRINT_DEBUG_INFO = true;
@@ -302,31 +302,11 @@ int US_TicksForMaxHP[MAX_PLAYERS_ARRAY]; // internal, if this is greater than 0,
 int US_MaxHP[MAX_PLAYERS_ARRAY]; // internal
 float US_StartSpeed[MAX_PLAYERS_ARRAY]; // arg1
 float US_EndSpeed[MAX_PLAYERS_ARRAY]; // arg2
-
-/**
- * METHODS REQUIRED BY ff2 subplugin
- */
-void PrintRageWarning()
-{
-	PrintToServer("*********************************************************************");
-	PrintToServer("*                             WARNING                               *");
-	PrintToServer("*       DEBUG_FORCE_RAGE in ff2_sarysapub2.sp is set to true!       *");
-	PrintToServer("*  Any admin can use the 'rage' command to use rages in this pack!  *");
-	PrintToServer("*  This is only for test servers. Disable this on your live server. *");
-	PrintToServer("*********************************************************************");
-}
  
-#define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
-	
-	if (DEBUG_FORCE_RAGE)
-	{
-		PrintRageWarning();
-		RegAdminCmd(CMD_FORCE_RAGE, CmdForceRage, ADMFLAG_GENERIC);
-	}
 }
 
 public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
@@ -601,41 +581,17 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	US_ActiveThisRound = false;
 }
 
-public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[] ability_name, int status)
+public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t callType)
 {
-	if (strcmp(plugin_name, this_plugin_name) != 0)
-		return Plugin_Continue;
-	else if (!RoundInProgress) // don't execute these rages with 0 players alive
+	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RP_STRING))
-		Rage_Parasite(ability_name, bossIdx);
+		Rage_Parasite(player);
 		
 	return Plugin_Continue;
 }
 
-/**
- * Debug Only!
- */
-public Action CmdForceRage(int user, int argsInt)
-{
-	// get actual args
-	char unparsedArgs[ARG_LENGTH];
-	GetCmdArgString(unparsedArgs, ARG_LENGTH);
-	
-	// gotta do this
-	PrintRageWarning();
-	
-	if (!strcmp("parasite", unparsedArgs))
-	{
-		PrintToConsole(user, "Parasite rage.");
-		Rage_Parasite(RP_STRING, 0);
-		return Plugin_Handled;
-	}
-	
-	PrintToServer("[sarysapub2] Rage not found: %s", unparsedArgs);
-	return Plugin_Continue;
-}
 
 /**
  * Parasite
@@ -644,16 +600,17 @@ public Action CmdForceRage(int user, int argsInt)
 #define SPAWN_TYPE_RAY_TRACE 1
 #define SPAWN_TYPE_NEAREST_ENEMY 2
 #define SPAWN_TYPE_RANDOM_ENEMY 3
-public void Rage_Parasite(const char[] ability_name, int bossIdx)
+public void Rage_Parasite(FF2Player bossPlayer)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int bossIdx = bossPlayer.userid;
+	int clientIdx = bossPlayer.index;
 	
 	// variables only needed at spawn time
 	char modelName[MAX_MODEL_NAME_LENGTH];
-	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, ability_name, 1, modelName, MAX_MODEL_NAME_LENGTH);
-	int spawnType = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 3);
-	float timeToLive = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 10);
-	float delayToStart = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 12);
+	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RP_STRING, 1, modelName, MAX_MODEL_NAME_LENGTH);
+	int spawnType = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RP_STRING, 3);
+	float timeToLive = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RP_STRING, 10);
+	float delayToStart = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RP_STRING, 12);
 	
 	// figure out where to spawn the entity
 	float bossOrigin[3];
@@ -2319,10 +2276,8 @@ stock int AttachParticleToAttachment(int entity, const char[] particleType, cons
 public Action Timer_RemoveEntity(Handle timer, any entid)
 {
 	int entity = EntRefToEntIndex(entid);
-	if (IsValidEdict(entity) && entity > MaxClients)
-	{
+	if (IsValidEntity(entity))
 		RemoveEntity(entity);
-	}
 }
 
 stock bool IsLivingPlayer(int clientIdx)
