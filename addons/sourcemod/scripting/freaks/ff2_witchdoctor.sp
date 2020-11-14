@@ -1,10 +1,10 @@
-#include <sourcemod>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <tf2items>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #undef REQUIRE_PLUGIN
 #tryinclude <ff2_dynamic_defaults>
 #define REQUIRE_PLUGIN

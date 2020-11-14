@@ -53,12 +53,13 @@
 	
 */
 
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <ff2_dynamic_defaults>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -188,28 +189,24 @@ public void FF2AMS_PreRoundStart(int client)
 {
 	int boss=FF2_GetBossIndex(client);
 	if(FF2_HasAbility(boss, this_plugin_name, JACK_MINION_SPAWN))
-	{
 		AMS_REG(client)(hj_spawnclone.JMS);
-	}
 	if(FF2_HasAbility(boss, this_plugin_name, JACK_RANDOM_BUFF))
-	{
 		AMS_REG(client)(hj_randombuff.JRB);
-	}
 	if(FF2_HasAbility(boss, this_plugin_name, FEMHEAVY_BABIFY))
-	{
 		AMS_REG(client)(fh_babify.FHB);
-	}
 }
 
 // Minion Spawn
-
+static const TFCond nIgnoreConds[] = {
+	TFCond_Ubercharged, TFCond_StealthedUserBuffFade, 
+	TFCond_UberBulletResist, TFCond_UberBlastResist, TFCond_UberFireResist,
+	TFCond_BulletImmune, TFCond_BlastImmune, TFCond_FireImmune
+};
 public AMSResult JMS_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return AMS_Deny;
+	for(int i; i < sizeof(nIgnoreConds); i++)
+		if(TF2_IsPlayerInCondition(client, nIgnoreConds[i]))
+			return AMS_Deny;
 	return AMS_Accept;
 }
 
@@ -224,11 +221,9 @@ public void JMS_Invoke(int client, int index)
 
 public AMSResult JRB_CanInvoke(int client, int index)
 {
-	if(TF2_IsPlayerInCondition(client, TFCond_Ubercharged)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_StealthedUserBuffFade)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBulletResist) || TF2_IsPlayerInCondition(client, TFCond_BulletImmune)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberBlastResist) || TF2_IsPlayerInCondition(client, TFCond_BlastImmune)) return AMS_Deny;
-	if(TF2_IsPlayerInCondition(client, TFCond_UberFireResist) || TF2_IsPlayerInCondition(client, TFCond_FireImmune)) return AMS_Deny;
+	for(int i; i < sizeof(nIgnoreConds); i++)
+		if(TF2_IsPlayerInCondition(client, nIgnoreConds[i]))
+			return AMS_Deny;
 	return AMS_Accept;
 }
 
@@ -368,15 +363,16 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 		if(liveplayers < minions|| !minions) 
 			minions=liveplayers;
 	}
+	FF2Player rand;
 	GetEntPropVector(bClient, Prop_Data, "m_vecOrigin", position);
 	for (int i=0; i<minions; i++)
 	{
 		clone = GetRandomDeadPlayer();
 		if(clone  != -1)
 		{
-			FF2_SetFF2flags(clone,FF2_GetFF2flags(clone)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-			ChangeClientTeam(clone,FF2_GetBossTeam());
-			TF2_RespawnPlayer(clone);
+			rand = FF2Player(clone);
+			rand.SetPropAny("bIsMinion", true);
+			rand.ForceTeamChange(VSH2Team_Boss);
 			SummonerIndex[clone]=boss;
 			switch(rType)
 			{

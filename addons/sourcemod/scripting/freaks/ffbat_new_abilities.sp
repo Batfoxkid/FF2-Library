@@ -1,13 +1,13 @@
 #pragma semicolon 1
 
-#include <sourcemod>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <sdktools>
 #include <tf2items>
 #include <tf2attributes>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -39,8 +39,6 @@
 
 float OFF_THE_MAP[3] = { 16383.0, 16383.0, -16383.0 };
 
-bool UnofficialFF2;	// If FF2 is Unofficial version
-
 enum Operators
 {
 	Operator_None = 0,
@@ -55,11 +53,8 @@ Handle SDKEquipWearable;
 
 bool G_BlockSuicide[MAXTF2PLAYERS];
 bool G_BlockPickups[MAXTF2PLAYERS];
-int G_TotalPlayers;
-int G_Players;
-int G_MercPlayers;
-//int G_BossPlayers;
-int G_RoundState;
+
+FF2GameMode ff2_gm;
 
 public Plugin myinfo =
 {
@@ -73,30 +68,11 @@ public Plugin myinfo =
 	Main Events
 */
 
-public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
-{
-	#if defined _FFBAT_included
-	MarkNativeAsOptional("FF2_EmitVoiceToAll");
-	MarkNativeAsOptional("FF2_GetArgNamedI");
-	MarkNativeAsOptional("FF2_GetArgNamedF");
-	MarkNativeAsOptional("FF2_GetArgNamedS");
-	MarkNativeAsOptional("FF2_GetBossName");
-	MarkNativeAsOptional("FF2_GetForkVersion");
-	MarkNativeAsOptional("FF2_LogError");
-	MarkNativeAsOptional("FF2_NamedArgumentsUsed");
-	MarkNativeAsOptional("FF2_MakeBoss");
-	#endif
-	return APLRes_Success;
-}
-
 public void OnPluginStart2()
 {
-	if(GetFeatureStatus(FeatureType_Native, "FF2_EmitVoiceToAll") == FeatureStatus_Available)
-		UnofficialFF2 = true;
-
 	HookEvent("teamplay_round_start", OnRoundSetup, EventHookMode_PostNoCopy);
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
-	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_Post);
 	HookEvent("teamplay_broadcast_audio", OnBroadcast, EventHookMode_Pre);
 	HookEvent("teamplay_point_captured", OnCapturePoint, EventHookMode_PostNoCopy);
 
@@ -116,7 +92,7 @@ public void OnPluginStart2()
 	GameData gameData = new GameData("equipwearable");
 	if(gameData == INVALID_HANDLE)
 	{
-		LogError2("[Gamedata] Failed to find equipwearable.txt");
+		FF2_LogError("[Gamedata] Failed to find equipwearable.txt");
 	}
 	else
 	{
@@ -125,7 +101,7 @@ public void OnPluginStart2()
 		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
 		SDKEquipWearable = EndPrepSDKCall();
 		if(SDKEquipWearable == null)
-			LogError2("[Gamedata] Failed to create call: CBasePlayer::EquipWearable");
+			FF2_LogError("[Gamedata] Failed to create call: CBasePlayer::EquipWearable");
 	}
 	delete gameData;
 
@@ -141,7 +117,7 @@ public void OnPluginStart2()
 	}
 
 	if(FF2_GetRoundState() == 1)
-		OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
+		_OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
 }
 
 public void OnClientPostAdminCheck(int client)
@@ -251,7 +227,7 @@ stock void TE_Particle(const char[] Name, float origin[3]=NULL_VECTOR, float sta
 	int tblidx = FindStringTable("ParticleEffectNames");
 	if(tblidx == INVALID_STRING_TABLE)
 	{
-		LogError2("[Plugin] Could not find string table: ParticleEffectNames");
+		FF2_LogError("[Plugin] Could not find string table: ParticleEffectNames");
 		return;
 	}
 
@@ -271,7 +247,7 @@ stock void TE_Particle(const char[] Name, float origin[3]=NULL_VECTOR, float sta
 
 	if(stridx == INVALID_STRING_INDEX)
 	{
-		LogError2("[Boss] Could not find particle: %s", Name);
+		FF2_LogError("[Boss] Could not find particle: %s", Name);
 		return;
 	}
 	
@@ -372,9 +348,7 @@ stock int GetHealingTarget(int client, bool checkgun=false)
 stock void RandomlyDisguise(int client)	//Original code was mecha's, but the original code is broken and this uses a better method now.
 {
 	int disguiseTarget = -1;
-	int team = GetClientTeam(client);
-	if(UnofficialFF2)
-		team = team==3 ? 2 : 3;
+	int team = GetClientTeam(client) == VSH2Team_Boss ? VSH2Team_Boss:VSH2Team_Red;
 
 	ArrayList disguiseArray = new ArrayList();
 	for(int clientcheck=1; clientcheck<=MaxClients; clientcheck++)
@@ -397,13 +371,13 @@ stock void RandomlyDisguise(int client)	//Original code was mecha's, but the ori
 
 	if(TF2_GetPlayerClass(client) == TFClass_Spy)
 	{
-		TF2_DisguisePlayer(client, view_as<TFTeam>(team), UnofficialFF2 ? TF2_GetPlayerClass(disguiseTarget) : GetRandomInt(0, 1) ? TFClass_Medic : TFClass_Scout, disguiseTarget);
+		TF2_DisguisePlayer(client, view_as<TFTeam>(team), TF2_GetPlayerClass(disguiseTarget), disguiseTarget);
 	}
 	else
 	{
 		TF2_AddCondition(client, TFCond_Disguised, -1.0);
 		SetEntProp(client, Prop_Send, "m_nDisguiseTeam", team);
-		SetEntProp(client, Prop_Send, "m_nDisguiseClass", UnofficialFF2 ? view_as<int>(TF2_GetPlayerClass(disguiseTarget)) : GetRandomInt(0, 1) ? view_as<int>(TFClass_Medic) : view_as<int>(TFClass_Scout));
+		SetEntProp(client, Prop_Send, "m_nDisguiseClass", view_as<int>(TF2_GetPlayerClass(disguiseTarget)));
 		SetEntProp(client, Prop_Send, "m_iDisguiseTargetIndex", disguiseTarget);
 		SetEntProp(client, Prop_Send, "m_iDisguiseHealth", 200);
 	}
@@ -524,7 +498,7 @@ static void Operate(ArrayList sumArray, int &bracket, float value, ArrayList _op
 		{
 			if(!value)
 			{
-				LogError2("[Boss] Detected a divide by 0 in a boss with %s!", this_plugin_name);
+				FF2_LogError("[Boss] Detected a divide by 0 in a boss with %s!", this_plugin_name);
 				bracket = 0;
 				return;
 			}
@@ -602,7 +576,7 @@ stock float ParseFormula(int boss, const char[] key, float defaultValue, const c
 				OperateString(sumArray, bracket, value, sizeof(value), _operator);
 				if(_operator.Get(bracket) != Operator_None)
 				{
-					LogError2("[Boss] Formula at arg%i/%s for %s has an invalid operator at character %i", argNumber, argName, abilityName, i+1);
+					FF2_LogError("[Boss] Formula at arg%i/%s for %s has an invalid operator at character %i", argNumber, argName, abilityName, i+1);
 					delete sumArray;
 					delete _operator;
 					return defaultValue;
@@ -610,7 +584,7 @@ stock float ParseFormula(int boss, const char[] key, float defaultValue, const c
 
 				if(--bracket < 0)
 				{
-					LogError2("[Boss] Formula at arg%i/%s for %s has an unbalanced parentheses at character %i", argNumber, argName, abilityName, i+1);
+					FF2_LogError("[Boss] Formula at arg%i/%s for %s has an unbalanced parentheses at character %i", argNumber, argName, abilityName, i+1);
 					delete sumArray;
 					delete _operator;
 					return defaultValue;
@@ -628,11 +602,11 @@ stock float ParseFormula(int boss, const char[] key, float defaultValue, const c
 			}
 			case 'n', 'x':
 			{
-				Operate(sumArray, bracket, float(G_TotalPlayers), _operator);
+				Operate(sumArray, bracket, float(CountPlayers()), _operator);
 			}
 			case 'a', 'y':
 			{
-				Operate(sumArray, bracket, float(G_Players), _operator);
+				Operate(sumArray, bracket, float(CountPlayers(true)), _operator);
 			}
 			case '+', '-', '*', '/', '^':
 			{
@@ -663,7 +637,7 @@ stock float ParseFormula(int boss, const char[] key, float defaultValue, const c
 	delete _operator;
 	if((valueCheck==1 && result<0) || (valueCheck==2 && result<=0))
 	{
-		LogError2("[Boss] An invalid formula at arg%i/%s for %s!", argNumber, argName, abilityName);
+		FF2_LogError("[Boss] An invalid formula at arg%i/%s for %s!", argNumber, argName, abilityName);
 		return defaultValue;
 	}
 	return result;
@@ -676,18 +650,9 @@ stock float ParseFormula(int boss, const char[] key, float defaultValue, const c
 stock float GetArgF(int boss, const char[] abilityName, const char[] argName, int argNumber, float defaultValue, int valueCheck)
 {
 	static char buffer[1024];
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_GetArgS(boss, this_plugin_name, abilityName, argName, argNumber, buffer, 1024);
-	}
-	else
-	{
-		FF2_GetAbilityArgumentString(boss, this_plugin_name, abilityName, argNumber, buffer, 1024);
-	}
-	#else
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, abilityName, argNumber, buffer, 1024);
-	#endif
+	FF2Player player = FF2Player(boss, true);
+	if(!player.GetArgS(this_plugin_name, abilityName, argName, buffer, sizeof(buffer)))
+		FF2_GetAbilityArgumentString(boss, this_plugin_name, abilityName, argNumber, buffer, sizeof(buffer));
 
 	if(buffer[0])
 	{
@@ -696,163 +661,51 @@ stock float GetArgF(int boss, const char[] abilityName, const char[] argName, in
 	}
 	else if((valueCheck==1 && defaultValue<0) || (valueCheck==2 && defaultValue<=0))
 	{
-		LogError2("[Boss] Formula at arg%i/%s for %s is not allowed to be blank.", argNumber, argName, abilityName);
+		FF2_LogError("[Boss] Formula at arg%i/%s for %s is not allowed to be blank.", argNumber, argName, abilityName);
 		return 0.0;
 	}
 	return defaultValue;
 }
 
-stock float GetArgI(int boss, const char[] abilityName, const char[] argName, int argNumber, float defaultValue=0.0)
+stock int GetArgI(int boss, const char[] abilityName, const char[] argName, int argNumber, int defaultValue=0)
 {
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		return FF2_GetArgF(boss, this_plugin_name, abilityName, argName, argNumber, defaultValue);
-	}
-	else
-	{
-		return FF2_GetAbilityArgumentFloat(boss, this_plugin_name, abilityName, argNumber, defaultValue);
-	}
-	#else
-	return FF2_GetAbilityArgumentFloat(boss, this_plugin_name, abilityName, argNumber, defaultValue);
-	#endif
+	FF2Player player = FF2Player(boss, true);
+	int val = player.GetArgI(this_plugin_name, abilityName, argName, -999);
+	return val == -999 ? FF2_GetAbilityArgument(boss, this_plugin_name, abilityName, argNumber, defaultValue):val;
 }
 
 stock int GetArgS(int boss, const char[] ability_name, const char[] argument, int index, char[] buffer, int bufferLength)
 {
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_GetArgNamedS(boss, this_plugin_name, ability_name, argument, buffer, bufferLength);
-		if(!buffer[0])
-			FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, index, buffer, bufferLength);
-
-		return strlen(buffer);
-	}
-	#endif
-	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, index, buffer, bufferLength);
+	FF2Player player = FF2Player(boss, true);
+	if(!player.GetArgS(this_plugin_name, ability_name, argument, buffer, bufferLength))
+		FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, index, buffer, bufferLength);
+	
 	return strlen(buffer);
 }
 
-stock bool GetBossName(int boss=0, char[] buffer, int bufferLength, int bossMeaning=0, int client=0)
+stock bool GetBossName(int boss=0, char[] buffer, int bufferLength, int bossMeaning=0)
 {
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-		return FF2_GetBossName(boss, buffer, bufferLength, bossMeaning, client);
-	#endif
 	return FF2_GetBossSpecial(boss, buffer, bufferLength, bossMeaning);
-}
-
-stock void LogError2(const char[] message, any ...)
-{
-	char buffer[256], buffer2[256];
-	Format(buffer, 256, "%s", message);
-	VFormat(buffer2, 256, buffer, 2);
-
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_LogError(buffer2);
-		return;
-	}
-	#endif
-	LogError(buffer2);
 }
 
 stock void EmitVoiceToAll(const char[] sample, int entity=SOUND_FROM_PLAYER, int channel=SNDCHAN_AUTO, int level=SNDLEVEL_NORMAL)
 {
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_EmitVoiceToAll(sample, entity, channel, level);
-		return;
-	}
-	#endif
 	EmitSoundToAll(sample, entity, channel, level);
 }
 
-stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, const char[] att, bool visible=true)
+stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, char[] att, bool visible=true)
 {
-	if(StrEqual(name, "saxxy", false))	// if "saxxy" is specified as the name, replace with appropiate name
-	{ 
-		switch(TF2_GetPlayerClass(client))
-		{
-			case TFClass_Scout:	ReplaceString(name, 64, "saxxy", "tf_weapon_bat", false);
-			case TFClass_Pyro:	ReplaceString(name, 64, "saxxy", "tf_weapon_fireaxe", false);
-			case TFClass_DemoMan:	ReplaceString(name, 64, "saxxy", "tf_weapon_bottle", false);
-			case TFClass_Heavy:	ReplaceString(name, 64, "saxxy", "tf_weapon_fists", false);
-			case TFClass_Engineer:	ReplaceString(name, 64, "saxxy", "tf_weapon_wrench", false);
-			case TFClass_Medic:	ReplaceString(name, 64, "saxxy", "tf_weapon_bonesaw", false);
-			case TFClass_Sniper:	ReplaceString(name, 64, "saxxy", "tf_weapon_club", false);
-			case TFClass_Spy:	ReplaceString(name, 64, "saxxy", "tf_weapon_knife", false);
-			default:		ReplaceString(name, 64, "saxxy", "tf_weapon_shovel", false);
-		}
-	}
-	else if(StrEqual(name, "tf_weapon_shotgun", false))	// If using tf_weapon_shotgun for Soldier/Pyro/Heavy/Engineer
-	{
-		switch(TF2_GetPlayerClass(client))
-		{
-			case TFClass_Pyro:	ReplaceString(name, 64, "tf_weapon_shotgun", "tf_weapon_shotgun_pyro", false);
-			case TFClass_Heavy:	ReplaceString(name, 64, "tf_weapon_shotgun", "tf_weapon_shotgun_hwg", false);
-			case TFClass_Engineer:	ReplaceString(name, 64, "tf_weapon_shotgun", "tf_weapon_shotgun_primary", false);
-			default:		ReplaceString(name, 64, "tf_weapon_shotgun", "tf_weapon_shotgun_soldier", false);
-		}
-	}
-
-	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
-	if(hWeapon == INVALID_HANDLE)
-		return -1;
-
-	TF2Items_SetClassname(hWeapon, name);
-	TF2Items_SetItemIndex(hWeapon, index);
-	TF2Items_SetLevel(hWeapon, level);
-	TF2Items_SetQuality(hWeapon, qual);
-	char atts[32][32];
-	int count = ExplodeString(att, ";", atts, 32, 32);
-
-	if(count % 2)
-		--count;
-
-	if(count > 0)
-	{
-		TF2Items_SetNumAttributes(hWeapon, count/2);
-		int i2;
-		for(int i; i<count; i+=2)
-		{
-			int attrib = StringToInt(atts[i]);
-			if(!attrib)
-			{
-				LogError2("Bad weapon attribute passed: %s ; %s", atts[i], atts[i+1]);
-				delete hWeapon;
-				return -1;
-			}
-
-			TF2Items_SetAttribute(hWeapon, i2, attrib, StringToFloat(atts[i+1]));
-			i2++;
-		}
-	}
-	else
-	{
-		TF2Items_SetNumAttributes(hWeapon, 0);
-	}
-
-	int entity = TF2Items_GiveNamedItem(client, hWeapon);
-	delete hWeapon;
-	if(entity == -1)
-		return -1;
-
-	EquipPlayerWeapon(client, entity);
-
+	int weapon = FF2Player(client).SpawnWeapon(name, index, level, qual, att);
 	if(visible)
 	{
-		SetEntProp(entity, Prop_Send, "m_bValidatedAttachedEntity", 1);
+		SetEntProp(weapon, Prop_Send, "m_bValidatedAttachedEntity", 1);
 	}
 	else
 	{
-		SetEntProp(entity, Prop_Send, "m_iWorldModelIndex", -1);
-		SetEntPropFloat(entity, Prop_Send, "m_flModelScale", 0.001);
+		SetEntProp(weapon, Prop_Send, "m_iWorldModelIndex", -1);
+		SetEntPropFloat(weapon, Prop_Send, "m_flModelScale", 0.001);
 	}
-	return entity;
+	return weapon;
 }
 
 /*
@@ -872,21 +725,11 @@ void PrecacheAbilities()
 
 public void OnRoundSetup(Event event, const char[] name, bool dontBroadcast)
 {
-	G_RoundState = 0;
 	GMS_Clean();
 }
 
-public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+public void _OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
-	G_RoundState = 1;
-	G_TotalPlayers = 0;
-	for(int client=1; client<=MaxClients; client++)
-	{
-		if(IsValidClient(client) && GetClientTeam(client)>view_as<int>(TFTeam_Spectator))
-			G_TotalPlayers++;
-	}
-	G_Players = G_TotalPlayers;
-
 	int boss;
 	for(int client=1; client<=MaxClients; client++)
 	{
@@ -910,10 +753,9 @@ public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 
 public void OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-	GME_Clean(view_as<TFTeam>(event.GetInt("team")));
+	GME_Clean(event ? view_as<TFTeam>(event.GetInt("team")):view_as<TFTeam>(VSH2Team_Boss));
 	GMR_Clean();
 
-	G_RoundState = 2;
 	for(int client=1; client<=MaxClients; client++)
 	{
 		if(IsValidClient(client))
@@ -1014,21 +856,20 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 	return Plugin_Continue;
 }
 
-public void FF2_OnAlivePlayersChanged(int players, int bosses)
-{
-	if(!bosses || !players || !FF2_GetRoundState())
-		return;
-
-	G_MercPlayers = players;
-	//G_BossPlayers = bosses;
-	G_Players = players+bosses;
-	if(G_TotalPlayers > players+bosses)
-		G_TotalPlayers = players+bosses;
-}
-
 public Action OnStomp(int attacker, int victim, float &damageMultiplier, float &damageBonus, float &jumpPower)
 {
 	return GMS_Goomba(victim, damageMultiplier, jumpPower);
 }
 
-#file "FF2 Subplugin: New Abilities"
+
+int CountPlayers(bool alives = false)
+{
+	int count;
+	for(int i = 1; i <= MaxClients; i++)
+	if(IsClientInGame(i) && TF2_GetClientTeam(i) > TFTeam_Spectator)
+		if(!alives || IsPlayerAlive(i))
+			count++;
+	return count;
+}
+
+//#file "FF2 Subplugin: New Abilities"

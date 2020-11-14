@@ -130,11 +130,12 @@
 	}
 */
 
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #undef REQUIRE_PLUGIN
 #tryinclude <freak_fortress_2_extras>
@@ -146,6 +147,10 @@
 #define MANN_SND "ambient/siren.wav"
 #define RSALMON "summon_minions"
 #define CSALMON "charge_summon_minions"
+
+
+#define HEALTH_PACK_PROP_KEY	"bNoHealthPacks"
+#define AMMO_PACK_PROP_KEY		"bNoAmmoPacks"
 
 enum FF2BossType
 {
@@ -194,7 +199,6 @@ bool bEnableSuperDuperJump[MAXPLAYERS+1];
 bool DontSlay[MAXPLAYERS+1];
 bool minRestrict[MAXPLAYERS+1][2];
 int minToSpawn[MAXPLAYERS+1][2];
-KeyValues MinionKV[MAXPLAYERS + 1] =  { null, ... };
 int SummonerIndex[MAXPLAYERS+1];
 VoiceMode VOMode[MAXPLAYERS+1];
 MoveType mMoveType[MAXPLAYERS+1];
@@ -365,13 +369,13 @@ public void PrepareSalmon(int boss, int client, const char[] ability_name, int a
 	Salmon(boss, client, ability_name, sound, qty, ratio, modeltype, model, playerClass, stripWearables, vline, pickups, teletoboss, scale, gravity, moveType, pColor, pConds, pHealth, disableOverHeal, noslayminions, notify, notifyType, summoned, summoner, merc, wepmode, wepset, pParticle, pDuration, follow);
 }
 
-public AMSResult SMN_CanInvoke(int client, int index)
+public AMSResult SMN_CanInvoke(int client, StringMap map)
 {
 	if(minRestrict[client][1] && GetMinionCount()>minToSpawn[client][1]) return AMS_Deny;
 	return AMS_Accept;
 }
 
-public void SMN_Invoke(int client, int index)
+public void SMN_Invoke(int client, StringMap map)
 {
 	int boss=FF2_GetBossIndex(client);
 	if(minRestrict[client][1] && GetMinionCount()>=minToSpawn[client][1])
@@ -513,43 +517,43 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 		qty=(ratio ? RoundToCeil(GetAlivePlayerCount((view_as<TFTeam>(FF2_GetBossTeam())==TFTeam_Blue) ? (TFTeam_Red) : (TFTeam_Blue))*ratio) : MaxClients);
 	}
 	
-	KeyValues bossKV=GetRandomBossKV(boss);
-	
-	int ii;
+	FF2Player cur_boss = FF2Player(boss, true);
+	FF2Player r_boss = ToFF2Player(FF2GameMode.GetRandomBoss(true));
+	FF2Player r_dead;
 	GetEntPropVector(client, Prop_Data, "m_vecOrigin", position);
 	for (int i=0; i<qty; i++)
 	{
-		ii = GetRandomDeadPlayer();
+		int ii = GetRandomDeadPlayer();
 		if(ii != -1)
 		{
-			FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-			TF2_ChangeClientTeam(ii,view_as<TFTeam>(FF2_GetBossTeam()));
-			TF2_RespawnPlayer(ii);
+			r_dead = FF2Player(ii);
+			r_dead.SetPropAny("bIsMinion", true);
+			r_dead.ForceTeamChange(VSH2Team_Boss);
 			
 			if(pickups)
 			{
 				if(pickups==1 || pickups==3)
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_HEALTH_PICKUPS); // HP Pickup
+					r_dead.SetPropAny(HEALTH_PACK_PROP_KEY, true);
 				if(pickups==2 || pickups==3)
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_AMMO_PICKUPS); // Ammo Pickup
+					r_dead.SetPropAny(AMMO_PACK_PROP_KEY, true);
 				else
 				{
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|~FF2FLAG_ALLOW_HEALTH_PICKUPS); // HP Pickup
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|~FF2FLAG_ALLOW_AMMO_PICKUPS); // Ammo Pickup
+					r_dead.SetPropAny(HEALTH_PACK_PROP_KEY, true);
+					r_dead.SetPropAny(AMMO_PACK_PROP_KEY, true);
 				}
 			}
-			
 			if(playerClass || modeltype>=2)
 			{	
 				if(modeltype==3)
 				{
-					bossKV=view_as<KeyValues>(FF2_GetSpecialKV(boss, false));
+					r_boss = cur_boss;
 				}
 				if(modeltype>=2)
 				{
-					KvGetString(bossKV, "model", model, PLATFORM_MAX_PATH);	
+					r_boss.GetString("model", model, PLATFORM_MAX_PATH);
 				}
-				TF2_SetPlayerClass(ii, modeltype>=2 ? view_as<TFClassType>(KvGetNum(bossKV, "class", 0)) : playerClass, _, false);
+				int cls;
+				TF2_SetPlayerClass(ii, modeltype>=2 && r_boss.GetInt("class", cls) ? view_as<TFClassType>(cls) : playerClass, _, false);
 				if(!wepmode)
 				{
 					TF2_RegeneratePlayer(ii);
@@ -568,35 +572,26 @@ public void Salmon(int boss, int client, const char[] ability_name, bool sound, 
 				}
 				case 2: // looks like a random boss
 				{
-					MinionKV[client]=bossKV;
+					int cls;
 					char taunt[PLATFORM_MAX_PATH];
-					if(bossKV.GetNum("sound_block_vo", 0))
-					{
-						VOMode[ii]=((!HasSection("catch_phrase", taunt, sizeof(taunt), bossKV)) ? VoiceMode_None : VoiceMode_RandomBossCatchPhrase);
-					}
+					if(r_boss.GetInt("sound_block_vo", cls) && cls)
+						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), view_as<int>(r_boss))) ? VoiceMode_None : VoiceMode_RandomBossCatchPhrase);
 					else
-					{
-						VOMode[ii]=((!HasSection("catch_phrase", taunt, sizeof(taunt), bossKV)) ? VoiceMode_Normal : VoiceMode_RandomBossCatchPhrase);
-					}
+						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), view_as<int>(r_boss))) ? VoiceMode_Normal : VoiceMode_RandomBossCatchPhrase);
 				}
 				case 3: // clone of boss
 				{
+					int cls;
 					char taunt[PLATFORM_MAX_PATH];
-					if(bossKV.GetNum("sound_block_vo", 0))
-					{
-						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), boss)) ? VoiceMode_None : VoiceMode_BossCatchPhrase);
-					}
+					if(!r_boss.GetInt("sound_block_vo", cls) || !cls)
+						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), view_as<int>(cur_boss))) ? VoiceMode_None : VoiceMode_BossCatchPhrase);
 					else
-					{
-						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), boss)) ? VoiceMode_Normal : VoiceMode_BossCatchPhrase);
-					}
+						VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), view_as<int>(cur_boss))) ? VoiceMode_Normal : VoiceMode_BossCatchPhrase);
 				}
 				default:
 				{
 					if(voicelineMode)
-					{
 						VOMode[ii]=view_as<VoiceMode>(voicelineMode);
-					}
 				}
 			}
 			
@@ -1010,7 +1005,7 @@ stock void SetPlayerModel(int client, char[] model)
 
 stock void ResetSalmonSettings(int client)
 {
-	FF2_SetFF2flags(client, FF2_GetFF2flags(client) & ~FF2FLAG_ALLOWSPAWNINBOSSTEAM);
+	FF2Player(client).SetPropAny("bIsMinion", false);
 	if(VOMode[client]!=VoiceMode_Normal)
 	{
 		VOMode[client]=VoiceMode_Normal;
@@ -1052,11 +1047,6 @@ stock void ResetSalmonSettings(int client)
 		bEnableSuperDuperJump[client]=false;
 	}
 	
-	if(MinionKV[client])
-	{
-		delete MinionKV[client];
-		MinionKV[client]=null;
-	}
 	if(pParticleEnt[client]!=-1)
 	{
 		CreateTimer(0.1, Timer_RemoveEntity, EntIndexToEntRef(pParticleEnt[client]), TIMER_FLAG_NO_MAPCHANGE);
@@ -1320,7 +1310,7 @@ public Action SoundHook(int clients[64], int &numClients, char vl[PLATFORM_MAX_P
 		case VoiceMode_RandomBossCatchPhrase: // Random boss model, let's get the boss's catchphrase of that boss
 		{
 			char taunt[PLATFORM_MAX_PATH];
-			if(channel==SNDCHAN_VOICE && HasSection("catch_phrase", taunt, sizeof(taunt), MinionKV[client]))
+			if(channel==SNDCHAN_VOICE && FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), SummonerIndex[client]))
 			{
 				strcopy(vl, PLATFORM_MAX_PATH, taunt);
 				PrecacheSound(vl);
@@ -1827,7 +1817,7 @@ public Action Timer_Enable_Damage(Handle timer, any userid)
 	if(client)
 	{
 		SetEntProp(client, Prop_Data, "m_takedamage", 2);
-		FF2_SetFF2flags(client, FF2_GetFF2flags(client) & ~FF2FLAG_ALLOWSPAWNINBOSSTEAM);
+		FF2Player(client).SetPropAny("bIsMinion", false);
 		SDKUnhook(client, SDKHook_OnTakeDamage, SaveMinion);
 	}
 	return Plugin_Continue;
@@ -1905,57 +1895,6 @@ stock int GetRandomDeadPlayer()
 	return (clientCount == 0) ? -1 : clients[GetRandomInt(0, clientCount-1)];
 }
 
-stock bool HasSection(const char[] sound, char[] file, int length, KeyValues bossKV)
-{
-	if(!bossKV)
-	{
-		return false;
-	}
-	
-	bossKV.Rewind();
-	if(!bossKV.JumpToKey(sound))
-	{
-		bossKV.Rewind();
-		return false;  //Requested sound not implemented for this boss
-	}
-
-	char key[4];
-	int sounds;
-	while(++sounds)  //Just keep looping until there's no keys left
-	{
-		bossKV.GetString(key, file, length);
-		KvGetString(bossKV, key, file, length);
-		if(!file[0])
-		{
-			sounds--;  //This sound wasn't valid, so don't include it
-			break;  //Assume that there's no more sounds
-		}
-	}
-
-	if(!sounds)
-	{
-		return false;  //Found sound, but no sounds inside of it
-	}
-
-	IntToString(GetRandomInt(1, sounds), key, sizeof(key));
-	bossKV.GetString(key, file, length);
-	return true;
-}
-
-public KeyValues GetRandomBossKV(int boss)
-{
-	int index=-1;
-	for(int config=0; FF2_GetSpecialKV(config, true)!=null; config++)
-	{
-		index++;
-	}
-	
-	int position=GetRandomInt(0, index);
-	Handle BossKV=FF2_GetSpecialKV(position, true);
-	if(BossKV!=null) return view_as<KeyValues>(BossKV);
-	return view_as<KeyValues>(FF2_GetSpecialKV(boss, false));
-}
-
 public void FF2_OnAbility2(int boss,const char[] plugin_name, const char[] ability_name, int action)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
@@ -1979,6 +1918,6 @@ public void FF2_OnAbility2(int boss,const char[] plugin_name, const char[] abili
 		{
 			return;
 		}
-		SMN_Invoke(client, 0);
+		SMN_Invoke(client, null);
 	}	
 }

@@ -16,6 +16,7 @@
 */
 
 #define CONFIG		"special_menu_manager"
+#define FF2_USING_AUTO_PLUGIN__OLD		// 01Pollux: buttonmode doesnt exists anymore in VSH2 FF2! "old args" if you want to use old { "arg%i", "" } system thing, else use { "key", "" }
 
 /*
 	Core:
@@ -98,11 +99,10 @@
 	Now go enjoy Freak Fortress 2.
 */
 
-#include <sourcemod>
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <ff2_dynamic_defaults>
 
 #pragma newdecls required
@@ -179,10 +179,6 @@ int CurrentPlayers;	// Alive players left
 int MercPlayers;	// MercTeam players
 int BossPlayers;	// BossTeam players
 
-bool Unofficial;	// Determine if Unofficial is running
-bool OldVersion;	// Determine if older than 1.11 is running
-bool OldFork;	// DISC-FF or VSP fork is running
-
 // Main Stuff
 bool IsWizard[MAX_TF2_PLAYERS];				// Has ability
 char BossName[MAX_TF2_PLAYERS][MAX_BOSSNAME_LENGTH];	// Boss name (Client)
@@ -230,6 +226,21 @@ int Index[MAX_TF2_PLAYERS][MAX_SPELLS];		// Spell index
 
 char Particle[MAX_TF2_PLAYERS][MAX_SPELLS][MAX_EFFECT_LENGTH];	// Particle Effect
 char Attachment[MAX_TF2_PLAYERS][MAX_SPELLS][MAX_ATTACHMENT_LENGTH];	// Particle Attachment
+
+
+enum struct _SingleTimer {
+	bool bStarted;
+	void Begin()
+	{
+		if(!this.bStarted)
+			CreateTimer(0.1, Timer_CheckAlivePlayers, .flags = TIMER_FLAG_NO_MAPCHANGE);
+	}
+	void End()
+	{
+		this.bStarted = false;
+	}
+}
+_SingleTimer TimerCheckPlayers;
 
 public Plugin myinfo =
 {
@@ -282,54 +293,26 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	OnMenuThink = CreateGlobalForward("MA_OnMenuThink", ET_Hook, Param_Cell, Param_CellByRef, Param_FloatByRef);
 	OnMenuThinkP = CreateGlobalForward("MA_OnMenuThinkPost", ET_Hook, Param_Cell, Param_Float);
 
-	MarkNativeAsOptional("FF2_GetArgNamedI");
-	MarkNativeAsOptional("FF2_GetArgNamedF");
-	MarkNativeAsOptional("FF2_GetArgNamedS");
-	MarkNativeAsOptional("FF2_GetBossMaxLives");
-	MarkNativeAsOptional("FF2_GetBossLives");
-
-	#if defined _FFBAT_included
-	MarkNativeAsOptional("FF2_EmitVoiceToAll");
-	MarkNativeAsOptional("FF2_GetBossName");
-	MarkNativeAsOptional("FF2_GetForkVersion");
-	MarkNativeAsOptional("FF2_LogError");
-	MarkNativeAsOptional("FF2_SetCheats");
-	#endif
 	return APLRes_Success;
 }
 
 public void OnPluginStart2()
 {
-	if(GetFeatureStatus(FeatureType_Native, "FF2_GetBossLives") != FeatureStatus_Available)
-	{
-		OldFork = true;
-		OldVersion = true;
-	}
-	else if(GetFeatureStatus(FeatureType_Native, "FF2_GetForkVersion") != FeatureStatus_Available)
-	{
-		OldVersion = true;
-	}
-	#if defined _FFBAT_included
+	#if defined DEBUG
 	else
 	{
-		int version[3];
-		FF2_GetForkVersion(version);
-		if(version[0] && version[1])
-		{
-			Unofficial = true;
-			AddCommandListener(OnDebugCommand, "ff2_setrage");
-			AddCommandListener(OnDebugCommand, "ff2_addrage");
-			AddCommandListener(OnDebugCommand, "ff2_setcharge");
-			AddCommandListener(OnDebugCommand, "ff2_addcharge");
-			AddCommandListener(OnInfCommand, "ff2_setinfiniterage");
-		}
+		AddCommandListener(OnDebugCommand, "ff2_setrage");
+		AddCommandListener(OnDebugCommand, "ff2_addrage");
+		AddCommandListener(OnDebugCommand, "ff2_setcharge");
+		AddCommandListener(OnDebugCommand, "ff2_addcharge");
+		AddCommandListener(OnInfCommand, "ff2_setinfiniterage");
 	}
 	#endif
 
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("player_death", OnPlayerDeath);
-	HookEvent("player_hurt", OnPlayerHurt);
+	HookEvent("player_hurt", _OnPlayerHurt);
 	HookEvent("object_deflected", OnObjectDeflected);
 
 	HookUserMessage(GetUserMessageId("PlayerJarated"), OnJarate);
@@ -337,7 +320,7 @@ public void OnPluginStart2()
 	if(FF2_IsFF2Enabled())	// In case the plugin is loaded in late
 	{
 		if(FF2_GetRoundState() == 1)
-			OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
+			_OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
 	}
 }
 
@@ -345,10 +328,10 @@ public void OnPluginStart2()
 	FF2Dbg Commands
 */
 
-#if defined _FFBAT_included
+#if defined DEBUG
 public Action OnDebugCommand(int client, const char[] command, int args)
 {
-	if(!Enabled || !Unofficial || !CheckCommandAccess(client, command, ADMFLAG_CHEATS))
+	if(!Enabled || !CheckCommandAccess(client, command, ADMFLAG_CHEATS))
 		return Plugin_Continue;
 
 	if(!IsWizard[0])
@@ -452,7 +435,7 @@ public Action OnDebugCommand(int client, const char[] command, int args)
 
 public Action OnInfCommand(int client, const char[] command, int args)
 {
-	if(!Enabled || !Unofficial || !CheckCommandAccess(client, command, ADMFLAG_CHEATS))
+	if(!Enabled || !CheckCommandAccess(client, command, ADMFLAG_CHEATS))
 		return Plugin_Continue;
 
 	if(args == 0)
@@ -464,7 +447,7 @@ public Action OnInfCommand(int client, const char[] command, int args)
 		if(boss<0 || !IsPlayerAlive(client))
 			return Plugin_Continue;
 
-		if(!IsWizard[boss])
+		if(!IsWizard[client])
 			return Plugin_Continue;
 
 		for(int mana; mana<MAX_TYPES; mana++)
@@ -515,7 +498,7 @@ public Action OnInfCommand(int client, const char[] command, int args)
 	TF2 Events
 */
 
-public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+public void _OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled())
 		return;
@@ -544,17 +527,22 @@ public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 	}
 	CurrentPlayers = StartingPlayers;
 
-	int client;
-	for(int boss; boss<=MaxClients; boss++)
+	FF2Player boss;
+	for(int client = 1; client<=MaxClients; client++)
 	{
-		IsWizard[boss] = false;
-		client = GetClientOfUserId(FF2_GetBossUserId(boss));
-		if(IsValidClient(client))
-		{
-			if(FF2_HasAbility(boss, this_plugin_name, CONFIG))
-				MakeBoss(boss, client, 2);
-		}
+		if(!IsValidClient(client))
+			continue;
+		
+		IsWizard[client] = false;
+		boss = FF2Player(client);
+		if(boss.HasAbility(this_plugin_name, CONFIG))
+			MakeBoss(boss, 2);
 	}
+}
+
+public void OnClientDisconnect(int client)
+{
+	TimerCheckPlayers.Begin();
 }
 
 public void OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
@@ -570,43 +558,42 @@ public void OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 	if(!Enabled)
 		return;
 
-	if(OldFork)
-		CreateTimer(0.1, Timer_CheckAlivePlayers, _, TIMER_FLAG_NO_MAPCHANGE);
+	TimerCheckPlayers.Begin();
 
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if(!IsValidClient(client))
 		return;
 
-	int boss;
+	FF2Player boss;
 	int attacker = GetClientOfUserId(event.GetInt("attacker"));
 	if(IsBoss(attacker))
 	{
-		boss = FF2_GetBossIndex(attacker);
-		if(IsWizard[boss])
+		boss = FF2Player(attacker);
+		if(IsWizard[client])
 		{
-			if(Refresh[boss] & RAN_ONKILL)
-				RefreshSpells(boss, Randomize[boss], true);
+			if(Refresh[client] & RAN_ONKILL)
+				RefreshSpells(boss.userid, Randomize[client], true);
 
 			for(int mana; mana<MAX_TYPES; mana++)
 			{
-				if(Maximum[boss][mana] != 0)
+				if(Maximum[client][mana] != 0)
 				{
-					Current[boss][mana] += OnKill[boss][mana];
-					if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+					Current[client][mana] += OnKill[client][mana];
+					if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 					{
-						Current[boss][mana] = Maximum[boss][mana];
+						Current[client][mana] = Maximum[client][mana];
 					}
-					else if(Current[boss][mana] < 0)
+					else if(Current[client][mana] < 0)
 					{
-						Current[boss][mana] = 0.0;
+						Current[client][mana] = 0.0;
 					}
 				}
 			}
 		}
 	}
 
-	boss = FF2_GetBossIndex(client);
-	if(boss < 0)
+	boss = FF2Player(client);
+	if(!boss.bIsBoss)
 		return;
 
 	for(int target=1; target<=MaxClients; target++)
@@ -614,39 +601,40 @@ public void OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 		if(!IsValidClient(target))
 			continue;
 
-		int boss2 = FF2_GetBossIndex(target);
-		if(boss2>=0 && IsWizard[boss2])
+		FF2Player boss2 = FF2Player(target);
+		int client2 = boss2.index;
+		if(boss2.bIsBoss && IsWizard[client2])
 		{
 			for(int mana; mana<MAX_TYPES; mana++)
 			{
-				if(Maximum[boss2][mana] != 0)
+				if(Maximum[client2][mana] != 0)
 				{
-					Current[boss2][mana] += OnDeath[boss2][mana];
-					if(Maximum[boss2][mana]>0 && Current[boss2][mana]>Maximum[boss2][mana])
+					Current[client2][mana] += OnDeath[client2][mana];
+					if(Maximum[client2][mana]>0 && Current[client2][mana]>Maximum[client2][mana])
 					{
-						Current[boss2][mana] = Maximum[boss2][mana];
+						Current[client2][mana] = Maximum[client2][mana];
 					}
-					else if(Current[boss2][mana] < 0)
+					else if(Current[client2][mana] < 0)
 					{
-						Current[boss2][mana] = 0.0;
+						Current[client2][mana] = 0.0;
 					}
 				}
 			}
 		}
 	}
 
-	if(!IsWizard[boss])
+	if(!IsWizard[client])
 		return;
 
 	float engineTime = GetEngineTime();
 	for(int ability; ability<MAX_SPELLS; ability++)
 	{
-		Cooldown[boss][ability] = engineTime+GetRandomFloat(10.0, 40.0);
+		Cooldown[client][ability] = engineTime+GetRandomFloat(10.0, 40.0);
 	}
 	return;
 }
 
-public void OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
+public void _OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 {
 	if(!Enabled)
 		return;
@@ -664,20 +652,20 @@ public void OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 	if(IsBoss(attacker))
 	{
 		boss = FF2_GetBossIndex(attacker);
-		if(IsWizard[boss])
+		if(IsWizard[client])
 		{
 			for(int mana; mana<MAX_TYPES; mana++)
 			{
-				if(Maximum[boss][mana] != 0)
+				if(Maximum[client][mana] != 0)
 				{
-					Current[boss][mana] += OnHit[boss][mana]*damage;
-					if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+					Current[client][mana] += OnHit[client][mana]*damage;
+					if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 					{
-						Current[boss][mana] = Maximum[boss][mana];
+						Current[client][mana] = Maximum[client][mana];
 					}
-					else if(Current[boss][mana] < 0)
+					else if(Current[client][mana] < 0)
 					{
-						Current[boss][mana] = 0.0;
+						Current[client][mana] = 0.0;
 					}
 				}
 			}
@@ -688,21 +676,21 @@ public void OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 	if(boss < 0)
 		return;
 
-	if(!IsWizard[boss])
+	if(!IsWizard[client])
 		return;
 
 	for(int mana; mana<MAX_TYPES; mana++)
 	{
-		if(Maximum[boss][mana] != 0)
+		if(Maximum[client][mana] != 0)
 		{
-			Current[boss][mana] += OnHurt[boss][mana]*damage;
-			if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+			Current[client][mana] += OnHurt[client][mana]*damage;
+			if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 			{
-				Current[boss][mana] = Maximum[boss][mana];
+				Current[client][mana] = Maximum[client][mana];
 			}
-			else if(Current[boss][mana] < 0)
+			else if(Current[client][mana] < 0)
 			{
-				Current[boss][mana] = 0.0;
+				Current[client][mana] = 0.0;
 			}
 		}
 	}
@@ -718,21 +706,21 @@ public void OnObjectDeflected(Event event, const char[] name, bool dontBroadcast
 	if(boss < 0)
 		return;
 
-	if(!IsWizard[boss])
+	if(!IsWizard[client])
 		return;
 
 	for(int mana; mana<MAX_TYPES; mana++)
 	{
-		if(Maximum[boss][mana] != 0)
+		if(Maximum[client][mana] != 0)
 		{
-			Current[boss][mana] += OnBlast[boss][mana];
-			if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+			Current[client][mana] += OnBlast[client][mana];
+			if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 			{
-				Current[boss][mana] = Maximum[boss][mana];
+				Current[client][mana] = Maximum[client][mana];
 			}
-			else if(Current[boss][mana] < 0)
+			else if(Current[client][mana] < 0)
 			{
-				Current[boss][mana] = 0.0;
+				Current[client][mana] = 0.0;
 			}
 		}
 	}
@@ -753,7 +741,7 @@ public Action OnJarate(UserMsg msg_id, BfRead bf, const int[] players, int playe
 	if(boss < 0)
 		return Plugin_Continue;
 
-	if(!IsWizard[boss])
+	if(!IsWizard[client])
 		return Plugin_Continue;
 
 	int index = GetEntProp(jarate, Prop_Send, "m_iItemDefinitionIndex");
@@ -762,8 +750,8 @@ public Action OnJarate(UserMsg msg_id, BfRead bf, const int[] players, int playe
 		float engineTime = GetEngineTime();
 		for(int ability; ability<MAX_SPELLS; ability++)
 		{
-			if(Cooldown[boss][ability] < engineTime+Jarate[boss])
-				Cooldown[boss][ability] = engineTime+Jarate[boss];
+			if(Cooldown[client][ability] < engineTime+Jarate[client])
+				Cooldown[client][ability] = engineTime+Jarate[client];
 		}
 
 		static char sound[MAX_SOUND_LENGTH];
@@ -779,7 +767,7 @@ public Action OnJarate(UserMsg msg_id, BfRead bf, const int[] players, int playe
 
 /*public void FF2_PreAbility(int boss, const char[] pluginName, const char[] abilityName, int slot, bool &enabled)
 {
-	if(Enabled && IsWizard[boss] && !slot && Rage[boss])
+	if(Enabled && IsWizard[client] && !slot && Rage[client])
 		enabled = false;
 }*/
 
@@ -790,13 +778,18 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 public Action Timer_CheckAlivePlayers(Handle timer)
 {
+	TimerCheckPlayers.End();
+	
+	if(!FF2_GetRoundState())
+		return Plugin_Continue;
+	
 	CurrentPlayers = 0;
 	BossPlayers = 0;
 	MercPlayers = 0;
 	int bossTeam = FF2_GetBossTeam();
 	for(int client=1; client<=MaxClients; client++)
 	{
-		if(!IsValidClient(client) || !IsPlayerAlive(client))
+		if(!IsClientInGame(client) || !IsPlayerAlive(client))
 			continue;
 
 		CurrentPlayers++;
@@ -812,24 +805,17 @@ public Action Timer_CheckAlivePlayers(Handle timer)
 	return Plugin_Continue;
 }
 
-public void FF2_OnAlivePlayersChanged(int players, int bosses)
-{
-	CurrentPlayers = players+bosses;
-	BossPlayers = bosses;
-	MercPlayers = players;
-}
-
 /*
 	Menu Timer
 */
 
 public void MenuThink(int client)
 {
-	int boss = FF2_GetBossIndex(client);
-	if(!Enabled || boss<0 || IsFakeClient(client))
+	FF2Player player = FF2Player(client);
+	if(!Enabled || !player.bIsBoss || IsFakeClient(client))
 	{
-		if(boss>=0 && Rage[FF2_GetBossIndex(client)]>1)
-			FF2_SetFF2flags(client, FF2_GetFF2flags(client) & (~FF2FLAG_HUDDISABLED));
+		if(player.bIsBoss && Rage[client]>1)
+			player.SetPropAny("bHideHUD", false);
 
 		CancelClientMenu(client, false);
 		SDKUnhook(client, SDKHook_PreThink, MenuThink);
@@ -837,19 +823,19 @@ public void MenuThink(int client)
 	}
 
 	float engineTime = GetEngineTime();
-	if(NextMenuAt[boss] > engineTime)
+	if(NextMenuAt[client] > engineTime)
 		return;
 
-	/*if(NextMenuAt[boss] > engineTime+0.1)
+	/*if(NextMenuAt[client] > engineTime+0.1)
 		FF2Dbg("Was late by %.5f seconds");*/
 
-	NextMenuAt[boss] = engineTime+NextMenu[boss];
+	NextMenuAt[client] = engineTime+NextMenu[client];
 	bool disable, force;
 	Action action = Plugin_Continue;
 	Call_StartForward(OnMenuThink);
-	Call_PushCell(boss);
+	Call_PushCell(player.userid);
 	Call_PushCellRef(force);
-	Call_PushFloatRef(NextMenuAt[boss]);
+	Call_PushFloatRef(NextMenuAt[client]);
 	Call_Finish(action);
 	switch(action)
 	{
@@ -864,34 +850,34 @@ public void MenuThink(int client)
 		}
 		default:
 		{
-			NextMenuAt[boss] = engineTime+NextMenu[boss];
+			NextMenuAt[client] = engineTime+NextMenu[client];
 			force = false;
 		}
 	}
 
-	if(Rage[boss] > 1)
+	if(Rage[client] > 1)
 	{
-		FF2_SetBossCharge(boss, 0, 0.0);
+		player.SetPropFloat("flRAGE", 0.0);
 		DD_SetForceHUDEnabled(client, true);
-		FF2_SetFF2flags(client, FF2_GetFF2flags(client) | FF2FLAG_HUDDISABLED);
+		player.SetPropAny("bHideHUD", true);
 	}
 
-	if(!force && Weapon[boss]>=0)
+	if(!force && Weapon[client]>=0)
 	{
 		if(!IsPlayerAlive(client))
 		{
 			disable = true;
 		}
-		else if(Weapon[boss] > 9)
+		else if(Weapon[client] > 9)
 		{
 			int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 			if(weapon<=MaxClients || !IsValidEntity(weapon) || !HasEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex"))
 				disable = true;
 
-			if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[boss])
+			if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[client])
 				disable = true;
 		}
-		else if(GetPlayerWeaponSlot(client, Weapon[boss]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
+		else if(GetPlayerWeaponSlot(client, Weapon[client]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
 		{
 			disable = true;
 		}
@@ -900,59 +886,59 @@ public void MenuThink(int client)
 	Menu menu = new Menu(MenuHandle);
 	SetGlobalTransTarget(client);
 	static char menuItem[MAX_MENUTITLE_LENGTH];
-	Format(menuItem, sizeof(menuItem), "%s\n%i / %i HP\n", BossName[boss], IsPlayerAlive(client) ? GetClientHealth(client) : 0, FF2_GetBossMaxHealth(boss));
-	if(!OldFork && FF2_GetBossMaxLives(boss)>1)
-		Format(menuItem, sizeof(menuItem), "%s%i / %i Lives\n", menuItem, FF2_GetBossLives(boss), FF2_GetBossMaxLives(boss));
+	Format(menuItem, sizeof(menuItem), "%s\n%i / %i HP\n", BossName[client], IsPlayerAlive(client) ? GetClientHealth(client) : 0, player.GetPropInt("iMaxHealth"));
+	if(player.GetPropInt("iMaxLives")>1)
+		Format(menuItem, sizeof(menuItem), "%s%i / %i Lives\n", menuItem, player.GetPropInt("iLives"), player.GetPropInt("iMaxLives"));
 
 	for(int mana; mana<MAX_TYPES; mana++)
 	{
-		if(Maximum[boss][mana] != 0)
+		if(Maximum[client][mana] != 0)
 		{
-			Current[boss][mana] += OnTime[boss][mana];
-			if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+			Current[client][mana] += OnTime[client][mana];
+			if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 			{
-				Current[boss][mana] = Maximum[boss][mana];
+				Current[client][mana] = Maximum[client][mana];
 			}
-			else if(Current[boss][mana] < 0)
+			else if(Current[client][mana] < 0)
 			{
-				Current[boss][mana] = 0.0;
-			}
-
-			if(!Rolling[boss][mana])
-			{
-				Display[boss][mana] = Current[boss][mana];
-			}
-			else if(Display[boss][mana] > Current[boss][mana])
-			{
-				Display[boss][mana] -= Rolling[boss][mana];
-				if(Display[boss][mana] < Current[boss][mana])
-					Display[boss][mana] = Current[boss][mana];
-			}
-			else if(Display[boss][mana] < Current[boss][mana])
-			{
-				Display[boss][mana] += Rolling[boss][mana];
-				if(Display[boss][mana] > Current[boss][mana])
-					Display[boss][mana] = Current[boss][mana];
+				Current[client][mana] = 0.0;
 			}
 
-			if(Maximum[boss][mana] > 0)
+			if(!Rolling[client][mana])
 			{
-				Format(menuItem, sizeof(menuItem), "%s%i / %i %s\n", menuItem, RoundToFloor(Display[boss][mana]), RoundToFloor(Maximum[boss][mana]), Mana[boss][mana]);
+				Display[client][mana] = Current[client][mana];
+			}
+			else if(Display[client][mana] > Current[client][mana])
+			{
+				Display[client][mana] -= Rolling[client][mana];
+				if(Display[client][mana] < Current[client][mana])
+					Display[client][mana] = Current[client][mana];
+			}
+			else if(Display[client][mana] < Current[client][mana])
+			{
+				Display[client][mana] += Rolling[client][mana];
+				if(Display[client][mana] > Current[client][mana])
+					Display[client][mana] = Current[client][mana];
+			}
+
+			if(Maximum[client][mana] > 0)
+			{
+				Format(menuItem, sizeof(menuItem), "%s%i / %i %s\n", menuItem, RoundToFloor(Display[client][mana]), RoundToFloor(Maximum[client][mana]), Mana[client][mana]);
 			}
 			else
 			{
-				Format(menuItem, sizeof(menuItem), "%s%i %s\n", menuItem, RoundToFloor(Display[boss][mana]), Mana[boss][mana]);
+				Format(menuItem, sizeof(menuItem), "%s%i %s\n", menuItem, RoundToFloor(Display[client][mana]), Mana[client][mana]);
 			}
 		}
 	}
 	menu.SetTitle(menuItem);
-
+	
 	if(disable)
 	{
 		menu.ExitButton = false;
 		menu.Pagination = false;
 		menu.OptionFlags |= MENUFLAG_NO_SOUND;
-		menu.Display(client, RoundToCeil(NextMenu[boss]));
+		menu.Display(client, RoundToCeil(NextMenu[client]));
 		return;
 	}
 
@@ -963,9 +949,9 @@ public void MenuThink(int client)
 		if(amount > MAX_MENU_ITEMS)
 			break;
 
-		if(Disabled[boss][ability])
+		if(Disabled[client][ability])
 		{
-			if(!Randomize[boss])
+			if(!Randomize[client])
 			{
 				menu.AddItem("-1", "", ITEMDRAW_DISABLED|ITEMDRAW_NOTEXT);
 				amount++;
@@ -974,30 +960,30 @@ public void MenuThink(int client)
 		}
 
 		amount++;
-		strcopy(menuItem, MAX_MENUITEM_LENGTH, Name[boss][ability]);
+		strcopy(menuItem, MAX_MENUITEM_LENGTH, Name[client][ability]);
 		if(IsPlayerAlive(client))
 		{
 			blocked = false;
 			for(int mana; mana<MAX_TYPES; mana++)
 			{
-				if(Cost[boss][ability][mana] <= 0)
+				if(Cost[client][ability][mana] <= 0)
 					continue;
 
-				Format(menuItem, MAX_MENUITEM_LENGTH, "%s (%i %s)", menuItem, RoundToFloor(Cost[boss][ability][mana]), Mana[boss][mana]);
-				if(Cost[boss][ability][mana] > Current[boss][mana])
+				Format(menuItem, MAX_MENUITEM_LENGTH, "%s (%i %s)", menuItem, RoundToFloor(Cost[client][ability][mana]), Mana[client][mana]);
+				if(Cost[client][ability][mana] > Current[client][mana])
 					blocked = true;
 			}
 
-			if((Magic[boss][ability] & MAG_SUMMON) && StartingPlayers-CurrentPlayers<=0)
+			if((Magic[client][ability] & MAG_SUMMON) && StartingPlayers-CurrentPlayers<=0)
 				blocked = true;
 
-			if((Magic[boss][ability] & MAG_PARTNER))
+			if((Magic[client][ability] & MAG_PARTNER))
 			{
 				if((GetClientTeam(client)==FF2_GetBossTeam() && BossPlayers<2) || (GetClientTeam(client)!=FF2_GetBossTeam() && MercPlayers<2))
 					blocked = true;
 			}
 
-			if(!OldFork && (Magic[boss][ability] & MAG_LASTLIFE) && FF2_GetBossLives(boss)!=1)
+			if((Magic[client][ability] & MAG_LASTLIFE) && player.GetPropInt("iLives")!=1)
 				blocked = true;
 		}
 		else
@@ -1005,19 +991,19 @@ public void MenuThink(int client)
 			blocked = true;
 		}
 
-		if(Cooldown[boss][ability] > engineTime)
+		if(Cooldown[client][ability] > engineTime)
 		{
-			if(Cooldown[boss][ability] < (engineTime+1500.0))
-				Format(menuItem, MAX_MENUITEM_LENGTH, "%s [%.1f]", menuItem, Cooldown[boss][ability]-engineTime);
+			if(Cooldown[client][ability] < (engineTime+1500.0))
+				Format(menuItem, MAX_MENUITEM_LENGTH, "%s [%.1f]", menuItem, Cooldown[client][ability]-engineTime);
 
 			menu.AddItem("-1", menuItem, ITEMDRAW_DISABLED);
 			continue;
 		}
 
-		if(TF2_IsPlayerInCondition(client, TFCond_Sapped) && (Magic[boss][ability] & MAG_MAGIC))
+		if(TF2_IsPlayerInCondition(client, TFCond_Sapped) && (Magic[client][ability] & MAG_MAGIC))
 			blocked = true;
 
-		if((TF2_IsPlayerInCondition(client, TFCond_Dazed) || TF2_IsPlayerInCondition(client, TFCond_Gas)) && !(Magic[boss][ability] & MAG_MIND))
+		if((TF2_IsPlayerInCondition(client, TFCond_Dazed) || TF2_IsPlayerInCondition(client, TFCond_Gas)) && !(Magic[client][ability] & MAG_MIND))
 			blocked = true;
 
 		if(blocked)
@@ -1035,11 +1021,11 @@ public void MenuThink(int client)
 	menu.ExitButton = false;
 	menu.Pagination = false;
 	menu.OptionFlags |= MENUFLAG_NO_SOUND;
-	menu.Display(client, RoundToCeil(NextMenu[boss]));
+	menu.Display(client, RoundToCeil(NextMenu[client]));
 
 	Call_StartForward(OnMenuThinkP);
-	Call_PushCell(boss);
-	Call_PushFloat(NextMenuAt[boss]);
+	Call_PushCell(player.userid);
+	Call_PushFloat(NextMenuAt[client]);
 	Call_Finish();
 }
 
@@ -1057,18 +1043,18 @@ public int MenuHandle(Menu menu, MenuAction action, int client, int selection)
 				return;
 
 			int boss = FF2_GetBossIndex(client);
-			if(Weapon[boss] >= 0)
+			if(Weapon[client] >= 0)
 			{
-				if(Weapon[boss] > 9)
+				if(Weapon[client] > 9)
 				{
 					int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 					if(weapon<=MaxClients || !IsValidEntity(weapon) || !HasEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex"))
 						return;
 
-					if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[boss])
+					if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[client])
 						return;
 				}
-				else if(GetPlayerWeaponSlot(client, Weapon[boss]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
+				else if(GetPlayerWeaponSlot(client, Weapon[client]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
 				{
 					return;
 				}
@@ -1106,36 +1092,36 @@ public int MenuHandle(Menu menu, MenuAction action, int client, int selection)
 			}
 
 			float engineTime = GetEngineTime();
-			if(GlobalCool[boss][ability] > 0)
+			if(GlobalCool[client][ability] > 0)
 			{
 				for(int abilities; abilities<MAX_SPELLS; abilities++)
 				{
-					if(Cooldown[boss][abilities] < engineTime+GlobalCool[boss][ability])
-						Cooldown[boss][abilities] = engineTime+GlobalCool[boss][ability];
+					if(Cooldown[client][abilities] < engineTime+GlobalCool[client][ability])
+						Cooldown[client][abilities] = engineTime+GlobalCool[client][ability];
 				}
 			}
-			else if(GlobalCool[boss][ability] < 0)
+			else if(GlobalCool[client][ability] < 0)
 			{
 				for(int abilities; abilities<MAX_SPELLS; abilities++)
 				{
-					Cooldown[boss][abilities] += GlobalCool[boss][ability];
+					Cooldown[client][abilities] += GlobalCool[client][ability];
 				}
 			}
-			Cooldown[boss][ability] = engineTime+SpellCool[boss][ability];
+			Cooldown[client][ability] = engineTime+SpellCool[client][ability];
 
 			for(int mana; mana<MAX_TYPES; mana++)
 			{
-				if(!Cost[boss][ability][mana])
+				if(!Cost[client][ability][mana])
 					continue;
 
-				Current[boss][mana] -= Cost[boss][ability][mana];
-				if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+				Current[client][mana] -= Cost[client][ability][mana];
+				if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 				{
-					Current[boss][mana] = Maximum[boss][mana];
+					Current[client][mana] = Maximum[client][mana];
 				}
-				else if(Current[boss][mana] < 0)
+				else if(Current[client][mana] < 0)
 				{
-					Current[boss][mana] = 0.0;
+					Current[client][mana] = 0.0;
 				}
 			}
 
@@ -1143,29 +1129,29 @@ public int MenuHandle(Menu menu, MenuAction action, int client, int selection)
 			{
 				for(int i; i<MAX_SPECIALS; i++)
 				{
-					if(strlen(Ability[boss][ability][i]) && strlen(PluginName[boss][ability][i]))
-						FF2_DoAbility(boss, PluginName[boss][ability][i], Ability[boss][ability][i], Slot[boss][ability][i]==-2 ? 0 : Slot[boss][ability][i], Buttonmode[boss][ability][i]);
+					if(strlen(Ability[client][ability][i]) && strlen(PluginName[client][ability][i]))
+						FF2_DoAbility2(boss, PluginName[client][ability][i], Ability[client][ability][i], Slot[client][ability][i]==-2 ? 0 : Slot[client][ability][i], Buttonmode[client][ability][i]);
 				}
 			}
 
-			if(strlen(Particle[boss][ability]))
+			if(strlen(Particle[client][ability]))
 			{
 				int particle = -1;
-				if(strlen(Attachment[boss][ability]))
+				if(strlen(Attachment[client][ability]))
 				{
-					particle = AttachParticleToAttachment(client, Particle[boss][ability], Attachment[boss][ability]);
+					particle = AttachParticleToAttachment(client, Particle[client][ability], Attachment[client][ability]);
 				}
 				else
 				{
-					particle = AttachParticle(client, Particle[boss][ability], 70.0, true);
+					particle = AttachParticle(client, Particle[client][ability], 70.0, true);
 				}
 
 				if(IsValidEntity(particle))
 					CreateTimer(1.0, Timer_RemoveEntity, EntIndexToEntRef(particle), TIMER_FLAG_NO_MAPCHANGE);
 			}
 
-			if(Refresh[boss] & RAN_ONUSE)
-				RefreshSpells(boss, Randomize[boss], true);
+			if(Refresh[client] & RAN_ONUSE)
+				RefreshSpells(boss, Randomize[client], true);
 
 			static char sound[MAX_SOUND_LENGTH];
 			Format(sound, MAX_SOUND_LENGTH, "sound_menu_%i", ability+1);
@@ -1179,7 +1165,7 @@ public int MenuHandle(Menu menu, MenuAction action, int client, int selection)
 			Call_PushCell(blocked);
 			Call_Finish();
 
-			NextMenuAt[boss] = 0.0;
+			NextMenuAt[client] = 0.0;
 			MenuThink(client);
 
 			action2 = Plugin_Continue;
@@ -1201,24 +1187,24 @@ public void MenuBot(int client)
 	}
 
 	float engineTime = GetEngineTime();
-	if(NextMenuAt[boss]>engineTime || !IsPlayerAlive(client))
+	if(NextMenuAt[client]>engineTime || !IsPlayerAlive(client))
 		return;
 
-	if(Rage[boss] > 1)
+	if(Rage[client] > 1)
 		FF2_SetBossCharge(boss, 0, 0.0);
 
 	for(int mana; mana<MAX_TYPES; mana++)
 	{
-		if(Maximum[boss][mana] != 0)
+		if(Maximum[client][mana] != 0)
 		{
-			Current[boss][mana] += OnTime[boss][mana];
-			if(Maximum[boss][mana]>0 && Current[boss][mana]>Maximum[boss][mana])
+			Current[client][mana] += OnTime[client][mana];
+			if(Maximum[client][mana]>0 && Current[client][mana]>Maximum[client][mana])
 			{
-				Current[boss][mana] = Maximum[boss][mana];
+				Current[client][mana] = Maximum[client][mana];
 			}
-			else if(Current[boss][mana] < 0)
+			else if(Current[client][mana] < 0)
 			{
-				Current[boss][mana] = 0.0;
+				Current[client][mana] = 0.0;
 			}
 		}
 	}
@@ -1228,7 +1214,7 @@ public void MenuBot(int client)
 	Call_StartForward(OnMenuThink);
 	Call_PushCell(boss);
 	Call_PushCellRef(force);
-	Call_PushFloatRef(NextMenuAt[boss]);
+	Call_PushFloatRef(NextMenuAt[client]);
 	Call_Finish(action);
 	switch(action)
 	{
@@ -1242,23 +1228,23 @@ public void MenuBot(int client)
 		}
 		case Plugin_Continue:
 		{
-			NextMenuAt[boss] = engineTime+NextMenu[boss];
+			NextMenuAt[client] = engineTime+NextMenu[client];
 			force = false;
 		}
 	}
 
-	if(!force && Weapon[boss]>=0)
+	if(!force && Weapon[client]>=0)
 	{
-		if(Weapon[boss] > 9)
+		if(Weapon[client] > 9)
 		{
 			int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 			if(weapon<=MaxClients || !IsValidEntity(weapon) || !HasEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex"))
 				return;
 
-			if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[boss])
+			if(GetEntProp(weapon, Prop_Send, "m_iItemDefinitionIndex") != Weapon[client])
 				return;
 		}
-		else if(GetPlayerWeaponSlot(client, Weapon[boss]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
+		else if(GetPlayerWeaponSlot(client, Weapon[client]) != GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
 		{
 			return;
 		}
@@ -1266,44 +1252,44 @@ public void MenuBot(int client)
 
 	Call_StartForward(OnMenuThinkP);
 	Call_PushCell(boss);
-	Call_PushFloat(NextMenuAt[boss]);
+	Call_PushFloat(NextMenuAt[client]);
 	Call_Finish();
 
 	int ability = GetRandomInt((MAX_SPELLS*-1), (MAX_SPELLS-1)); // Bot thinks which ability to use
 	if(!IsValidSpell(ability, boss))
 		return;
 
-	if(Disabled[boss][ability])
+	if(Disabled[client][ability])
 		return;
 
-	if(Cooldown[boss][ability] > engineTime) 
+	if(Cooldown[client][ability] > engineTime) 
 		return;
 
-	if(TF2_IsPlayerInCondition(client, TFCond_Sapped) && (Magic[boss][ability] & MAG_MAGIC))
+	if(TF2_IsPlayerInCondition(client, TFCond_Sapped) && (Magic[client][ability] & MAG_MAGIC))
 		return;
 
-	if((TF2_IsPlayerInCondition(client, TFCond_Dazed) || TF2_IsPlayerInCondition(client, TFCond_Gas)) && !(Magic[boss][ability] & MAG_MIND))
+	if((TF2_IsPlayerInCondition(client, TFCond_Dazed) || TF2_IsPlayerInCondition(client, TFCond_Gas)) && !(Magic[client][ability] & MAG_MIND))
 		return;
 
-	if((Magic[boss][ability] & MAG_SUMMON) && StartingPlayers-CurrentPlayers<=0)
+	if((Magic[client][ability] & MAG_SUMMON) && StartingPlayers-CurrentPlayers<=0)
 		return;
-
-	if((Magic[boss][ability] & MAG_PARTNER) && BossPlayers<2)
+		
+	if((Magic[client][ability] & MAG_PARTNER) && BossPlayers<2)
 		return;
 
 	for(int mana; mana<MAX_TYPES; mana++)
 	{
-		if(Cost[boss][ability][mana] <= 0)
+		if(Cost[client][ability][mana] <= 0)
 			continue;
 
-		if(Cost[boss][ability][mana] > Current[boss][mana])
+		if(Cost[client][ability][mana] > Current[client][mana])
 			return;
 	}
 
 	static char num[5];
 	Menu menu = new Menu(MenuHandle);
 	IntToString(ability, num, 5);
-	menu.AddItem(num, Name[boss][ability]);
+	menu.AddItem(num, Name[client][ability]);
 	MenuHandle(menu, MenuAction_Select, client, 0);
 	delete menu;
 }
@@ -1312,8 +1298,10 @@ public void MenuBot(int client)
 	Actions
 */
 
-public void MakeBoss(int boss, int client, int callMode)
+public void MakeBoss(FF2Player player, int callMode)
 {
+	int client = player.index;
+	int boss = player.userid;
 	bool blocked;
 	if(callMode)
 	{
@@ -1335,16 +1323,16 @@ public void MakeBoss(int boss, int client, int callMode)
 		}
 	}
 
-	GetBossName(boss, BossName[boss], MAX_BOSSNAME_LENGTH, 0, client);
-	GetBossName(boss, BossFile[boss], MAX_BOSSNAME_LENGTH);
+	GetBossName(boss, BossName[client], MAX_BOSSNAME_LENGTH, 0);
+	GetBossName(boss, BossFile[client], MAX_BOSSNAME_LENGTH, 1);
 
-	NewArgs[boss] = OldVersion ? false : FF2_NamedArgumentsUsed(boss, this_plugin_name, CONFIG);
-	NextMenu[boss] = GetArgF(boss, "tick", 1, 0.1, 1);
-	Weapon[boss] = RoundFloat(GetArgF(boss, "weapon", 2, -1.0, 0));
-	Jarate[boss] = GetArgF(boss, "jarate", 3, 10.0, 1);
-	Randomize[boss] = RoundFloat(GetArgF(boss, "random", 4, 0.0, 1));
-	Refresh[boss] = GetArgI(boss, "refresh", 5);
-	Rage[boss] = RoundFloat(GetArgF(boss, "rage", 6, 0.0, 1));
+	NewArgs[client] = !FF2_GetArgNamedI(boss, this_plugin_name, CONFIG, "old args", 0);
+	NextMenu[client] = GetArgF(boss, "tick", 1, 0.1, 1);
+	Weapon[client] = RoundFloat(GetArgF(boss, "weapon", 2, -1.0, 0));
+	Jarate[client] = GetArgF(boss, "jarate", 3, 10.0, 1);
+	Randomize[client] = RoundFloat(GetArgF(boss, "random", 4, 0.0, 1));
+	Refresh[client] = GetArgI(boss, "refresh", 5);
+	Rage[client] = RoundFloat(GetArgF(boss, "rage", 6, 0.0, 1));
 
 	static char abilityFormat[MAX_ABILITY_LENGTH];
 	#if MAX_TYPES>8
@@ -1354,121 +1342,121 @@ public void MakeBoss(int boss, int client, int callMode)
 	#endif
 	{
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "max%i", mana+1);
-		Maximum[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+11, 0.0, 0);
-		if(Maximum[boss][mana] == 0)
+		Maximum[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+11, 0.0, 0);
+		if(Maximum[client][mana] == 0)
 			continue;
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "mana%i", mana+1);
-		GetArgS(boss, abilityFormat, (mana*10)+10, Mana[boss][mana], MAX_MENUITEM_LENGTH);
+		GetArgS(boss, abilityFormat, (mana*10)+10, Mana[client][mana], MAX_MENUITEM_LENGTH);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "start%i", mana+1);
-		Current[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+12, 0.0, 0);
-		Display[boss][mana] = Current[boss][mana];
+		Current[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+12, 0.0, 0);
+		Display[client][mana] = Current[client][mana];
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "roll%i", mana+1);
-		Rolling[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+13, 0.0, 0);
+		Rolling[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+13, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "kill%i", mana+1);
-		OnKill[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+14, 0.0, 0);
+		OnKill[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+14, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "hit%i", mana+1);
-		OnHit[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+15, 0.0, 0);
+		OnHit[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+15, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "hurt%i", mana+1);
-		OnHurt[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+16, 0.0, 0);
+		OnHurt[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+16, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "time%i", mana+1);
-		OnTime[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+17, 0.0, 0);
+		OnTime[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+17, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "blast%i", mana+1);
-		OnBlast[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+18, 0.0, 0);
+		OnBlast[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+18, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "death%i", mana+1);
-		OnDeath[boss][mana] = GetArgF(boss, abilityFormat, (mana*10)+19, 0.0, 0);
+		OnDeath[client][mana] = GetArgF(boss, abilityFormat, (mana*10)+19, 0.0, 0);
 	}
 
 	#if MAX_TYPES>8
-	if(NewArgs[boss])
+	if(NewArgs[client])
 	{
 		for(int mana=9; mana<MAX_TYPES; mana++)
 		{
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "max%i", mana+1);
-			Maximum[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
-			if(Maximum[boss][mana] == 0)
+			Maximum[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			if(Maximum[client][mana] == 0)
 				continue;
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "mana%i", mana+1);
-			FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, Mana[boss][mana], MAX_MENUITEM_LENGTH);
+			FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, Mana[client][mana], MAX_MENUITEM_LENGTH);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "start%i", mana+1);
-			Current[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
-			Display[boss][mana] = Current[boss][mana];
+			Current[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			Display[client][mana] = Current[client][mana];
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "roll%i", mana+1);
-			Rolling[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			Rolling[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "kill%i", mana+1);
-			OnKill[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnKill[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "hit%i", mana+1);
-			OnHit[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnHit[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "hurt%i", mana+1);
-			OnHurt[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnHurt[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "time%i", mana+1);
-			OnTime[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnTime[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "blast%i", mana+1);
-			OnBlast[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnBlast[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "death%i", mana+1);
-			OnDeath[boss][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
+			OnDeath[client][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0);
 		}
 	}
 	#endif
 
-	Abilities[boss] = 0;
+	Abilities[client] = 0;
 	float engineTime = GetEngineTime();
 	for(int ability; ability<MAX_SPELLS; ability++)
 	{
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "name%i", ability+1);
-		if(!GetArgS(boss, abilityFormat, (ability*100)+100, Name[boss][ability], MAX_MENUITEM_LENGTH))
+		if(!GetArgS(boss, abilityFormat, (ability*100)+100, Name[client][ability], MAX_MENUITEM_LENGTH))
 		{
-			Disabled[boss][ability] = true;
+			Disabled[client][ability] = true;
 			continue;
 		}
 
-		Abilities[boss]++;
-		Disabled[boss][ability] = false;
+		Abilities[client]++;
+		Disabled[client][ability] = false;
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "ability%ia", ability+1);
-		GetArgS(boss, abilityFormat, (ability*100)+101, Ability[boss][ability][0], MAX_ABILITY_LENGTH);
+		GetArgS(boss, abilityFormat, (ability*100)+101, Ability[client][ability][0], MAX_ABILITY_LENGTH);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "plugin%ia", ability+1);
-		GetArgS(boss, abilityFormat, (ability*100)+102, PluginName[boss][ability][0], MAX_PLUGIN_LENGTH);
+		GetArgS(boss, abilityFormat, (ability*100)+102, PluginName[client][ability][0], MAX_PLUGIN_LENGTH);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "slot%ia", ability+1);
-		Slot[boss][ability][0] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+103, 0.0, 0));
+		Slot[client][ability][0] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+103, 0.0, 0));
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "button%ia", ability+1);
-		Buttonmode[boss][ability][0] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+104, 0.0, 1));
+		Buttonmode[client][ability][0] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+104, 0.0, 1));
 
 		#if MAX_SPECIALS>0
-		if(NewArgs[boss])
+		if(NewArgs[client])
 		{
 			for(int i=1; i<MAX_SPECIALS; i++)
 			{
 				Format(abilityFormat, MAX_ABILITY_LENGTH, "ability%i%s", ability+1, ABC[i]);
-				FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, Ability[boss][ability][i], MAX_ABILITY_LENGTH);
+				FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, Ability[client][ability][i], MAX_ABILITY_LENGTH);
 
 				Format(abilityFormat, MAX_ABILITY_LENGTH, "plugin%i%s", ability+1, ABC[i]);
-				FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, PluginName[boss][ability][i], MAX_PLUGIN_LENGTH);
+				FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, abilityFormat, PluginName[client][ability][i], MAX_PLUGIN_LENGTH);
 
 				Format(abilityFormat, MAX_ABILITY_LENGTH, "slot%i%s", ability+1, ABC[i]);
-				Slot[boss][ability][i] = RoundFloat(GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0));
+				Slot[client][ability][i] = RoundFloat(GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 0));
 
 				Format(abilityFormat, MAX_ABILITY_LENGTH, "button%i%s", ability+1, ABC[i]);
-				Buttonmode[boss][ability][i] = RoundFloat(GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 1));
+				Buttonmode[client][ability][i] = RoundFloat(GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 1));
 			}
 		}
 		#endif
@@ -1480,45 +1468,45 @@ public void MakeBoss(int boss, int client, int callMode)
 		#endif
 		{
 			Format(abilityFormat, MAX_ABILITY_LENGTH, "cost%i%s", ability+1, ABC[mana]);
-			Cost[boss][ability][mana] = GetArgF(boss, abilityFormat, (ability*100)+mana+110, 0.0, 1);
+			Cost[client][ability][mana] = GetArgF(boss, abilityFormat, (ability*100)+mana+110, 0.0, 1);
 		}
 
 		#if MAX_TYPES>8
-		if(NewArgs[boss])
+		if(NewArgs[client])
 		{
 			for(int mana=9; mana<MAX_TYPES; mana++)
 			{
 				Format(abilityFormat, MAX_ABILITY_LENGTH, "cost%i%s", ability+1, ABC[mana]);
-				Cost[boss][ability][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 1);
+				Cost[client][ability][mana] = GetArgF(boss, abilityFormat, VOID_ARG, 0.0, 1);
 			}
 		}
 		#endif
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "initial%i", ability+1);
-		Cooldown[boss][ability] = engineTime+GetArgF(boss, abilityFormat, (ability*100)+120, 0.0, 1);
+		Cooldown[client][ability] = engineTime+GetArgF(boss, abilityFormat, (ability*100)+120, 0.0, 1);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "cooldown%i", ability+1);
-		SpellCool[boss][ability] = GetArgF(boss, abilityFormat, (ability*100)+121, 0.0, 1);
+		SpellCool[client][ability] = GetArgF(boss, abilityFormat, (ability*100)+121, 0.0, 1);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "global%i", ability+1);
-		GlobalCool[boss][ability] = GetArgF(boss, abilityFormat, (ability*100)+122, 0.0, 0);
+		GlobalCool[client][ability] = GetArgF(boss, abilityFormat, (ability*100)+122, 0.0, 0);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "spell%i", ability+1);
-		Magic[boss][ability] = GetArgI(boss, abilityFormat, (ability*100)+123);
+		Magic[client][ability] = GetArgI(boss, abilityFormat, (ability*100)+123);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "index%i", ability+1);
-		Index[boss][ability] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+124, 0.0, 1));
+		Index[client][ability] = RoundFloat(GetArgF(boss, abilityFormat, (ability*100)+124, 0.0, 1));
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "particle%i", ability+1);
-		GetArgS(boss, abilityFormat, (ability*100)+131, Particle[boss][ability], MAX_EFFECT_LENGTH);
+		GetArgS(boss, abilityFormat, (ability*100)+131, Particle[client][ability], MAX_EFFECT_LENGTH);
 
 		Format(abilityFormat, MAX_ABILITY_LENGTH, "attach%i", ability+1);
-		GetArgS(boss, abilityFormat, (ability*100)+132, Attachment[boss][ability], MAX_ATTACHMENT_LENGTH);
+		GetArgS(boss, abilityFormat, (ability*100)+132, Attachment[client][ability], MAX_ATTACHMENT_LENGTH);
 	}
 
 	Enabled = true;
-	IsWizard[boss] = true;
-	RefreshSpells(boss, Randomize[boss], true);
+	IsWizard[client] = true;
+	RefreshSpells(boss, Randomize[client], true);
 	if(!blocked)
 	{
 		if(IsFakeClient(client))
@@ -1542,7 +1530,9 @@ public void MakeBoss(int boss, int client, int callMode)
 
 public void RefreshSpells(int boss, int random, bool call)
 {
-	if(!Enabled || !IsWizard[boss] || random<=0 || !Refresh[boss])
+	int client = FF2Player(boss, true).index;
+	
+	if(!Enabled || !IsWizard[client] || random<=0 || !Refresh[client])
 		return;
 
 	Action action = Plugin_Continue;
@@ -1573,8 +1563,8 @@ public void RefreshSpells(int boss, int random, bool call)
 
 	for(int ability; ability<MAX_SPELLS; ability++)
 	{
-		Disabled[boss][ability] = true;
-		Indexed[boss][ability] = false;
+		Disabled[client][ability] = true;
+		Indexed[client][ability] = false;
 	}
 
 	if(blocked)
@@ -1586,9 +1576,9 @@ public void RefreshSpells(int boss, int random, bool call)
 		ability = GetRandomValidSpell(boss);
 		if(ability >= 0)
 		{
-			Disabled[boss][ability] = false;
-			if(Index[boss][ability]>0 && Index[boss][ability]<=MAX_SPELLS)
-				Indexed[boss][Index[boss][ability]-1] = true;
+			Disabled[client][ability] = false;
+			if(Index[client][ability]>0 && Index[client][ability]<=MAX_SPELLS)
+				Indexed[client][Index[client][ability]-1] = true;
 		}
 	}
 
@@ -1607,16 +1597,17 @@ public void RefreshSpells(int boss, int random, bool call)
 
 stock int GetRandomValidSpell(int boss)
 {
+	int client = FF2Player(boss, true).index;
 	static int abilities[MAX_SPELLS];
 	int spells;
 	float engineTime = GetEngineTime();
 	for(int ability; ability<MAX_SPELLS; ability++)
 	{
-		if(strlen(Name[boss][ability]) && Disabled[boss][ability] && Cooldown[boss][ability]<engineTime)
+		if(strlen(Name[client][ability]) && Disabled[client][ability] && Cooldown[client][ability]<engineTime)
 		{
-			if(Index[boss][ability]>0 && Index[boss][ability]<=MAX_SPELLS)
+			if(Index[client][ability]>0 && Index[client][ability]<=MAX_SPELLS)
 			{
-				if(Indexed[boss][Index[boss][ability]-1])
+				if(Indexed[client][Index[client][ability]-1])
 					continue;
 			}
 			abilities[spells++] = ability;
@@ -1629,11 +1620,11 @@ stock int GetRandomValidSpell(int boss)
 	// Retry spells on cooldowns
 	for(int ability; ability<MAX_SPELLS; ability++)
 	{
-		if(strlen(Name[boss][ability]) && Disabled[boss][ability])
+		if(strlen(Name[client][ability]) && Disabled[client][ability])
 		{
-			if(Index[boss][ability]>0 && Index[boss][ability]<=MAX_SPELLS)
+			if(Index[client][ability]>0 && Index[client][ability]<=MAX_SPELLS)
 			{
-				if(Indexed[boss][Index[boss][ability]-1])
+				if(Indexed[client][Index[client][ability]-1])
 					continue;
 			}
 			abilities[spells++] = ability;
@@ -1648,7 +1639,8 @@ stock bool IsValidSpell(int spell, int boss=-1)
 	if(spell<0 || spell>=MAX_SPELLS)
 		return false;
 
-	if(boss>=0 && !strlen(Name[boss][spell]))
+	int client = FF2Player(boss, true).index;
+	if(boss>=0 && !strlen(Name[client][spell]))
 		return false;
 
 	return true;
@@ -1715,7 +1707,7 @@ stock void Operate(ArrayList sumArray, int &bracket, float value, ArrayList _ope
 		{
 			if(!value)
 			{
-				LogError2("[Boss] Detected a divide by 0 for %s!", CONFIG);
+				FF2_LogError("[Boss] Detected a divide by 0 for %s!", CONFIG);
 				bracket = 0;
 				return;
 			}
@@ -1745,9 +1737,10 @@ stock void OperateString(ArrayList sumArray, int &bracket, char[] value, int siz
 public float GetArgF(int boss, const char[] argName, int argNumber, float defaultValue, int valueCheck)
 {
 	static char buffer[1024];
+	int client = FF2Player(boss, true).index;
 	if(argNumber == VOID_ARG)
 	{
-		if(!NewArgs[boss])
+		if(!NewArgs[client])
 			return defaultValue;
 
 		FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, argName, buffer, sizeof(buffer));
@@ -1766,11 +1759,11 @@ public float GetArgF(int boss, const char[] argName, int argNumber, float defaul
 	{
 		if(argNumber == VOID_ARG)
 		{
-			LogError2("[Boss] %s's formula at %s for %s is not allowed to be blank.", BossFile[boss], argName, CONFIG);
+			FF2_LogError("[Boss] %s's formula at %s for %s is not allowed to be blank.", BossFile[client], argName, CONFIG);
 		}
 		else
 		{
-			LogError2("[Boss] %s's formula at arg%i/%s for %s is not allowed to be blank.", BossFile[boss], argNumber, argName, CONFIG);
+			FF2_LogError("[Boss] %s's formula at arg%i/%s for %s is not allowed to be blank.", BossFile[client], argNumber, argName, CONFIG);
 		}
 		return 0.0;
 	}
@@ -1779,6 +1772,7 @@ public float GetArgF(int boss, const char[] argName, int argNumber, float defaul
 
 public float ParseFormula(int boss, const char[] key, float defaultValue, const char[] argName, int argNumber, int valueCheck)
 {
+	int client = FF2Player(boss, true).index;
 	static char formula[1024];
 	strcopy(formula, sizeof(formula), key);
 	int size = 1;
@@ -1830,11 +1824,11 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 				{
 					if(argNumber == VOID_ARG)
 					{
-						LogError2("[Boss] %s's formula at %s for %s has an invalid operator at character %i", BossFile[boss], argName, key, CONFIG, i+1);
+						FF2_LogError("[Boss] %s's formula at %s for %s has an invalid operator at character %i", BossFile[client], argName, key, CONFIG, i+1);
 					}
 					else
 					{
-						LogError2("[Boss] %s's formula at arg%i/%s for %s has an invalid operator at character %i", BossFile[boss], argNumber, argName, key, CONFIG, i+1);
+						FF2_LogError("[Boss] %s's formula at arg%i/%s for %s has an invalid operator at character %i", BossFile[client], argNumber, argName, key, CONFIG, i+1);
 					}
 					delete sumArray;
 					delete _operator;
@@ -1845,11 +1839,11 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 				{
 					if(argNumber == VOID_ARG)
 					{
-						LogError2("[Boss] %s's formula at arg%i/%s for %s has an unbalanced parentheses at character %i", BossFile[boss], argName, key, CONFIG, i+1);
+						FF2_LogError("[Boss] %s's formula at arg%i/%s for %s has an unbalanced parentheses at character %i", BossFile[client], argName, key, CONFIG, i+1);
 					}
 					else
 					{
-						LogError2("[Boss] %s's formula at arg%i/%s for %s has an unbalanced parentheses at character %i", BossFile[boss], argNumber, argName, key, CONFIG, i+1);
+						FF2_LogError("[Boss] %s's formula at arg%i/%s for %s has an unbalanced parentheses at character %i", BossFile[client], argNumber, argName, key, CONFIG, i+1);
 					}
 					delete sumArray;
 					delete _operator;
@@ -1876,7 +1870,7 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 			}
 			case 'm', 'z':
 			{
-				Operate(sumArray, bracket, Current[boss][0], _operator);
+				Operate(sumArray, bracket, Current[client][0], _operator);
 			}
 			case '+', '-', '*', '/', '^':
 			{
@@ -1909,11 +1903,11 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 	{
 		if(argNumber == VOID_ARG)
 		{
-			LogError2("[Boss] %s has an invalid formula at %s for %s!", BossFile[boss], argName, key, CONFIG);
+			FF2_LogError("[Boss] %s has an invalid formula at %s for %s!", BossFile[client], argName, key, CONFIG);
 		}
 		else
 		{
-			LogError2("[Boss] %s has an invalid formula at arg%i/%s for %s!", BossFile[boss], argNumber, argName, key, CONFIG);
+			FF2_LogError("[Boss] %s has an invalid formula at arg%i/%s for %s!", BossFile[client], argNumber, argName, key, CONFIG);
 		}
 		return defaultValue;
 	}
@@ -2048,9 +2042,10 @@ stock int ReadHexOrDecInt(char hexOrDecString[HEX_OR_DEC_LENGTH])
 stock int GetArgI(int boss, const char[] argument, int index=VOID_ARG)
 {
 	static char hexOrDecString[HEX_OR_DEC_LENGTH];
+	int client = FF2Player(boss, true).index;
 	if(index == VOID_ARG)
 	{
-		if(!NewArgs[boss])
+		if(!NewArgs[client])
 			return 0;
 
 		FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, argument, hexOrDecString, HEX_OR_DEC_LENGTH);
@@ -2064,7 +2059,8 @@ stock int GetArgI(int boss, const char[] argument, int index=VOID_ARG)
 
 stock int GetArgS(int boss, const char[] argument, int index, char[] buffer, int bufferLength)
 {
-	if(NewArgs[boss])
+	int client = FF2Player(boss, true).index;
+	if(NewArgs[client])
 	{
 		FF2_GetArgNamedS(boss, this_plugin_name, CONFIG, argument, buffer, bufferLength);
 		if(!strlen(buffer))
@@ -2077,49 +2073,14 @@ stock int GetArgS(int boss, const char[] argument, int index, char[] buffer, int
 	return strlen(buffer);
 }
 
-stock bool GetBossName(int boss=0, char[] buffer, int bufferLength, int bossMeaning=0, int client=0)
+stock bool GetBossName(int boss=0, char[] buffer, int bufferLength, int bossMeaning=0)
 {
-	#if defined _FFBAT_included
-	if(Unofficial)
-		return FF2_GetBossName(boss, buffer, bufferLength, bossMeaning, client);
-	#endif
 	return FF2_GetBossSpecial(boss, buffer, bufferLength, bossMeaning);
-}
-
-stock void LogError2(const char[] message, any ...)
-{
-	char buffer[MAX_BUFFER_LENGTH], buffer2[MAX_BUFFER_LENGTH];
-	Format(buffer, sizeof(buffer), "%s", message);
-	VFormat(buffer2, sizeof(buffer2), buffer, 2);
-
-	#if defined _FFBAT_included
-	if(Unofficial)
-	{
-		FF2_LogError(buffer2);
-	}
-	else
-	{
-		LogError(buffer2);
-	}
-	#else
-	LogError(buffer2);
-	#endif
 }
 
 stock void EmitVoiceToAll(const char[] sample, int entity=SOUND_FROM_PLAYER)
 {
-	#if defined _FFBAT_included
-	if(Unofficial)
-	{
-		FF2_EmitVoiceToAll(sample, entity);
-	}
-	else
-	{
-		EmitSoundToAll(sample, entity);
-	}
-	#else
 	EmitSoundToAll(sample, entity);
-	#endif
 }
 
 /*
@@ -2128,20 +2089,20 @@ stock void EmitVoiceToAll(const char[] sample, int entity=SOUND_FROM_PLAYER)
 
 public int Native_MakeBoss(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
-	MakeBoss(boss, GetClientOfUserId(FF2_GetBossUserId(boss)), GetNativeCell(2) ? 1 : 0);
+	
+	MakeBoss(boss, GetNativeCell(2) ? 1 : 0);
 }
 
 public int Native_Refresh(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
-	RefreshSpells(boss, GetNativeCell(3), GetNativeCell(2));
+	
+	RefreshSpells(boss.userid, GetNativeCell(3), GetNativeCell(2));
 }
 
 /*
@@ -2154,10 +2115,10 @@ public int Native_SetBool(Handle plugin, int numParams)
 	{
 		case 0:
 			Enabled = GetNativeCell(2);
-		case 1:
-			Unofficial = GetNativeCell(2);
-		case 2:
-			OldVersion = GetNativeCell(2);
+		case 1: {}
+//			Unofficial = GetNativeCell(2);
+		case 2: {}
+//			OldVersion = GetNativeCell(2);
 		default:
 			return view_as<int>(false);
 	}
@@ -2170,10 +2131,10 @@ public int Native_GetBool(Handle plugin, int numParams)
 	{
 		case 0:
 			return view_as<int>(Enabled);
-		case 1:
-			return view_as<int>(Unofficial);
-		case 2:
-			return view_as<int>(OldVersion);
+		case 1: {}
+//			return view_as<int>(Unofficial);
+		case 2: {}
+//			return view_as<int>(OldVersion);
 	}
 	return 0;
 }
@@ -2220,14 +2181,15 @@ public int Native_GetInteger(Handle plugin, int numParams)
 
 public int Native_SetBossBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			IsWizard[boss] = GetNativeCell(3);
+			IsWizard[client] = GetNativeCell(3);
 		default:
 			return view_as<int>(false);
 	}
@@ -2236,36 +2198,38 @@ public int Native_SetBossBool(Handle plugin, int numParams)
 
 public int Native_GetBossBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			return view_as<int>(IsWizard[boss]);
+			return view_as<int>(IsWizard[client]);
 	}
 	return 0;
 }
 
 public int Native_SetBossInteger(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			Abilities[boss] = GetNativeCell(3);
+			Abilities[client] = GetNativeCell(3);
 		case 1:
-			Weapon[boss] = GetNativeCell(3);
+			Weapon[client] = GetNativeCell(3);
 		case 2:
-			Randomize[boss] = GetNativeCell(3);
+			Randomize[client] = GetNativeCell(3);
 		case 3:
-			Refresh[boss] = GetNativeCell(3);
+			Refresh[client] = GetNativeCell(3);
 		case 4:
-			Rage[boss] = GetNativeCell(3);
+			Rage[client] = GetNativeCell(3);
 		default:
 			return view_as<int>(false);
 	}
@@ -2274,40 +2238,42 @@ public int Native_SetBossInteger(Handle plugin, int numParams)
 
 public int Native_GetBossInteger(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			return Abilities[boss];
+			return Abilities[client];
 		case 1:
-			return Weapon[boss];
+			return Weapon[client];
 		case 2:
-			return Randomize[boss];
+			return Randomize[client];
 		case 3:
-			return Refresh[boss];
+			return Refresh[client];
 		case 4:
-			return Rage[boss];
+			return Rage[client];
 	}
 	return 0;
 }
 
 public int Native_SetBossFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			NextMenu[boss] = GetNativeCell(3);
+			NextMenu[client] = GetNativeCell(3);
 		case 1:
-			NextMenuAt[boss] = GetNativeCell(3);
+			NextMenuAt[client] = GetNativeCell(3);
 		case 2:
-			Jarate[boss] = GetNativeCell(3);
+			Jarate[client] = GetNativeCell(3);
 		default:
 			return view_as<int>(false);
 	}
@@ -2316,34 +2282,36 @@ public int Native_SetBossFloat(Handle plugin, int numParams)
 
 public int Native_GetBossFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			return view_as<int>(NextMenu[boss]);
+			return view_as<int>(NextMenu[client]);
 		case 1:
-			return view_as<int>(NextMenuAt[boss]);
+			return view_as<int>(NextMenuAt[client]);
 		case 2:
-			return view_as<int>(Jarate[boss]);
+			return view_as<int>(Jarate[client]);
 	}
 	return 0;
 }
 
 public int Native_SetBossString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
-			GetNativeString(3, BossFile[boss], MAX_BOSSNAME_LENGTH);
+			GetNativeString(3, BossFile[client], MAX_BOSSNAME_LENGTH);
 		case 1:
-			GetNativeString(3, BossName[boss], MAX_BOSSNAME_LENGTH);
+			GetNativeString(3, BossName[client], MAX_BOSSNAME_LENGTH);
 		default:
 			return view_as<int>(false);
 	}
@@ -2352,21 +2320,22 @@ public int Native_SetBossString(Handle plugin, int numParams)
 
 public int Native_GetBossString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	switch(GetNativeCell(2))
 	{
 		case 0:
 		{
-			SetNativeString(3, BossFile[boss], GetNativeCell(4));
-			return strlen(BossFile[boss]);
+			SetNativeString(3, BossFile[client], GetNativeCell(4));
+			return strlen(BossFile[client]);
 		}
 		case 1:
 		{
-			SetNativeString(3, BossName[boss], GetNativeCell(4));
-			return strlen(BossName[boss]);
+			SetNativeString(3, BossName[client], GetNativeCell(4));
+			return strlen(BossName[client]);
 		}
 	}
 	return 0;
@@ -2378,10 +2347,11 @@ public int Native_GetBossString(Handle plugin, int numParams)
 
 public int Native_SetManaBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2389,9 +2359,9 @@ public int Native_SetManaBool(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			Indexed[boss][mana] = GetNativeCell(4);
+			Indexed[client][mana] = GetNativeCell(4);
 		case 1:
-			Disabled[boss][mana] = GetNativeCell(4);
+			Disabled[client][mana] = GetNativeCell(4);
 		default:
 			return view_as<int>(false);
 	}
@@ -2400,10 +2370,11 @@ public int Native_SetManaBool(Handle plugin, int numParams)
 
 public int Native_GetManaBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2411,19 +2382,20 @@ public int Native_GetManaBool(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			return view_as<int>(Indexed[boss][mana]);
+			return view_as<int>(Indexed[client][mana]);
 		case 1:
-			return view_as<int>(Disabled[boss][mana]);
+			return view_as<int>(Disabled[client][mana]);
 	}
 	return 0;
 }
 
 public int Native_SetManaFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2431,25 +2403,25 @@ public int Native_SetManaFloat(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			Maximum[boss][mana] = GetNativeCell(4);
+			Maximum[client][mana] = GetNativeCell(4);
 		case 1:
-			Current[boss][mana] = GetNativeCell(4);
+			Current[client][mana] = GetNativeCell(4);
 		case 2:
-			Display[boss][mana] = GetNativeCell(4);
+			Display[client][mana] = GetNativeCell(4);
 		case 3:
-			Rolling[boss][mana] = GetNativeCell(4);
+			Rolling[client][mana] = GetNativeCell(4);
 		case 4:
-			OnKill[boss][mana] = GetNativeCell(4);
+			OnKill[client][mana] = GetNativeCell(4);
 		case 5:
-			OnHit[boss][mana] = GetNativeCell(4);
+			OnHit[client][mana] = GetNativeCell(4);
 		case 6:
-			OnHurt[boss][mana] = GetNativeCell(4);
+			OnHurt[client][mana] = GetNativeCell(4);
 		case 7:
-			OnTime[boss][mana] = GetNativeCell(4);
+			OnTime[client][mana] = GetNativeCell(4);
 		case 8:
-			OnBlast[boss][mana] = GetNativeCell(4);
+			OnBlast[client][mana] = GetNativeCell(4);
 		case 9:
-			OnDeath[boss][mana] = GetNativeCell(4);
+			OnDeath[client][mana] = GetNativeCell(4);
 		default:
 			return view_as<int>(false);
 	}
@@ -2458,10 +2430,11 @@ public int Native_SetManaFloat(Handle plugin, int numParams)
 
 public int Native_GetManaFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2469,33 +2442,34 @@ public int Native_GetManaFloat(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			return view_as<int>(Maximum[boss][mana]);
+			return view_as<int>(Maximum[client][mana]);
 		case 1:
-			return view_as<int>(Current[boss][mana]);
+			return view_as<int>(Current[client][mana]);
 		case 2:
-			return view_as<int>(Display[boss][mana]);
+			return view_as<int>(Display[client][mana]);
 		case 3:
-			return view_as<int>(Rolling[boss][mana]);
+			return view_as<int>(Rolling[client][mana]);
 		case 4:
-			return view_as<int>(OnKill[boss][mana]);
+			return view_as<int>(OnKill[client][mana]);
 		case 5:
-			return view_as<int>(OnHit[boss][mana]);
+			return view_as<int>(OnHit[client][mana]);
 		case 6:
-			return view_as<int>(OnHurt[boss][mana]);
+			return view_as<int>(OnHurt[client][mana]);
 		case 7:
-			return view_as<int>(OnTime[boss][mana]);
+			return view_as<int>(OnTime[client][mana]);
 		case 8:
-			return view_as<int>(OnBlast[boss][mana]);
+			return view_as<int>(OnBlast[client][mana]);
 	}
 	return 0;
 }
 
 public int Native_SetManaString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2503,7 +2477,7 @@ public int Native_SetManaString(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			GetNativeString(4, Mana[boss][mana], MAX_MENUITEM_LENGTH);
+			GetNativeString(4, Mana[client][mana], MAX_MENUITEM_LENGTH);
 		default:
 			return view_as<int>(false);
 	}
@@ -2512,10 +2486,11 @@ public int Native_SetManaString(Handle plugin, int numParams)
 
 public int Native_GetManaString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int mana = GetNativeCell(2);
 	if(mana<0 || mana>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Mana Index: %i", mana);
@@ -2524,8 +2499,8 @@ public int Native_GetManaString(Handle plugin, int numParams)
 	{
 		case 0:
 		{
-			SetNativeString(4, Mana[boss][mana], GetNativeCell(5));
-			return strlen(Mana[boss][mana]);
+			SetNativeString(4, Mana[client][mana], GetNativeCell(5));
+			return strlen(Mana[client][mana]);
 		}
 	}
 	return 0;
@@ -2537,10 +2512,11 @@ public int Native_GetManaString(Handle plugin, int numParams)
 
 public int Native_SetSpellBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_SPECIALS)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2548,9 +2524,9 @@ public int Native_SetSpellBool(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			Indexed[boss][spell] = GetNativeCell(4);
+			Indexed[client][spell] = GetNativeCell(4);
 		case 1:
-			Disabled[boss][spell] = GetNativeCell(4);
+			Disabled[client][spell] = GetNativeCell(4);
 		default:
 			return view_as<int>(false);
 	}
@@ -2559,10 +2535,11 @@ public int Native_SetSpellBool(Handle plugin, int numParams)
 
 public int Native_GetSpellBool(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_SPECIALS)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2570,19 +2547,20 @@ public int Native_GetSpellBool(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			return view_as<int>(Indexed[boss][spell]);
+			return view_as<int>(Indexed[client][spell]);
 		case 1:
-			return view_as<int>(Disabled[boss][spell]);
+			return view_as<int>(Disabled[client][spell]);
 	}
 	return 0;
 }
 
 public int Native_SetSpellInteger(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2595,13 +2573,13 @@ public int Native_SetSpellInteger(Handle plugin, int numParams)
 	switch(index)
 	{
 		case 0:
-			Slot[boss][spell][slot] = GetNativeCell(4);
+			Slot[client][spell][slot] = GetNativeCell(4);
 		case 1:
-			Buttonmode[boss][spell][slot] = GetNativeCell(4);
+			Buttonmode[client][spell][slot] = GetNativeCell(4);
 		case 2:
-			Magic[boss][spell] = GetNativeCell(4);
+			Magic[client][spell] = GetNativeCell(4);
 		case 3:
-			Index[boss][spell] = GetNativeCell(4);
+			Index[client][spell] = GetNativeCell(4);
 		default:
 			return view_as<int>(false);
 	}
@@ -2610,10 +2588,11 @@ public int Native_SetSpellInteger(Handle plugin, int numParams)
 
 public int Native_GetSpellInteger(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2626,23 +2605,24 @@ public int Native_GetSpellInteger(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			return Slot[boss][spell][slot];
+			return Slot[client][spell][slot];
 		case 1:
-			return Buttonmode[boss][spell][slot];
+			return Buttonmode[client][spell][slot];
 		case 2:
-			return Magic[boss][spell];
+			return Magic[client][spell];
 		case 3:
-			return Index[boss][spell];
+			return Index[client][spell];
 	}
 	return 0;
 }
 
 public int Native_SetSpellFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2655,13 +2635,13 @@ public int Native_SetSpellFloat(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			Cost[boss][spell][slot] = GetNativeCell(4);
+			Cost[client][spell][slot] = GetNativeCell(4);
 		case 1:
-			Cooldown[boss][spell] = GetNativeCell(4);
+			Cooldown[client][spell] = GetNativeCell(4);
 		case 2:
-			SpellCool[boss][spell] = GetNativeCell(4);
+			SpellCool[client][spell] = GetNativeCell(4);
 		case 3:
-			GlobalCool[boss][spell] = GetNativeCell(4);
+			GlobalCool[client][spell] = GetNativeCell(4);
 		default:
 			return view_as<int>(false);
 	}
@@ -2670,10 +2650,11 @@ public int Native_SetSpellFloat(Handle plugin, int numParams)
 
 public int Native_GetSpellFloat(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2686,23 +2667,24 @@ public int Native_GetSpellFloat(Handle plugin, int numParams)
 	switch(GetNativeCell(3))
 	{
 		case 0:
-			return view_as<int>(Cost[boss][spell][slot]);
+			return view_as<int>(Cost[client][spell][slot]);
 		case 1:
-			return view_as<int>(Cooldown[boss][spell]);
+			return view_as<int>(Cooldown[client][spell]);
 		case 2:
-			return view_as<int>(SpellCool[boss][spell]);
+			return view_as<int>(SpellCool[client][spell]);
 		case 3:
-			return view_as<int>(GlobalCool[boss][spell]);
+			return view_as<int>(GlobalCool[client][spell]);
 	}
 	return 0;
 }
 
 public int Native_SetSpellString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2715,15 +2697,15 @@ public int Native_SetSpellString(Handle plugin, int numParams)
 	switch(index)
 	{
 		case 0:
-			GetNativeString(4, Name[boss][spell], MAX_MENUITEM_LENGTH);
+			GetNativeString(4, Name[client][spell], MAX_MENUITEM_LENGTH);
 		case 1:
-			GetNativeString(4, Ability[boss][spell][slot], MAX_ABILITY_LENGTH);
+			GetNativeString(4, Ability[client][spell][slot], MAX_ABILITY_LENGTH);
 		case 2:
-			GetNativeString(4, PluginName[boss][spell][slot], MAX_PLUGIN_LENGTH);
+			GetNativeString(4, PluginName[client][spell][slot], MAX_PLUGIN_LENGTH);
 		case 3:
-			GetNativeString(4, Particle[boss][spell], MAX_EFFECT_LENGTH);
+			GetNativeString(4, Particle[client][spell], MAX_EFFECT_LENGTH);
 		case 4:
-			GetNativeString(4, Attachment[boss][spell], MAX_ATTACHMENT_LENGTH);
+			GetNativeString(4, Attachment[client][spell], MAX_ATTACHMENT_LENGTH);
 		default:
 			return view_as<int>(false);
 	}
@@ -2732,10 +2714,11 @@ public int Native_SetSpellString(Handle plugin, int numParams)
 
 public int Native_GetSpellString(Handle plugin, int numParams)
 {
-	int boss = GetNativeCell(1);
-	if(boss<0 || boss>MaxClients)
+	FF2Player boss = FF2Player(GetNativeCell(1), true);
+	if(!boss.Valid || !boss.bIsBoss)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Boss Index: %i", boss);
-
+	
+	int client = boss.index;
 	int spell = GetNativeCell(2);
 	if(spell<0 || spell>=MAX_TYPES)
 		ThrowNativeError(SP_ERROR_NATIVE, "Invalid Spell Index: %i", spell);
@@ -2749,31 +2732,37 @@ public int Native_GetSpellString(Handle plugin, int numParams)
 	{
 		case 0:
 		{
-			SetNativeString(4, Name[boss][spell], GetNativeCell(5));
-			return strlen(Name[boss][spell]);
+			SetNativeString(4, Name[client][spell], GetNativeCell(5));
+			return strlen(Name[client][spell]);
 		}
 		case 1:
 		{
-			SetNativeString(4, Ability[boss][spell][slot], GetNativeCell(5));
-			return strlen(Ability[boss][spell][slot]);
+			SetNativeString(4, Ability[client][spell][slot], GetNativeCell(5));
+			return strlen(Ability[client][spell][slot]);
 		}
 		case 2:
 		{
-			SetNativeString(4, PluginName[boss][spell][slot], GetNativeCell(5));
-			return strlen(PluginName[boss][spell][slot]);
+			SetNativeString(4, PluginName[client][spell][slot], GetNativeCell(5));
+			return strlen(PluginName[client][spell][slot]);
 		}
 		case 3:
 		{
-			SetNativeString(4, Particle[boss][spell], GetNativeCell(5));
-			return strlen(Particle[boss][spell]);
+			SetNativeString(4, Particle[client][spell], GetNativeCell(5));
+			return strlen(Particle[client][spell]);
 		}
 		case 4:
 		{
-			SetNativeString(4, Attachment[boss][spell], GetNativeCell(5));
-			return strlen(Attachment[boss][spell]);
+			SetNativeString(4, Attachment[client][spell], GetNativeCell(5));
+			return strlen(Attachment[client][spell]);
 		}
 	}
 	return 0;
 }
 
-#file "FF2 Subplugin: Menu Abilities"
+void FF2_DoAbility2(int boss, const char[] pluginName, const char[] abilityName, int slot, int button)
+{
+#pragma unused button
+	FF2_DoAbility(boss, pluginName, abilityName, slot);
+}
+
+//#file "FF2 Subplugin: Menu Abilities"
