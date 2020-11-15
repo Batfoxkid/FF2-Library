@@ -1,11 +1,9 @@
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
-#include <sourcemod>
-#include <sdktools>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 

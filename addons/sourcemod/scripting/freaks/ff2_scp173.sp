@@ -1,10 +1,10 @@
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sourcemod>
 #include <tf2_stocks>
 #include <sdktools>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -27,11 +27,11 @@ public Plugin myinfo =
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", OnRoundStart);
+	HookEvent("arena_round_start", _OnRoundStart);
 	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_Pre);
 }
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled())
 		return Plugin_Continue;

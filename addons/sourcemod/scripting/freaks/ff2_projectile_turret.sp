@@ -3,15 +3,12 @@
 // GPL blah blah don't sue if something goes wrong blah blah no warranty blah blah
 
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
-#include <sourcemod>
 #include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 

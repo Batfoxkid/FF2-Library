@@ -1,8 +1,9 @@
 #define DDCOMPILE true
 
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #if DDCOMPILE
 #include <ff2_dynamic_defaults>
 #endif
@@ -105,14 +106,14 @@ public void OnPluginStart2()
 	HookEvent("object_deflected", OnObjectDeflected, EventHookMode_Pre);
 	HookEvent("player_death", OnPlayerDeath);
 	HookEvent("teamplay_round_win", OnRoundEnd);
-	HookEvent("arena_round_start", OnRoundStart);
+	HookEvent("arena_round_start", _OnRoundStart);
 
 	#if defined _tf2attributes_included
 	tf2attributes = LibraryExists("tf2attributes");
 	#endif
 
 	if(FF2_IsFF2Enabled() && FF2_GetRoundState()==1)
-		OnRoundStart(INVALID_HANDLE, "plugin_lateload", false);
+		_OnRoundStart(INVALID_HANDLE, "plugin_lateload", false);
 }
 
 #if defined _tf2attributes_included
@@ -136,7 +137,7 @@ public void OnPluginEnd()
 
 // TF2 Events
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || !tf2attributes)
 		return Plugin_Continue;
@@ -449,7 +450,7 @@ public void FF2_OnAlivePlayersChanged(int players, int bosses)
 		if(!FF2_HasAbility(boss, this_plugin_name, LASTBACKUP))
 			continue;
 
-		if(LastMannBackup[boss] >= FF2_GetAbilityArgument(boss, this_plugin_name, LASTBACKUP, 2, 1))
+		if(LastMannBackup[client] >= FF2_GetAbilityArgument(boss, this_plugin_name, LASTBACKUP, 2, 1))
 			continue;
 
 		if(GetClientTeam(client) == FF2_GetBossTeam())
@@ -563,11 +564,11 @@ public Action Timer_Backup(Handle timer, int boss)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
-
-	if(LastMannBackup[boss] >= FF2_GetAbilityArgument(boss, this_plugin_name, LASTBACKUP, 2, 1))
+	
+	int client = GetClientOfUserId(FF2_GetBossUserId(boss));
+	if(LastMannBackup[client] >= FF2_GetAbilityArgument(boss, this_plugin_name, LASTBACKUP, 2, 1))
 		return Plugin_Continue;
 
-	int client = GetClientOfUserId(FF2_GetBossUserId(boss));
 	int weaponMode=FF2_GetAbilityArgument(boss, this_plugin_name, LASTBACKUP, 4, 2);
 	char model[MAXMODELPATH];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, LASTBACKUP, 5, model, sizeof(model));
@@ -714,7 +715,7 @@ public Action Timer_Backup(Handle timer, int boss)
 	}
 	CloseHandle(players);
 
-	LastMannBackup[boss]++;
+	LastMannBackup[client]++;
 
 	if(!HasSummoned)
 		return Plugin_Continue;
@@ -800,7 +801,7 @@ stock int Operate(Handle sumArray, int &bracket, float value, Handle _operator)
 		{
 			if(!value)
 			{
-				LogError("[Boss] Detected a divide by 0 for rage_clone!");
+				LogError("[client] Detected a divide by 0 for rage_clone!");
 				bracket=0;
 				return;
 			}
@@ -879,7 +880,7 @@ public int ParseFormula(int boss, const char[] key, int defaultValue, int playin
 				OperateString(sumArray, bracket, value, sizeof(value), _operator);
 				if(GetArrayCell(_operator, bracket)!=Operator_None)  //Something like (5*)
 				{
-					LogError("[Boss] %s's %s formula for rage_clone has an invalid operator at character %i", bossName, key, i+1);
+					LogError("[client] %s's %s formula for rage_clone has an invalid operator at character %i", bossName, key, i+1);
 					CloseHandle(sumArray);
 					CloseHandle(_operator);
 					return defaultValue;
@@ -887,7 +888,7 @@ public int ParseFormula(int boss, const char[] key, int defaultValue, int playin
 
 				if(--bracket<0)  //Something like (5))
 				{
-					LogError("[Boss] %s's %s formula for rage_clone has an unbalanced parentheses at character %i", bossName, key, i+1);
+					LogError("[client] %s's %s formula for rage_clone has an unbalanced parentheses at character %i", bossName, key, i+1);
 					CloseHandle(sumArray);
 					CloseHandle(_operator);
 					return defaultValue;
@@ -936,7 +937,7 @@ public int ParseFormula(int boss, const char[] key, int defaultValue, int playin
 	CloseHandle(_operator);
 	if(result<=0)
 	{
-		LogError("[Boss] %s has an invalid %s formula for rage_clone, using default health!", bossName, key);
+		LogError("[client] %s has an invalid %s formula for rage_clone, using default health!", bossName, key);
 		return defaultValue;
 	}
 	return result;
@@ -1174,7 +1175,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 			int attrib=StringToInt(attributes[i]);
 			if(!attrib)
 			{
-				LogError("[Boss] Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
+				LogError("[client] Bad weapon attribute passed: %s ; %s", attributes[i], attributes[i+1]);
 				return -1;
 			}
 			TF2Items_SetAttribute(weapon, i2, attrib, StringToFloat(attributes[i+1]));

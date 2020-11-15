@@ -1,10 +1,9 @@
-#include <sourcemod>
-#include <sdktools>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <morecolors>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -21,7 +20,7 @@ bool PlayerRecoiled[MAXPLAYERS+1];
 
 public void OnPluginStart2()
 {
-    HookEvent("arena_round_start", OnRoundStart);
+    HookEvent("arena_round_start", _OnRoundStart);
     // HookEvent("player_spawn", OnPlayerSpawn);
 }
 
@@ -30,7 +29,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 
 }
 
-public Action OnRoundStart(Handle event, const char[] name, bool dont)
+public Action _OnRoundStart(Handle event, const char[] name, bool dont)
 {
     CheckAbility();
 }

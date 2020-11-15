@@ -1,8 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -96,7 +97,7 @@ public void OnMapStart()
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("player_death", event_player_death);
 	AddNormalSoundHook(SoundHook);
@@ -110,7 +111,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 }
 
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
@@ -726,16 +727,14 @@ void Charge_New_Salmon(const char[] ability_name, int boss, int client, int slot
 					ii = GetRandomDeadPlayer();
 					if(ii != -1)
 					{
-						FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-						if(PickupMode)
-						{
-							if(PickupMode==1 || PickupMode==3)
-								FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_HEALTH_PICKUPS); // HP Pickup
-							if(PickupMode==2 || PickupMode==3)
-								FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_AMMO_PICKUPS); // Ammo Pickup
-						}
-						ChangeClientTeam(ii,FF2_GetBossTeam());
-						TF2_RespawnPlayer(ii);
+						FF2Player pasta = FF2Player(ii);
+						pasta.SetPropAny("bIsMinion", true);
+						pasta.ForceTeamChange(VSH2Team_Boss);
+						if(PickupMode==1 || PickupMode==3)
+							pasta.SetPropAny("bNoHealthPacks", true);
+						if(PickupMode==2 || PickupMode==3)
+							pasta.SetPropAny("bNoAmmoPacks", true);
+				
 						SummonerIndex[ii]=boss;
 					
 						switch(WeaponMode)
@@ -828,17 +827,15 @@ void Charge_New_Salmon(const char[] ability_name, int boss, int client, int slot
 							case 2: // clone of boss
 							{
 								char taunt[PLATFORM_MAX_PATH];
-								Handle curBossKV=FF2_GetSpecialKV(boss, false);
-								TF2_SetPlayerClass(ii, view_as<TFClassType>(KvGetNum(curBossKV, "class", 0)), _, false);
-								KvGetString(curBossKV, "model", SalmonModel, PLATFORM_MAX_PATH);	
-								if(KvGetNum(curBossKV, "sound_block_vo", 0))
-								{
+								int cls;
+								FF2Player cur_boss = FF2Player(boss, true);
+								TF2_SetPlayerClass(ii, cur_boss.GetInt("class", view_as<int>(cls)) ? view_as<TFClassType>(cls):TFClass_Scout, _, false);
+								cls = 0;
+								if(!cur_boss.GetInt("sound_block_vo", cls) || cls)
 									VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), boss)) ? VoiceMode_None : VoiceMode_BossCatchPhrase);
-								}
 								else
-								{
 									VOMode[ii]=((!FF2_RandomSound("catch_phrase", taunt, sizeof(taunt), boss)) ? VoiceMode_Normal : VoiceMode_BossCatchPhrase);
-								}
+								cur_boss.GetString("model", SalmonModel, PLATFORM_MAX_PATH);
 								SetPlayerModel(ii, SalmonModel);
 							}
 							default:

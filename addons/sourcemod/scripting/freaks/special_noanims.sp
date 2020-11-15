@@ -13,11 +13,11 @@ rage_new_weapon:	arg0 - slot (def.0)
 */
 #pragma semicolon 1
 
-#include <sourcemod>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -40,7 +40,7 @@ public void OnPluginStart2()
 		SetFailState("This subplugin depends on at least FF2 v1.10.3");
 	}
 
-	HookEvent("teamplay_round_start", OnRoundStart);
+	HookEvent("teamplay_round_start", _OnRoundStart);
 }
 
 public Action FF2_OnAbility2(int client, const char[] plugin_name, const char[] ability_name, int status)
@@ -52,7 +52,7 @@ public Action FF2_OnAbility2(int client, const char[] plugin_name, const char[] 
 	return Plugin_Continue;
 }
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.41, Timer_Disable_Anims, _, TIMER_FLAG_NO_MAPCHANGE);
 	CreateTimer(9.31, Timer_Disable_Anims, _, TIMER_FLAG_NO_MAPCHANGE);
@@ -118,4 +118,16 @@ void Rage_New_Weapon(int boss, const char[] ability_name)
 	{
 		FF2_SetAmmo(client, weapon, ammo, clip);
 	}
+}
+
+int FF2_GetArgI(int boss, const char[] pluginName, const char[] abilityName, const char[] argument, int argNum, int defValue=0)
+{
+	int val = FF2_GetArgNamedI(boss, pluginName, abilityName, argument, -999);
+	return val != -999 ? val:FF2_GetAbilityArgument(boss, pluginName, abilityName, argNum, defValue);
+}
+
+void FF2_GetArgS(int boss, const char[] pluginName, const char[] abilityName, const char[] argument, int argNum, char[] buffer, int maxlen)
+{
+	if(!FF2Player(boss, true).GetArgS(pluginName, abilityName, argument, buffer, maxlen))
+		FF2_GetAbilityArgumentString(boss, pluginName, abilityName, argNum, buffer, maxlen);
 }

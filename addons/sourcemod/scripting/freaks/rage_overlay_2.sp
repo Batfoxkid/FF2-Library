@@ -8,10 +8,10 @@ rage_overlay_v2:	arg0 - slot (def.0)
 					etc.
 */
 
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -30,10 +30,10 @@ public Plugin myinfo=
 
 public void OnPluginStart2()
 {
-	HookEvent("teamplay_round_start", OnRoundStart);
+	HookEvent("teamplay_round_start", _OnRoundStart);
 }
 
-public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.3, Timer_GetBossTeam, _, TIMER_FLAG_NO_MAPCHANGE);
 	return Plugin_Continue;

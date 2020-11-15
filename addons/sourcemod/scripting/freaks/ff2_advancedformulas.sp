@@ -7,11 +7,11 @@
 	special_rageformula
 */
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sourcemod>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -44,7 +44,7 @@ public Plugin myinfo=
 public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", OnRoundSetup);
-	HookEvent("arena_round_start", OnRoundStart);
+	HookEvent("arena_round_start", _OnRoundStart);
 }
 
 public void FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int status)
@@ -60,7 +60,7 @@ public Action OnRoundSetup(Handle event, const char[] name, bool dontBroadcast)
 	return Plugin_Continue;
 }
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)	// Needed for first boss round
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)	// Needed for first boss round
 {
 	if(!FF2_IsFF2Enabled())
 		return Plugin_Continue;
@@ -309,6 +309,23 @@ public float ParseFormula(int boss, const char[] key, int playing, const char[] 
 	CloseHandle(sumArray);
 	CloseHandle(_operator);
 	return result;
+}
+
+void Debug(const char[] buffer, any ...)
+{
+	if(FF2_Debug())
+	{
+		static char message[124];
+		VFormat(message, sizeof(message), buffer, 2);
+		LogMessage("[FF2 DEBUG]%s", message);
+		PrintToServer("[FF2 DEBUG] %s", message);
+	}
+}
+
+void FF2_SetBossRageDamage(int boss, int damage)
+{
+#pragma unused damage
+	FF2_ReportError(FF2Player(boss), "Feature \"FF2_SetBossRageDamage\" is not available (yet) for VSH2");
 }
 
 #file "FF2 Subplugin: Advanced Formulas"

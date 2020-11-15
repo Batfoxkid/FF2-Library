@@ -1,8 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #define PLUGIN_VERSION "1.0.1"
 
 #pragma semicolon 1
@@ -47,7 +47,7 @@ public void OnMapStart()
 public Action event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
 	CreateTimer(0.3, Timer_GetBossTeam);
-	for(int i=0;i<MAXPLAYERS+1;i++)
+	for(int i=0;i<MaxClients+1;i++)
 	{
 		isDead[i]=false;		
 		/*if(Timer_toReincarnate[i]!=INVALID_HANDLE)
@@ -74,19 +74,19 @@ public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 	if(index==-1 || !IsValidEntity(client) || !FF2_HasAbility(index, this_plugin_name, "rage_reincarnation"))
 		return Plugin_Continue;
 		
-	if (canNotReincarnate[index])
+	if (canNotReincarnate[client])
 	{
 		//ForcePlayerSuicide(client);
 	}
 	else
 	{
-		isDead[index] = true;
-		canNotReincarnate[index] = true;
-		timeleft[index]=FF2_GetAbilityArgument(index, this_plugin_name, "rage_reincarnation", 4, 60)+timeleft_stacks[index];
-		timeleft_stacks[index]+=FF2_GetAbilityArgument(index, this_plugin_name, "rage_reincarnation", 5, 60);
-		if (Timer_toReincarnate[index]!=INVALID_HANDLE)
-			KillTimer(Timer_toReincarnate[index]);
-		Timer_toReincarnate[index]=CreateTimer(1.0, Timer_nowUcanReincarnate, index, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+		isDead[client] = true;
+		canNotReincarnate[client] = true;
+		timeleft[client]=FF2_GetAbilityArgument(index, this_plugin_name, "rage_reincarnation", 4, 60)+timeleft_stacks[client];
+		timeleft_stacks[client]+=FF2_GetAbilityArgument(index, this_plugin_name, "rage_reincarnation", 5, 60);
+		if (Timer_toReincarnate[client]!=INVALID_HANDLE)
+			KillTimer(Timer_toReincarnate[client]);
+		Timer_toReincarnate[client]=CreateTimer(1.0, Timer_nowUcanReincarnate, index, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 		FF2_SetBossLives(index,2);
 		FF2_SetBossHealth(index,FF2_GetBossMaxHealth(index)*10);
 		static char model[PLATFORM_MAX_PATH];
@@ -142,7 +142,7 @@ public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
 		char charnaem[64];
 		FF2_GetBossSpecial(index,charnaem,64,0);
 		char text[256];
-		Format(text,256,"%t","reincarnation_info",timeleft[index],charnaem);
+		Format(text,256,"%t","reincarnation_info",timeleft[client],charnaem);
 		for(int player=1; player<=MaxClients; player++)
 			if(IsValidClient(player) && GetClientTeam(player)!=GetClientTeam(client))
 				ShowSyncHudText(player, cooldownHUD, text);
@@ -293,27 +293,27 @@ public Action OnTakeDamage(int client, int& attacker, int& inflictor,
 
 public Action Timer_nowUcanReincarnate(Handle hTimer, any index)
 {
-	timeleft[index]--;
 	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
+	timeleft[boss]--;
 	if (FF2_GetRoundState()!=1)
 	{
-		KillTimer(Timer_toReincarnate[index]);
-		Timer_toReincarnate[index]=INVALID_HANDLE;	
+		KillTimer(Timer_toReincarnate[boss]);
+		Timer_toReincarnate[boss]=INVALID_HANDLE;	
 	}
-	else if (timeleft[index]<=0)
+	else if (timeleft[boss]<=0)
 	{
 		SetHudTextParams(-1.0, 0.42, 4.0, 255, 255, 255, 255);
 		ShowSyncHudText(boss, cooldownHUD, "%t","reincarnation_ready");
 		FF2_SetBossLives(index,2);
 		FF2_SetBossHealth(index,FF2_GetBossHealth(index)+FF2_GetBossMaxHealth(index));
-		canNotReincarnate[index] = false;
-		KillTimer(Timer_toReincarnate[index]);
-		Timer_toReincarnate[index]=INVALID_HANDLE;	
+		canNotReincarnate[boss] = false;
+		KillTimer(Timer_toReincarnate[boss]);
+		Timer_toReincarnate[boss]=INVALID_HANDLE;	
 	}
 	else
 	{
 		SetHudTextParams(-1.0, 0.42, 1.0, 255, 255, 255, 255);
-		ShowSyncHudText(boss, cooldownHUD, "%t","reincarnation_cooldown",timeleft[index]);
+		ShowSyncHudText(boss, cooldownHUD, "%t","reincarnation_cooldown",timeleft[boss]);
 	}
 }
 
@@ -321,7 +321,9 @@ public Action Timer_ReincarnateI(Handle hTimer, DataPack data)
 {
 	int userid = data.ReadCell();
 	int client=GetClientOfUserId(userid);
-	int index = EntRefToEntIndex(data.ReadCell());
+	if(!client)
+		return Plugin_Continue;
+	int index = data.ReadCell();
 	static char particle[128];
 	static float position[3];
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", position);
@@ -337,25 +339,25 @@ public Action Timer_ReincarnateI(Handle hTimer, DataPack data)
 	data2.WriteCell(userid);
 	data2.WriteCell(index);
 	data2.Reset();
+	
+	return Plugin_Continue;
 }
 
 public Action Timer_ReincarnateII(Handle hTimer, DataPack data)
 {
 	int client=GetClientOfUserId(data.ReadCell());
-	int index = EntRefToEntIndex(data.ReadCell());
+	int index = data.ReadCell();
 	if (client>0)
 	{
 		static char model[PLATFORM_MAX_PATH];
-		Handle see = FF2_GetSpecialKV(index);
-		KvGetString(see, "model", model, PLATFORM_MAX_PATH);
+		FF2Player(index).GetString("model", model, PLATFORM_MAX_PATH);
 		SetVariantString(model);
 		AcceptEntityInput(client, "SetCustomModel");
 		SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
-		CloseHandle(see);
 		SetEntityFlags(client, GetEntityFlags(client) & ~FL_FROZEN);
 		SDKUnhook(client, SDKHook_OnTakeDamage, StopTakeDamage);
 		FF2_SetBossHealth(index,FF2_GetBossMaxHealth(index));
-		isDead[false] = false;
+		isDead[client] = false;
 		SetVariantInt(0);
 		AcceptEntityInput(client, "SetForcedTauntCam");		
 		SetEntityMoveType(client, MOVETYPE_WALK);		
@@ -568,9 +570,9 @@ public Action Timer_RestoreCharge(Handle hTimer, any index)
 
 public Action Timer_Eruption(Handle hTimer,any index)
 {
-	bRaged[index]=false;
 	int boss=GetClientOfUserId(FF2_GetBossUserId(index));
-	if (isDead[index] || (!(GetEntityFlags(boss) & FL_ONGROUND) && FF2_GetAbilityArgument(index, this_plugin_name, "rage_wraithfire_eruption", 8, 1)))
+	bRaged[boss]=false;
+	if (isDead[boss] || (!(GetEntityFlags(boss) & FL_ONGROUND) && FF2_GetAbilityArgument(index, this_plugin_name, "rage_wraithfire_eruption", 8, 1)))
 	{
 		PrintHintText(boss,"%t","rage_available_in_ground");
 		CreateTimer(0.3, Timer_RestoreCharge, index);		

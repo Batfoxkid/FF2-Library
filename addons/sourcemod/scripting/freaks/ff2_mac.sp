@@ -1,9 +1,8 @@
-#include <sourcemod>
-#include <tf2>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 bool IsPlayerCharging[MAXPLAYERS+1];
 
@@ -37,7 +36,6 @@ public Action FF2_OnAbility2(int boss, const char[] pluginName, const char[] abi
 void PrepareLaser(int boss)
 {
     int client=GetClientOfUserId(FF2_GetBossUserId(boss));
-    int index;
     IsPlayerCharging[client] = true;
 
     PlayerDuration[client] = GetGameTime() + FF2_GetAbilityArgumentFloat(boss, this_plugin_name, "ff2_mac_laser", 1, 8.0);
@@ -45,7 +43,7 @@ void PrepareLaser(int boss)
     for(int target = 1; target <= MaxClients; target++)
     {
         if(target != client && IsClientInGame(target) && IsPlayerAlive(target)
-    && !IsValidEntity((index = TF2_HasGlow(client, target)))
+    && !IsValidEntity(TF2_HasGlow(client, target))
         )
         {
             TF2_CreateGlow(client, target);
@@ -108,7 +106,6 @@ public void OnPlayerThink(int client)
             if(CanHit(client, clientPos, targetPos))
             {
                 PlayerTickDamage[client][target] += damage;
-                Debug("데미지: %.1f", PlayerTickDamage[client][target]);
 
                 if(prepareAttack)
                 {

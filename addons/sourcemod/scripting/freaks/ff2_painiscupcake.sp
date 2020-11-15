@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -30,7 +31,7 @@ bool playingSound;
 bool UseEnglish = true;
 
 char RageSoundPath[PLATFORM_MAX_PATH];
-char sName[48];
+char sName[MAX_BOSS_NAME_SIZE];
 
 public Plugin myinfo=
 {
@@ -77,16 +78,12 @@ public void OnPluginStart2()
 
 public Action Post_RoundStart(Event event, const char[] name, bool dont)
 {
-	KeyValues kv = null;
 	for(int boss = 0; GetClientOfUserId(FF2_GetBossUserId(boss)) != -1; boss++)
 	{
 		if (FF2_HasAbility(boss, this_plugin_name, "passive_painis")) {
-			kv = view_as<KeyValues>(FF2_GetSpecialKV(boss));
-			kv.Rewind();
-			kv.GetString("name", sName, sizeof(sName), "ERROR NAME");
+			FF2Player(boss).GetName(sName);
 		}
 	}
-	kv = null;
 }
 
 public Action Post_RoundEnd(Event event, const char[] name, bool dont)
@@ -191,7 +188,9 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 void PainisRage(int boss)
 {
 	int client = GetClientOfUserId(FF2_GetBossUserId(boss));
-	float abilityDuration = view_as<KeyValues>(FF2_GetSpecialKV(boss)).GetFloat("ability_duration", 10.0);
+	float abilityDuration;
+	if(!FF2Player(boss).GetFloat("ability_duration", abilityDuration))
+		abilityDuration = 10.0;
 
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "rage_painis", 1, RageSoundPath, sizeof(RageSoundPath));
 

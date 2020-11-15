@@ -1,8 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -85,9 +85,9 @@ public Plugin myinfo=
 
 public void OnPluginStart2()
 {
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
-	HookEvent("player_hurt", OnPlayerHurt, EventHookMode_Pre);
+	HookEvent("player_hurt", _OnPlayerHurt, EventHookMode_Pre);
 	JetPackHUD=CreateHudSynchronizer();
 }
 
@@ -96,7 +96,7 @@ public void OnClientPutInServer(int client)
 	ClearVariables(client);
 }
 
-public Action OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundActive=1;
 	for(int client=1; client<=MaxClients; client++)
@@ -453,7 +453,7 @@ public Action ClientTimer(Handle timer)
 	return Plugin_Continue;
 }
 
-public Action OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
+public Action _OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 {
 	int client=GetClientOfUserId(event.GetInt("userid"));
 	int attacker=GetClientOfUserId(event.GetInt("attacker"));

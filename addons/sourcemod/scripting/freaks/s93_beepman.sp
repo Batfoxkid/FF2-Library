@@ -33,12 +33,12 @@
 
 #pragma semicolon 1
 
-#include <sourcemod>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2items>
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 

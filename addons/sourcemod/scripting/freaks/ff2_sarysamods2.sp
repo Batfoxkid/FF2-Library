@@ -2,10 +2,11 @@
 
 // GPL blah blah don't sue if something goes wrong blah blah no warranty blah blah
 
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <ff2_dynamic_defaults>
 
 #pragma semicolon 1
@@ -471,10 +472,7 @@ void BO_SetHUDHideLevel(int clientIdx, int hideLevel)
 	if (hideLevel >= 0 && hideLevel < NUM_HUD_HIDE_LEVELS)
 		SetEntProp(clientIdx, Prop_Send, "m_iHideHUD", HUD_HIDE_LEVELS[hideLevel]);
 		
-	if (hideLevel > 1)
-		FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) | FF2FLAG_HUDDISABLED);
-	else
-		FF2_SetFF2flags(clientIdx, FF2_GetFF2flags(clientIdx) & (~FF2FLAG_HUDDISABLED));
+	FF2Player(clientIdx).SetPropAny("bHideHUD", hideLevel > 1);
 }
 
 void BO_RemoveBossOverlay(int clientIdx)

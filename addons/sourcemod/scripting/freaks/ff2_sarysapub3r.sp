@@ -1,9 +1,10 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <ff2_dynamic_defaults>
 #include <ff2_ams2>
 #undef REQUIRE_PLUGIN

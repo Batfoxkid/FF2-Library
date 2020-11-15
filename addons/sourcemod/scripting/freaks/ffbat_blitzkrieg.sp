@@ -34,10 +34,11 @@
 	Original Blitzkrieg - https://github.com/shadow93/BlitzRocketHell
 	Ricochet - https://forums.alliedmods.net/showthread.php?p=2671241
 */
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -145,7 +146,6 @@ enum struct DiffEnum
 	int Level[MAXTF2PLAYERS];
 }
 
-bool UnofficialFF2;		// If Unofficial is running
 bool Enabled;			// If to reset the plugin on round end
 int FF2Countdown;		// Countdown player ConVar value
 int TotalPlayers;		// Total players
@@ -181,35 +181,22 @@ public Plugin myinfo =
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
 	OnHaleRage = CreateGlobalForward("VSH_OnDoRage", ET_Hook, Param_FloatByRef);
-
-	#if defined _FFBAT_included
-	MarkNativeAsOptional("FF2_EmitVoiceToAll");
-	MarkNativeAsOptional("FF2_GetBossName");
-	MarkNativeAsOptional("FF2_LogError");
-	#endif
 	return APLRes_Success;
 }
 
 public void OnPluginStart2()
 {
-	#if defined _FFBAT_included
-	int version[3];
-	FF2_GetForkVersion(version);
-	if(version[0] && version[1])
-		UnofficialFF2 = true;
-	#endif
-
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("teamplay_round_win", OnRoundEnd, EventHookMode_Post);
-	HookEvent("player_hurt", OnPlayerHurt, EventHookMode_Post);
+	HookEvent("player_hurt", _OnPlayerHurt, EventHookMode_Post);
 
 	if(FF2_GetRoundState() == 1)	// In case the plugin is loaded in late
-		OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
+		_OnRoundStart(view_as<Event>(INVALID_HANDLE), "plugin_lateload", false);
 }
 
 // TF2 Events
 
-public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+public void _OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	Queue.Rockets = 0;
 	TotalPlayers = 0;
@@ -269,7 +256,7 @@ public void OnPostInventoryApplication(Event event, const char[] name, bool dont
 		CreateTimer(0.25, MannClient, client, TIMER_FLAG_NO_MAPCHANGE);
 }
 
-public void OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
+public void _OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
 {
 	if(Queue.Points <= 0)
 		return;
@@ -346,7 +333,7 @@ public void OnGameFrame()
 				if(boss<0 || Diff.Level[boss]<1)
 					continue;
 
-				GetBossName(boss, name, MAX_BOSSNAME_LENGTH, 0, client);
+				FF2_GetBossSpecial(boss, name, MAX_BOSSNAME_LENGTH, 0);
 				Format(level, MAX_BOSSNAME_LENGTH, "level_%i", Diff.Level[boss]);
 				if(TranslationPhraseExists(level))
 				{
@@ -474,12 +461,12 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 				g = FF2_GetBossIndex(r);
 				if(g < 0)
 				{
-					if(!(FF2_GetFF2flags(r) & FF2FLAG_ALLOWSPAWNINBOSSTEAM))
+					if(!FF2Player(r).GetPropAny("bIsMinion"))
 						TF2_RegeneratePlayer(r);
 				}
 				else if(FF2_HasAbility(g, this_plugin_name, BLITZSOUL))
 				{
-					FF2_DoAbility(g, this_plugin_name, BLITZSOUL, 4, 0);
+					FF2_DoAbility(g, this_plugin_name, BLITZSOUL, 4);
 				}
 			}
 
@@ -674,7 +661,7 @@ public Action MannClient(Handle timer, int client)
 
 	int boss = MannUp.Enabled-1;
 	SetGlobalTransTarget(client);
-	GetBossName(boss, classname, MAX_CLASSNAME_LENGTH, 0, client);
+	FF2_GetBossSpecial(boss, classname, MAX_CLASSNAME_LENGTH, 0);
 	panel.SetTitle(classname);
 
 	for(int i; i<4; i++)
@@ -971,10 +958,10 @@ public bool LoadPhrases(int boss)
 				{
 					if(Enabled)
 					{
-						LogError2("[Boss] Boss has %s and is missing the following phrases in %s.txt", BLITZPHRASES, phrase);
+						FF2_LogError("[Boss] Boss has %s and is missing the following phrases in %s.txt", BLITZPHRASES, phrase);
 						Enabled = false;
 					}
-					LogError2("[Boss] %s", Phrases[i]);
+					FF2_LogError("[Boss] %s", Phrases[i]);
 				}
 			}
 
@@ -1036,7 +1023,7 @@ public float GetArgF(int boss, const char[] abilityName, const char[] argName, f
 	}
 	else if((valueCheck==1 && defaultValue<0) || (valueCheck==2 && defaultValue<=0))
 	{
-		LogError2("[Boss] Formula at %s for %s is not allowed to be blank.", argName, abilityName);
+		FF2_LogError("[Boss] Formula at %s for %s is not allowed to be blank.", argName, abilityName);
 		return 0.0;
 	}
 	return defaultValue;
@@ -1347,7 +1334,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, c
 			int attrib = StringToInt(atts[i]);
 			if(!attrib)
 			{
-				LogError2("[Boss] Bad weapon attribute passed: %s ; %s", atts[i], atts[i+1]);
+				FF2_LogError("[Boss] Bad weapon attribute passed: %s ; %s", atts[i], atts[i+1]);
 				CloseHandle(hWeapon);
 				return -1;
 			}
@@ -1393,7 +1380,7 @@ stock void Operate(ArrayList sumArray, int &bracket, float value, ArrayList _ope
 		{
 			if(!value)
 			{
-				LogError2("[Boss] Detected a divide by 0 in a boss with %s!", this_plugin_name);
+				FF2_LogError("[Boss] Detected a divide by 0 in a boss with %s!", this_plugin_name);
 				bracket = 0;
 				return;
 			}
@@ -1471,7 +1458,7 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 				OperateString(sumArray, bracket, value, sizeof(value), _operator);
 				if(_operator.Get(bracket) != Operator_None)
 				{
-					LogError2("[Boss] Formula at %s for %s has an invalid operator at character %i", argName, abilityName, i+1);
+					FF2_LogError("[Boss] Formula at %s for %s has an invalid operator at character %i", argName, abilityName, i+1);
 					delete sumArray;
 					delete _operator;
 					return defaultValue;
@@ -1479,7 +1466,7 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 
 				if(--bracket < 0)
 				{
-					LogError2("[Boss] Formula at %s for %s has an unbalanced parentheses at character %i", argName, abilityName, i+1);
+					FF2_LogError("[Boss] Formula at %s for %s has an unbalanced parentheses at character %i", argName, abilityName, i+1);
 					delete sumArray;
 					delete _operator;
 					return defaultValue;
@@ -1574,7 +1561,7 @@ public float ParseFormula(int boss, const char[] key, float defaultValue, const 
 	delete _operator;
 	if((valueCheck==1 && result<0) || (valueCheck==2 && result<=0))
 	{
-		LogError2("[Boss] An invalid formula at %s for %s!", argName, abilityName);
+		FF2_LogError("[Boss] An invalid formula at %s for %s!", argName, abilityName);
 		return defaultValue;
 	}
 	return result;
@@ -1604,49 +1591,15 @@ stock float MathWhack(float victim, float attacker, float attackerMax, float bon
 
 // Backward Complability Stocks
 
-stock bool GetBossName(int boss=0, char[] buffer, int bufferLength, int bossMeaning=0, int client=0)
-{
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-		return FF2_GetBossName(boss, buffer, bufferLength, bossMeaning, client);
-	#endif
-	return FF2_GetBossSpecial(boss, buffer, bufferLength, bossMeaning);
-}
-
-stock void LogError2(const char[] message, any ...)
-{
-	char buffer[MAX_BUFFER_LENGTH], buffer2[MAX_BUFFER_LENGTH];
-	Format(buffer, sizeof(buffer), "%s", message);
-	VFormat(buffer2, sizeof(buffer2), buffer, 2);
-
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_LogError(buffer2);
-	}
-	else
-	{
-		LogError(buffer2);
-	}
-	#else
-	LogError(buffer2);
-	#endif
-}
-
 stock void EmitVoiceToAll(const char[] sample, int entity=SOUND_FROM_PLAYER)
 {
-	#if defined _FFBAT_included
-	if(UnofficialFF2)
-	{
-		FF2_EmitVoiceToAll(sample, entity);
-	}
-	else
-	{
-		EmitSoundToAll(sample, entity);
-	}
-	#else
 	EmitSoundToAll(sample, entity);
-	#endif
+}
+
+int FF2_GetArgI(int boss, const char[] pl_name, const char[] ab_name, const char[] key_name, int num, int def_value = 0)
+{
+	int val = FF2_GetArgNamedI(boss, pl_name, ab_name, key_name, -999);
+	return val == -999 ? FF2_GetAbilityArgument(boss, pl_name, ab_name, num, def_value):val;
 }
 
 #file "FF2 Subplugin: The Blitzkrieg Returns"

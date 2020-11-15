@@ -1,8 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -30,7 +31,7 @@ bool Ishooked=false;
 bool Bombombs_TriggerAMS[MAXPLAYERS+1]; // global boolean to use with AMS (incase we want to use it with AMS)
 int SummonerIndex[MAXPLAYERS+1];
 char bombombmodel[PLATFORM_MAX_PATH], weaponclassname[64], weaponattributes[768], conditions[768];
-int minionnumber, class, wearables, weaponindex, health, pickups;
+int minionnumber, class, wearables, weaponindex, _health, pickups;
 
 // For Painis Cupcake
 float RageDuration;
@@ -854,7 +855,7 @@ public void BOMB_Invoke(int client, int index)
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "king_bombomb", 5, weaponclassname, sizeof(weaponclassname));
 	weaponindex=FF2_GetAbilityArgument(boss, this_plugin_name, "king_bombomb", 6);
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "king_bombomb", 7, weaponattributes, sizeof(weaponattributes));
-	health=FF2_GetAbilityArgument(boss, this_plugin_name, "king_bombomb", 8, 0); // HP
+	_health=FF2_GetAbilityArgument(boss, this_plugin_name, "king_bombomb", 8, 0); // HP
 	pickups=FF2_GetAbilityArgument(boss, this_plugin_name, "king_bombomb", 9); // PickupMode?
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, "king_bombomb", 10, conditions, sizeof(conditions)); // Conditions
 	
@@ -874,16 +875,17 @@ public void BOMB_Invoke(int client, int index)
 		ii = GetRandomDeadPlayer();
 		if(ii != -1)
 		{
-			FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
+			FF2Player r_dead = FF2Player(ii);
+			r_dead.SetPropAny("bIsMinion", true);
+			r_dead.ForceTeamChange(VSH2Team_Boss);
+			
 			if(pickups)
 			{
 				if(pickups==1 || pickups==3)
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_HEALTH_PICKUPS); // HP Pickup
+					r_dead.SetPropAny("bNoHealthPacks", true);
 				if(pickups==2 || pickups==3)
-					FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOW_AMMO_PICKUPS); // Ammo Pickup
+					r_dead.SetPropAny("bNoAmmoPacks", true);
 			}
-			ChangeClientTeam(ii,FF2_GetBossTeam());
-			TF2_RespawnPlayer(ii);
 			SummonerIndex[ii]=boss;
 					
 			TF2_RemoveAllWeapons(ii);
@@ -915,11 +917,11 @@ public void BOMB_Invoke(int client, int index)
 			SetPlayerModel(ii, bombombmodel);	
 		}
 			
-		if(health)
+		if(_health)
 		{
-			SetEntProp(ii, Prop_Data, "m_iMaxHealth", health);
-			SetEntProp(ii, Prop_Data, "m_iHealth", health);
-			SetEntProp(ii, Prop_Send, "m_iHealth", health);
+			SetEntProp(ii, Prop_Data, "m_iMaxHealth", _health);
+			SetEntProp(ii, Prop_Data, "m_iHealth", _health);
+			SetEntProp(ii, Prop_Send, "m_iHealth", _health);
 		}
 	}
 }

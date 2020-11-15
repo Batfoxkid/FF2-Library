@@ -26,11 +26,10 @@ arg23: 레이저 투명도(완전 투명: 0 - 완전 잘 보임: 255)
 필독: 사용하려는 사운드는 모두 다운로드와 캐시를 콘픽에서 하셔야 합니다!
 필독: 레이저가 너무 클 경우 보스 본인은 레이저가 안보일 수도 있어요!
 */
-#include <sourcemod>
-#include <tf2>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #include <sdkhooks>
 
 int BeamSprite[MAXPLAYERS+1], HaloSprite[MAXPLAYERS+1], GlowSprite[MAXPLAYERS+1];
@@ -256,12 +255,12 @@ public Action OnBeam(Handle timer, int client)
   return Plugin_Continue;
 }
 
-public Action RemoveEntity(Handle timer, int entity)
+public Action Timer_RemoveEntity(Handle timer, int ref)
 {
-	if(IsValidEntity(entity) && entity>MaxClients)
+	int entity = EntRefToEntIndex(ref);
+	if(IsValidEntity(entity))
 	{
-		AcceptEntityInput(entity, "Kill");
-    RemoveEdict(entity);
+		RemoveEntity(entity);
 	}
 }
 

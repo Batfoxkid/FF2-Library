@@ -1,9 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -168,9 +168,9 @@ public void REBO_Invoke(int client, int index)
 		int bossIndex=FF2_GetBossIndex(revivedboss);
 		if(revivedboss!=-1 && bossIndex!=-1)
 		{
-			FF2_SetFF2flags(revivedboss,FF2_GetFF2flags(revivedboss)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-			ChangeClientTeam(revivedboss,FF2_GetBossTeam());
-			TF2_RespawnPlayer(revivedboss);
+			FF2Player player = FF2Player(revivedboss);
+			player.SetPropAny("bIsMinion", true);
+			player.ForceTeamChange(VSH2Team_Boss);
 			
 			int health;
 			int maxhealth = FF2_GetBossMaxHealth(bossIndex);

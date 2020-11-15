@@ -4,11 +4,11 @@ rage_ams_overlay:	arg0 - slot (def.0)
 				arg2 - duration (def.6)
 */
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <ff2_ams2>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 

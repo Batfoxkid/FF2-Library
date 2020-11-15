@@ -1,8 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -235,9 +235,8 @@ void SpawnRobot()
 	int playerinBossTeam = GetTeamPlayerCount(BossTeam);
 	if(ii != -1 && playerinBossTeam < 6)
 	{
-		FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-		ChangeClientTeam(ii,BossTeam);
-		TF2_RespawnPlayer(ii);
+		FF2Player(ii).SetPropAny("bIsMinion", true);
+		FF2Player(ii).ForceTeamChange(BossTeam);
 		if (TF2_GetPlayerClass(ii) == TFClass_Engineer && playerinBossTeam < 6 && GetEntPropEnt(BossTeleporter,Prop_Send,"m_hBuilder") == ii)
 		{
 			int classrandom;
@@ -356,10 +355,9 @@ void Engie(const char[] ability_name, int index)
 			ii = GetRandomDeadPlayer();
 			if(ii != -1 && engineer < 1)
 			{
-				DestroyBuildings();
-				FF2_SetFF2flags(ii,FF2_GetFF2flags(ii)|FF2FLAG_ALLOWSPAWNINBOSSTEAM);
-				ChangeClientTeam(ii,BossTeam);
-				TF2_RespawnPlayer(ii);
+				DestroyBuildings();		
+				FF2Player(ii).SetPropAny("bIsMinion", true);
+				FF2Player(ii).ForceTeamChange(BossTeam);
 				if (TF2_GetPlayerClass(ii) != TFClass_Engineer) TF2_SetPlayerClass(ii, TFClass_Engineer);
 				SetVariantString(ENGINEER_ROBOT);
 				AcceptEntityInput(ii, "SetCustomModel");

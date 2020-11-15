@@ -1,8 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
 #include <ff2menu_included>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -53,12 +54,14 @@ public void Post_RoundEnd(Event hevent, const char[] name, bool dontBroadcast)
 
 public void Post_RoundStart(Event hevent, const char[] name, bool dontBroadcast)
 {
-	for (int boss; boss <= 12; boss++) 
+	FF2Player player;
+	for (int client = 1; client <= MaxClients; client++) 
 	{
-		int client = GetClientOfUserId(FF2_GetBossUserId(boss));
-		if(!IsValidPlayer(client))
+		if(!IsClientInGame(client))
 			continue;
-		if(FF2_HasAbility(boss, this_plugin_name, this_ability_name))
+		
+		player = FF2Player(client);
+		if(player.bIsBoss && player.HasAbility(this_plugin_name, this_ability_name))
 		{
 			IsActive = true;
 			break;
@@ -148,7 +151,7 @@ void ApplyOnEnter(int client)
 	
 	static char buffer[64];
 	if(FF2_RandomSound("sound_start_rush", buffer, sizeof(buffer), boss))
-		FF2_EmitVoiceToAll(buffer, client);
+		EmitSoundToAll(buffer, client);
 	
 	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "particle_start", buffer, sizeof(buffer));
 	if(strlen(buffer) > 3) {
@@ -176,7 +179,7 @@ void ApplyOnExit(int client)
 	
 	static char buffer[64];
 	if(FF2_RandomSound("sound_end_rush", buffer, sizeof(buffer), boss))
-		FF2_EmitVoiceToAll(buffer, client);
+		EmitSoundToAll(buffer, client);
 	
 	FF2_GetArgNamedS(boss, this_plugin_name, this_ability_name, "particle_end", buffer, sizeof(buffer));
 	if(strlen(buffer) > 3) {

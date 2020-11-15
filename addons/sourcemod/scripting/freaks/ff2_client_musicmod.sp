@@ -1,138 +1,156 @@
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN
 
-#include <sourcemod>
 #include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
-#include <ff2_dynamic_defaults>
 
 #pragma newdecls required
 
-int curBossIdx;
-bool workaroundActive=false;
-bool isMatch=false;
-char curBossSteamID[64];
+#define ABILITY_INFO this_plugin_name, "special_changebgm_onclientmatch"
 
-// workaround for v1.10.8 and older, due to a bug:
-char curBGM[PLATFORM_MAX_PATH];
+//	"steam ids"		"... ; ... ; ..."
+//	"redirect"		"sound_bgm_..."
+
+enum struct Music_Info_t 
+{
+	FF2Player player;
+	char redirect[64];
+}
+
+methodmap MusicList < ArrayList {
+	public MusicList()
+	{
+		return view_as<MusicList>(new ArrayList(ByteCountToCells(sizeof(Music_Info_t))));
+	}
+	
+	public void InsertPlayer(const FF2Player player, const char[] redirect)
+	{
+		Music_Info_t infos;
+		infos.player = player;
+		strcopy(infos.redirect, sizeof(Music_Info_t::redirect), redirect);
+		this.PushArray(infos, sizeof(Music_Info_t));
+	}
+	
+	public void GetMusic(const int index, Music_Info_t infos)
+	{
+		this.GetArray(index, infos, sizeof(Music_Info_t));
+	}
+	
+	public bool FindPlayer(const FF2Player player, Music_Info_t infos)
+	{
+		for(int i; i < this.Length; i++)
+		{
+			this.GetMusic(i, infos);
+			if(player == infos.player)
+				return true;
+		}
+		return false;
+	}
+}
+
+MusicList music_list;
 
 public Plugin myinfo = {
     name = "Freak Fortress 2: Boss Client Music Modifier",
-    author = "Koishi (SHADoW NiNE TR3S)",
+    author = "Koishi (SHADoW NiNE TR3S), Remodified by 01Pollux",
     version = "1.0",
 };
 
-public void OnPluginStart2()
+public void OnLibraryAdded(const char[] name)
 {
-
-    int version[3];
-    FF2_GetFF2Version(version);
-    if(version[0]==1 && (version[1]<10 || (version[1]==10 && version[2]<9)))
-    {
-        HookEvent("arena_win_panel", Event_ArenaWinPanel); // workaround for older versions to fix a bug present in those versions of FF2.
-        workaroundActive=true;
-    }
-    
-    HookEvent("arena_round_start", Event_ArenaRoundStart);
+	if(!strcmp(name, "VSH2")) {
+		VSH2_Hook(OnRoundStart, _OnRoundStart);
+		HookEvent("arena_win_panel", _OnRoundEnd);
+	}
 }
 
-public void FF2_OnAbility2(int boss,const char[] plugin_name,const char[] ability_name,int action)
+public void OnLibraryRemoved(const char[] name)
+{
+	if(!strcmp(name, "VSH2")) {
+		VSH2_Unhook(OnRoundStart, _OnRoundStart);
+		UnhookEvent("arena_win_panel", _OnRoundEnd);
+	}
+}
+
+public void OnPluginStart2()
+{
+	
+}
+
+public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t action) 
 {
     // nothing to see here
 }
 
-public void Event_ArenaRoundStart(Event event, const char[] name, bool dontBroadcast)
+public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const VSH2Player[] red_players, const int red_count)
 {
-    isMatch=false;
-    for(int client=1;client<=MaxClients;client++)
-    {
-        if(client<=0 || client>MaxClients || !IsClientInGame(client))
-            continue;
-        int boss=FF2_GetBossIndex(client);
-        if(boss>=0 && FF2_HasAbility(boss, this_plugin_name, "special_changebgm_onclientmatch"))
-        {
-            char steamID[64], steamIDstring[1024];
-            GetClientAuthId(client, AuthId_Steam2, steamID, sizeof(steamID), true);            
-            FF2_GetAbilityArgumentString(boss, this_plugin_name, "special_changebgm_onclientmatch", 1, steamIDstring, sizeof(steamIDstring));
-            if(steamIDstring[0])
-            {
-                char clientSteamID[64][64];
-                int count = ExplodeString(steamIDstring, " ; ", clientSteamID, sizeof(clientSteamID), sizeof(clientSteamID));
-                if (count > 0)
-                {
-                    for (int i = 0; i < count; i++)
-                    {
-                        if(StrEqual(steamID, clientSteamID[i], false) && !boss)
-                        {
-                            strcopy(curBossSteamID, sizeof(curBossSteamID), clientSteamID[i]);
-                            curBossIdx=boss;
-                            isMatch=true;
-                        }
-                    }
-                }
-            }
-        }
-    }
+	static char steamID[64], wantedIDs[1024];
+	FF2Player player;
+	for(int i; i < boss_count; i++)
+	{
+		player = ToFF2Player(bosses[i]);
+		if(player.HasAbility(ABILITY_INFO))
+		{
+			if(!player.GetArgS(ABILITY_INFO, "steam ids", wantedIDs, sizeof(wantedIDs)))
+				continue;
+			
+			if(!music_list) {
+				music_list = new MusicList();
+			}
+			
+			if(!GetClientAuthId(player.index, AuthId_Steam2, steamID, sizeof(steamID), true))
+				continue;
+			
+			char[][] steamIDPool = new char[16][64];
+			int count = ExplodeString(wantedIDs, " ; ", steamIDPool, 16, 64);
+			for(int j; j < count; j++)
+			{
+				if(!strcmp(steamIDPool[j], steamID))
+				{
+					player.GetArgS(ABILITY_INFO, "redirect", wantedIDs, sizeof(wantedIDs));
+					music_list.InsertPlayer(player, wantedIDs);
+					break;
+				}
+			}
+		}
+	}
 }
 
-public Action FF2_OnMusic(char[] path, float &time)
+public void _OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
-    if(isMatch && !curBossIdx)
-    {
-        Handle bossKV=FF2_GetSpecialKV(curBossIdx, false);
-        
-        if(bossKV==null)
-        {
-            return Plugin_Continue;
-        }
-        
-        KvRewind(bossKV);
-    
-        char bgmCFG[256];
-        Format(bgmCFG, sizeof(bgmCFG), "sound_bgm_%s", curBossSteamID);
-        if(KvJumpToKey(bossKV, bgmCFG))
-        {
-            char music[PLATFORM_MAX_PATH];
-            int index;
-            do
-            {
-                index++;
-                Format(music, 10, "time%i", index);
-            }
-            while(KvGetFloat(bossKV, music)>1);
-
-            index=GetRandomInt(1, index-1);
-            Format(music, 10, "time%i", index);
-            float length=KvGetFloat(bossKV, music);
-            Format(music, 10, "path%i", index);
-            KvGetString(bossKV, music, music, sizeof(music));
-            
-            char temp[PLATFORM_MAX_PATH];
-            Format(temp, sizeof(temp), "sound/%s", music);
-            if(FileExists(temp, true))
-            {
-                time=length;
-                if(workaroundActive)
-                {
-                    strcopy(curBGM, sizeof(curBGM), music);
-                }
-                strcopy(path, PLATFORM_MAX_PATH, music);
-                return Plugin_Changed;
-            }
-        }
-    }  
-    return Plugin_Continue;
+	delete music_list;
 }
 
-// this exists solely to work around the issue where v1.10.8 and older won't stop the BGM properly if changed via FF2_OnMusic. This has been fixed on v1.10.9!
-public void Event_ArenaWinPanel(Event event, const char[] name, bool dontBroadcast)
+public Action FF2_OnMusic(const FF2Player player, char[] upcoming_song, float &time)
 {
-    for(int client=1;client<=MaxClients;client++)
-    {
-        if(client<=0 || client>MaxClients || !IsClientInGame(client))
-            continue;
-        StopSound(client, SNDCHAN_AUTO, curBGM);
-    }
+	if(!music_list)
+		return Plugin_Continue;
+	
+	static Music_Info_t infos;
+	if(!music_list.FindPlayer(player, infos))
+		return Plugin_Continue;
+	
+	StringMap cache = player.SoundCache;
+	ArrayList sound_list;
+	if(cache && cache.GetValue(infos.redirect, sound_list) && sound_list)
+	{
+		int size = sound_list.Length;
+		if(!size)
+			return Plugin_Continue;
+			
+		FF2SoundIdentity id;
+			
+		int pos = GetRandomInt(0, size - 1);
+		sound_list.GetArray(pos, id, sizeof(FF2SoundIdentity));
+			
+		strcopy(upcoming_song, sizeof(FF2SoundIdentity::path), id.path);
+		time = id.time;
+		
+		FPrintToChatAll("Now Playing: {blue}%s{default} - {orange}%s{default}", 
+						!id.name ? "Unknown Song":id.name, 
+						!id.artist ? "Unknown Artist":id.artist);
+		return Plugin_Handled;
+	}
+	return Plugin_Continue;
 }
-

@@ -1,11 +1,7 @@
-#include <sourcemod>
-#include <sdktools>
-#include <sdkhooks>
-#include <tf2>
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
-#include <tf2attributes>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 int clientWeapon[MAXPLAYERS+1];
 

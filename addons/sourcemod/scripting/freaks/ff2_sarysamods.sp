@@ -1,7 +1,8 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <sdkhooks>
-#include <ff2_helper>
+#include <freak_fortress_2>
 #include <ff2_ams2>
-#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -109,6 +110,9 @@
  *--------------------------------------------------------------------------------------------------------------
  */
 
+#define MAXCLIENTS MAXPLAYERS + 1
+#define FAST_REG(%0) this_plugin_name, #%0
+
 enum struct iPlayerInfo {
 	int iAlives;
 	int iBosses;
@@ -165,28 +169,28 @@ public void OnPluginStart2()
 
 public void FF2AMS_PreRoundStart(int client)
 {
-	FF2Prep player = FF2Prep(client);
-	if(player.HasAbility(FAST_REG(rage_delayable_particle_effect)) && player.GetArgI(FAST_REG(rage_delayable_particle_effect), "ams", .def = 1) == 1) {
+	FF2Player player = FF2Player(client);
+	if(player.HasAbility(FAST_REG(rage_delayable_particle_effect)) && player.GetArgI(FAST_REG(rage_delayable_particle_effect), "ams", 1) == 1) {
 		if(!AMS_REG(client)(rage_delayable_particle_effect.PE)) {
 			return;
 		}
 	}
-	if(player.HasAbility(FAST_REG(rage_delayable_building_destruction)) && player.GetArgI(FAST_REG(rage_delayable_building_destruction), "ams", .def = 1) == 1) {
+	if(player.HasAbility(FAST_REG(rage_delayable_building_destruction)) && player.GetArgI(FAST_REG(rage_delayable_building_destruction), "ams") == 1) {
 		if(!AMS_REG(client)(rage_delayable_building_destruction.BD)) {
 			return;
 		}
 	}
-	if(player.HasAbility(FAST_REG(rage_delayable_earthquake)) && player.GetArgI(FAST_REG(rage_delayable_earthquake), "ams", .def = 1) == 1) {
+	if(player.HasAbility(FAST_REG(rage_delayable_earthquake)) && player.GetArgI(FAST_REG(rage_delayable_earthquake), "ams", 1) == 1) {
 		if(!AMS_REG(client)(rage_delayable_earthquake.DE)) {
 			return;
 		}
 	}
-	if(player.HasAbility(FAST_REG(rage_delayable_damage)) && player.GetArgI(FAST_REG(rage_delayable_damage), "ams", .def = 1) == 1) {
+	if(player.HasAbility(FAST_REG(rage_delayable_damage)) && player.GetArgI(FAST_REG(rage_delayable_damage), "ams") == 1) {
 		if(!AMS_REG(client)(rage_delayable_damage.DD)) {
 			return;
 		}
 	}
-	if(player.HasAbility(FAST_REG(rage_airblast_immunity)) && player.GetArgI(FAST_REG(rage_airblast_immunity), "ams", .def = 1) == 1) {
+	if(player.HasAbility(FAST_REG(rage_airblast_immunity)) && player.GetArgI(FAST_REG(rage_airblast_immunity), "ams") == 1) {
 		if(!AMS_REG(client)(rage_airblast_immunity.AI)) {
 			return;
 		}
@@ -195,11 +199,11 @@ public void FF2AMS_PreRoundStart(int client)
 
 public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast)
 {
-	FF2Prep player;
+	FF2Player player;
 	int client;
 	for(int i; ; i++) {
-		player = FF2Prep(i, false);
-		client = player.Index;
+		player = FF2Player(i, false);
+		client = player.index;
 		if(!client) {
 			break;
 		}
@@ -232,10 +236,10 @@ public Action Event_RoundStart(Event event,const char[] name, bool dontBroadcast
 public Action Event_RoundEnd(Event event,const char[] name, bool dontBroadcast)
 {
 	if(PLUGIN_EXISTS) {
-		FF2Prep player;
+		FF2Player player;
 		int client;
 		for(int i; ; i++) {
-			player = FF2Prep(i, false);
+			player = FF2Player(i, false);
 			client = player.Index;
 			if(!client) {
 				break;
@@ -275,7 +279,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 	// I'm allowing this to happen after hale wins. playing rage sounds after winning is a time-honored tradition. :D
 	if (!strcmp(ability_name, "rage_mapwide_sound_sarysamods"))
 	{
-		FF2Prep player = FF2Prep(boss, false);
+		FF2Player player = FF2Player(boss, false);
 		static char soundFile[128];
 		if (!player.GetArgS(FAST_REG(rage_mapwide_sound_sarysamods), "sound", 1, soundFile, sizeof(soundFile)))
 			EmitSoundToAll(soundFile);
@@ -341,7 +345,7 @@ public void AI_ThinkPost(int client)
 
 public void Rage_AirblastImmunity(int bossIdx)
 {
-	FF2Prep player = FF2Prep(bossIdx, false);
+	FF2Player player = FF2Player(bossIdx, false);
 	float duration = player.GetArgF(FAST_REG(rage_airblast_immunity), "duration", 1, 7.5);
 	bool includeUber = player.GetArgI(FAST_REG(rage_airblast_immunity), "include uber", 2, 1) != 0;
 	int client = BossToClient(bossIdx);
@@ -378,7 +382,7 @@ public void DPE_ThinkPost(int client)
 
 void DelayableParticleEffect(int client)
 {
-	FF2Prep player = FF2Prep(client);
+	FF2Player player = FF2Player(client);
 	float duration = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "duration", 2, 2.0);
 	float radiusSquared = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "radius", 3, 1000.0);
 	radiusSquared = radiusSquared * radiusSquared;
@@ -400,7 +404,7 @@ void DelayableParticleEffect(int client)
 
 void Rage_DelayableParticleEffect(int bossIdx)
 {
-	FF2Prep player = FF2Prep(bossIdx, false);
+	FF2Player player = FF2Player(bossIdx, false);
 	float delay = player.GetArgF(FAST_REG(rage_delayable_particle_effect), "delay", 1, 2.5);
 	int client = BossToClient(bossIdx);
 	
@@ -462,7 +466,7 @@ void DestroyBuildingsOfType(const int bits, int clientIdx, bool saveByCarry, flo
 
 void DelayableBuildingDestruction(int client)
 {
-	FF2Prep player = FF2Prep(client);
+	FF2Player player = FF2Player(client);
 	bool sentries = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "sentries", 2, 1) != 0;
 	bool dispensers = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "dispenser", 3, 1) != 0;
 	bool teleporters = player.GetArgI(FAST_REG(rage_delayable_building_destruction), "teleporters", 4, 1) != 0;
@@ -479,7 +483,7 @@ void DelayableBuildingDestruction(int client)
 
 void Rage_DelayableBuildingDestruction(int bossIdx)
 {
-	FF2Prep player = FF2Prep(bossIdx, false);
+	FF2Player player = FF2Player(bossIdx, false);
 	float delay = player.GetArgF(FAST_REG(rage_delayable_damage), "delay", 1, 2.5);
 	int client = BossToClient(bossIdx);
 	
@@ -504,7 +508,7 @@ public void DE_ThinkPost(int client)
 
 void DelayableEarthquake(int client)
 {
-	FF2Prep player = FF2Prep(client);
+	FF2Player player = FF2Player(client);
 		
 	float duration = player.GetArgF(FAST_REG(rage_delayable_earthquake), "duration", 2, 5.0);
 	float raidus = player.GetArgF(FAST_REG(rage_delayable_earthquake), "radius", 3, 1000.0);
@@ -519,7 +523,7 @@ void DelayableEarthquake(int client)
 
 void Rage_DelayableEarthquake(int bossIdx)
 {
-	FF2Prep player = FF2Prep(bossIdx, false);
+	FF2Player player = FF2Player(bossIdx, false);
 	float delay = player.GetArgF(FAST_REG(rage_delayable_earthquake), "delay", 1, 1.5);
 	int client = BossToClient(bossIdx);
 	
@@ -544,7 +548,7 @@ public void DD_ThinkPost(int client)
 
 void DelayableDamage(int client)
 {
-	FF2Prep player = FF2Prep(client);
+	FF2Player player = FF2Player(client);
 	
 	float damage = player.GetArgF(FAST_REG(rage_delayable_damage), "damage", 2, 150.0);
 	float radius = player.GetArgF(FAST_REG(rage_delayable_damage), "radius", 3, 1200.0);
@@ -586,7 +590,7 @@ void DelayableDamage(int client)
 
 void Rage_DelayableDamage(int bossIdx)
 {
-	FF2Prep player = FF2Prep(bossIdx, false);
+	FF2Player player = FF2Player(bossIdx, false);
 	float delay = player.GetArgF(FAST_REG(rage_delayable_damage), "delay", 1, 2.5);
 	int client = BossToClient(bossIdx);
 	
@@ -623,7 +627,7 @@ public void SERG_ThinkPost(int client)
  * Stocks
  */
 #define MAX_SHAKE_AMPLITUDE 16.0
-void FF2UTIL_ScreenShakeAll(FF2Prep player, const float center[3], float amplitude, float frequency, float duration, float radius, ShakeCommand_t eCommand, bool AirShake = true)
+void FF2UTIL_ScreenShakeAll(FF2Player player, const float center[3], float amplitude, float frequency, float duration, float radius, ShakeCommand_t eCommand, bool AirShake = true)
 {
 	static bool usesound = false;
 	char[] soundFile = new char[128];

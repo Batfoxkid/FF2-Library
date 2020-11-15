@@ -4,12 +4,12 @@ rage_overlay:	arg0 - slot (def.0)
 				arg2 - duration (def.6)
 */
 #pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sourcemod>
 #include <tf2items>
 #include <tf2_stocks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 
 #pragma newdecls required
 
@@ -25,10 +25,10 @@ public Plugin myinfo=
 
 public void OnPluginStart2()
 {
-	HookEvent("teamplay_round_start", OnRoundStart);
+	HookEvent("teamplay_round_start", _OnRoundStart);
 }
 
-public Action OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
+public Action _OnRoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	return Plugin_Continue;
 }
@@ -46,7 +46,7 @@ void Rage_Overlay(int boss, const char[] ability_name)
 {
 	char overlay[PLATFORM_MAX_PATH];
 	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
-	FF2_GetArgS(boss, this_plugin_name, ability_name, "path", 1, overlay, sizeof(overlay));
+	FF2_GetAbilityArgumentString(boss, this_plugin_name, ability_name, 1, overlay, sizeof(overlay));
 	Format(overlay, sizeof(overlay), "r_screenoverlay \"%s\"", overlay);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	for(int target=1; target<=MaxClients; target++)
@@ -57,7 +57,7 @@ void Rage_Overlay(int boss, const char[] ability_name)
 		}
 	}
 
-	CreateTimer(FF2_GetArgF(boss, this_plugin_name, ability_name, "duration", 2, 6.0), Timer_Remove_Overlay, TF2_GetClientTeam(client), TIMER_FLAG_NO_MAPCHANGE);
+	CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, ability_name, 2, 6.0), Timer_Remove_Overlay, TF2_GetClientTeam(client), TIMER_FLAG_NO_MAPCHANGE);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
 }
 
