@@ -22,7 +22,7 @@ enum {
 GlobalForward AMSForward[MAXFORWARDS];
 float AMS_HudUpdate[MAXCLIENTS];
 
-#include "ff2_ams_helper.sp"
+#include "include/ff2_ams_helper.sp"
 
 public Plugin myinfo = 
 {
@@ -73,7 +73,7 @@ public void OnLibraryRemoved(const char[] name)
 {
 	if(!strcmp(name, "VSH2")) {
 		VSH2_Unhook(OnRoundStart, _OnRoundStart);
-		UnhookEvent("arena_round_end", _OnRoundEnd, EventHookMode_PostNoCopy);
+		UnhookEvent("arena_win_panel", _OnRoundEnd, EventHookMode_PostNoCopy);
 		VSH2_Unhook(OnBossThink, _OnBossThink);
 		VSH2_Unhook(OnBossMedicCall, _OnBossRage);
 		VSH2_Unhook(OnBossTaunt, _OnBossRage);
