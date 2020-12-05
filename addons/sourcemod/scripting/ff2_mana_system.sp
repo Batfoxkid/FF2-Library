@@ -31,7 +31,7 @@ Handle OnAbilityCast;
 
 public void OnPluginStart()
 {
-	HookEvent("arena_round_start", OnRoundStart, EventHookMode_PostNoCopy);
+	HookEvent("arena_round_start", _OnRoundStart, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", OnRoundEnd, EventHookMode_PostNoCopy);
 	
 	CreateNative("FF2M_SetMana", Native_SetMana); // Set mana pool directly
@@ -60,54 +60,66 @@ public void OnClientDisconnect(int iClient)
 	}
 }
 
-public void OnRoundStart(Event hEvent, const char[] sName, bool bDontBroadcast)
+public void _OnRoundStart(Event hEvent, const char[] sName, bool bDontBroadcast)
 {
-	for(int iIndex; iIndex < MAXPLAYERS; iIndex++)
+	for(int iIndex = 1; iIndex < MaxClients; iIndex++)
 	{
-		int iBoss = GetClientOfUserId(FF2_GetBossUserId(iIndex));
-		KeyValues kv = view_as<KeyValues>(FF2_GetSpecialKV(iIndex));
-		if(kv)
+		if (!IsClientInGame(iIndex))
+			continue;
+		
+		FF2Player player = FF2Player(iIndex);
+		if (player.bIsBoss)
 		{
-			if(kv.GetFloat("mana_max") != 0.0)
+			float res;
+			if(player.GetFloat("mana_max", res) && res)
 			{
-				UseManaThisRound[iBoss] = true;
+				UseManaThisRound[iIndex] = true;
 				
-				ManaPoolMax[iBoss] = kv.GetFloat("mana_max");
-				ManaPerSecond[iBoss] = kv.GetFloat("mana_regen");
+				ManaPoolMax[iIndex] = res;
+				ManaPerSecond[iIndex] = player.GetFloat("mana_regen", res) ? res:0.0;
 				
-				if(ManaPoolMax[iBoss] <= 0.0 || ManaPerSecond[iBoss] <= 0.0)
+				if(ManaPoolMax[iIndex] <= 0.0 || ManaPerSecond[iIndex] <= 0.0)
 				{	// Break if we got invalid numbers
-					UseManaThisRound[iBoss] = false;
-					DebugMessage("Got bogus values for the mana pool: %.2f & %.2f", ManaPoolMax[iBoss], ManaPerSecond[iBoss]);
+					UseManaThisRound[iIndex] = false;
+					DebugMessage("Got bogus values for the mana pool: %.2f & %.2f", ManaPoolMax[iIndex], ManaPerSecond[iIndex]);
 					return;
 				}
 				
-				DebugMessage("Max mana for boss %N is %f, and regenerates at %f per second", iBoss, ManaPoolMax[iBoss], ManaPerSecond[iBoss]);
+				DebugMessage("Max mana for boss %N is %f, and regenerates at %f per second", iIndex, ManaPoolMax[iIndex], ManaPerSecond[iIndex]);
 				
-				ManaNextTick[iBoss] = GetEngineTime() + 0.2;
-				SDKHook(iBoss, SDKHook_PreThink, ManaThink);
+				ManaNextTick[iIndex] = GetEngineTime() + 0.2;
+				SDKHook(iIndex, SDKHook_PreThink, ManaThink);
 				
-				char sAbility[12];
+				char infos[128], keys[2][64];
+				
+				StringMap abilities = player.HookedAbilities;
+				StringMapSnapshot snap = abilities.Snapshot();
+				int counts = snap.Length;
+				
 				for(int iSlot = 1; iSlot <= 9; iSlot++)
 				{
-					for(int i = 1; i <= 16; i++)
+					for(int i = 0; i < counts; i++)
 					{
-						Format(sAbility, sizeof(sAbility), "ability%i", i);
-						if(kv.JumpToKey(sAbility))
-						{
-							if(!kv.GetNum("mana_slot") || kv.GetNum("mana_slot") != iSlot)
-								continue;
-							
-							kv.GetString("name", ManaAbility[iBoss][iSlot], sizeof(ManaAbility[][]));
-							kv.GetString("plugin_name", ManaPlugin[iBoss][iSlot], sizeof(ManaPlugin[][]));
-							ManaCost[iBoss][iSlot] = kv.GetFloat("mana_cost");
-							
-							DebugMessage("Ability name = %s, cost = %f, for slot %i", ManaAbility[iBoss][iSlot], ManaCost[iBoss][iSlot], iSlot);
-							
-							kv.GoBack();
-						}
+						int size = snap.KeyBufferSize(i);
+						char[] sAbility = new char[size];
+						snap.GetKey(i, sAbility, size);
+						abilities.GetString(sAbility, infos, sizeof(infos));
+						
+						ExplodeString(infos, "##", keys, sizeof(keys), sizeof(keys[]));
+						
+						int slot = player.GetArgI(keys[0], keys[1], "mana_slot");
+						if (!slot || slot != iSlot)
+							continue;
+						
+						ManaAbility[iIndex][iSlot] = keys[0];
+						ManaPlugin[iIndex][iSlot] = keys[1];
+						
+						ManaCost[iIndex][iSlot] = player.GetArgF(keys[0], keys[1], "mana_cost");
+						
+						DebugMessage("Ability name = %s, cost = %f, for slot %i", ManaAbility[iIndex][iSlot], ManaCost[iIndex][iSlot], iSlot);
 					}
 				}
+				delete snap;
 			}
 		}
 	}
@@ -126,10 +138,10 @@ public void OnRoundEnd(Event hEvent, const char[] sName, bool bDontBroadcast)
 	}
 }
 
-public FF2_PreAbility(int iIndex, const char[] pluginName, const char[] abilityName, int iSlot, bool &bEnabled)
+public FF2_PreAbility(FF2Player iIndex, const char[] pluginName, const char[] abilityName, FF2CallType_t iSlot, bool &bEnabled)
 {
-	int iBoss = GetClientOfUserId(FF2_GetBossUserId(iIndex));
-	if(UseManaThisRound[iBoss] && (iSlot == 0 || !strncmp(abilityName, "rage_", 5)))
+	int iBoss = iIndex.index;
+	if(UseManaThisRound[iBoss] && (iSlot & CT_RAGE || !strncmp(abilityName, "rage_", 5)))
 	{
 		bEnabled = false;
 		return;
@@ -198,7 +210,7 @@ public Action CastAbility(int iClient, const char[] sCmd, int nArgs)
 			if(iResult > Plugin_Changed)
 				return Plugin_Continue;
 			
-			FF2_DoAbility(iBoss, ManaPlugin[iClient][iSlot], ManaAbility[iClient][iSlot], 0, 0);
+			FF2_DoAbility(iBoss, ManaPlugin[iClient][iSlot], ManaAbility[iClient][iSlot], 0b10);
 			ManaPoolCurrent[iClient] -= (iResult == Plugin_Changed) ? flNewValue : ManaCost[iClient][iSlot];
 			
 			DebugMessage("Using ability '%s' from '%s', taking %.2f mana away", ManaAbility[iClient][iSlot], ManaPlugin[iClient][iSlot], (iResult == Plugin_Changed) ? flNewValue : ManaCost[iClient][iSlot]);
