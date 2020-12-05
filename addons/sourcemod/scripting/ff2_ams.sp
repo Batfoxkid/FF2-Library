@@ -7,7 +7,10 @@
 
 #define ToAMSUser(%0) view_as<AMSUser>(%0)
 #define MAXCLIENTS MAXPLAYERS + 1
+
 #define _AMS_TAG "ams_sys." ... 
+#define TEXT(%0) #%0
+
 Handle hAMSHud;
 
 FF2GameMode ff2_gm;
@@ -273,12 +276,18 @@ void GetRGBA(const int hex, int color[4])
 
 
 
-public int FF2_PushToAMS(int client, Handle hPlugin, const char[] pl_name, const char[] ab_name, const char[] prefix)
+int FF2_PushToAMS(	int client,
+					Handle hPlugin, const char[] pl_name, const char[] ab_name, 
+					Function can_invoke = INVALID_FUNCTION,
+					Function invoke = INVALID_FUNCTION,
+					Function overwrite = INVALID_FUNCTION,
+					Function on_end = INVALID_FUNCTION
+				 )
 {
-	return AMSData[client].hAbilities.Register(FF2Player(client), hPlugin, pl_name, ab_name, prefix);
+	return AMSData[client].hAbilities.Register(FF2Player(client), hPlugin, pl_name, ab_name, can_invoke, invoke, overwrite, on_end);
 }
 
-public any Native_PushToAMSEx(Handle pContext, int Params) 
+public any Native_PushToAMSEx(Handle hCPlugin, int Params) 
 {
 	int client = GetNativeCell(1);
 	if (client <= 0 || client > MaxClients)
@@ -286,15 +295,19 @@ public any Native_PushToAMSEx(Handle pContext, int Params)
 	
 	char plugin[64]; GetNativeString(2, plugin, sizeof(plugin));
 	char ability[64]; GetNativeString(3, ability, sizeof(ability));
-	char prefix[6]; GetNativeString(4, prefix, sizeof(prefix));
 	
-	if (!plugin[0] || !ability[0] || !prefix[0])
-		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s)/prefix(%s) cannot be empty!", plugin, ability, prefix);
+	if (!plugin[0] || !ability[0])
+		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s) cannot be empty!", plugin, ability);
 	
-	return FF2_PushToAMS(client, pContext, plugin, ability, prefix);
+	Function[] fns = new Function[AMSTypes];
+	
+	for (int i; i < view_as<int>(AMSTypes); i++)
+		fns[i] = GetNativeFunction(i + 4);
+	
+	return FF2_PushToAMS(client, hCPlugin, plugin, ability, fns[0], fns[1], fns[2], fns[3]);
 }
 
-public any Native_PushToAMS(Handle pContext, int Params)
+public any Native_PushToAMS(Handle hCPlugin, int Params)
 {
 	int client = GetNativeCell(1);
 	if (client <= 0 || client > MaxClients) 
@@ -307,10 +320,22 @@ public any Native_PushToAMS(Handle pContext, int Params)
 	if (!plugin[0] || !ability[0] || !prefix[0])
 		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s)/prefix(%s) cannot be empty!", plugin, ability, prefix);
 	
-	return FF2_PushToAMS(client, pContext, plugin, ability, prefix) != -1;
+	Function[] fns = new Function[AMSTypes];
+	char types[][] = {
+		"_CanInvoke", "_Invoke", "_Overwrite", "_EndAbility"
+	};
+	
+	char str[48];
+	for(int i; i < view_as<int>(AMSTypes); i++)
+	{
+		Format(str, sizeof(str), "%s%s", prefix, types[i]);
+		fns[i] = GetFunctionByName(hCPlugin, str);
+	}
+	
+	return FF2_PushToAMS(client, hCPlugin, plugin, ability, fns[0], fns[1], fns[2], fns[3]) != -1;
 }
 
-public any Native_GetAMSAbilities(Handle pContext, int Params)
+public any Native_GetAMSAbilities(Handle hCPlugin, int Params)
 {
 	int client = GetNativeCell(1);
 	if (client <= 0 || client > MaxClients) 
@@ -319,7 +344,7 @@ public any Native_GetAMSAbilities(Handle pContext, int Params)
 	return AMSData[client].hAbilities;
 }
 
-public any Native_IsAMSReadyFor(Handle pContext, int Params)
+public any Native_IsAMSReadyFor(Handle hCPlugin, int Params)
 {
 	int client = GetNativeCell(1);
 	if(client <= 0 || client > MaxClients)
@@ -328,7 +353,7 @@ public any Native_IsAMSReadyFor(Handle pContext, int Params)
 	return AMSData[client].hAbilities != null;
 }
 
-public any Native_IsAMSActive(Handle pContext, int Params)
+public any Native_IsAMSActive(Handle hCPlugin, int Params)
 {
 	return FF2GameMode.GetPropAny("bAMSExists");
 }

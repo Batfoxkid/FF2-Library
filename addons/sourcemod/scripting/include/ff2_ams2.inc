@@ -11,6 +11,7 @@
 #define ToAMSUser(%0)		view_as<AMSUser>(%0)
 #define INVALID_AMS_INDEX	-1
 
+typedef AMSCallbackPrototype = function void(int client, StringMap infos)
 
 enum AMSResult {
 	AMS_INVALID = -1,
@@ -85,12 +86,17 @@ forward void FF2AMS_PreRoundStart(int client);
  * @param client	: client index
  * @param plugin	: plugin_name
  * @param ability	: ability_name
- * @param prefix	: prefix name
+ * @param callbacks...
  *
  * @return			: AMS index, -1 on failure
  * @error			: invalid client index, or any empty string
  */
-native int FF2AMS_PushToAMSEx(int client, const char[] plugin, const char[] ability, const char[] prefix);
+native int FF2AMS_PushToAMSEx(	int client, 
+								const char[] plugin, const char[] ability, 
+								AMSCallbackPrototype can_invoke,
+								AMSCallbackPrototype do_invoke,
+								AMSCallbackPrototype do_overwrite,
+								AMSCallbackPrototype do_end);
 
 /**
  *	bool FF2AMS_PushToAMS(int, char[], const char[], const char[]);

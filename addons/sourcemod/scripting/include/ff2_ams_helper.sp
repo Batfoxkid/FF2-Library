@@ -1,4 +1,12 @@
 
+enum AMSType: {
+	TYPE_CanInvoke,
+	TYPE_Invoke,
+	TYPE_Overwrite,
+	TYPE_End,
+	
+	AMSTypes
+};
 
 enum AMSResult 
 {
@@ -16,13 +24,32 @@ enum struct Function_t {
 
 methodmap AMSHash < StringMap
 {
-	public AMSHash(const FF2Player player, Handle plugin, const char[] pl_name, const char[] ab_name, const char[] prefix)
+	public AMSHash(	const FF2Player player, 
+					Handle plugin, const char[] pl_name, const char[] ab_name, 
+					Function can_invoke = INVALID_FUNCTION,
+					Function invoke = INVALID_FUNCTION,
+					Function overwrite = INVALID_FUNCTION,
+					Function on_end = INVALID_FUNCTION 
+				  )
 	{
 		StringMap map = new StringMap();
 		
+		
+		{
+				
+			Function_t fn;
+			fn.fn = can_invoke;
+			map.SetArray("callack"...TEXT(0), fn, sizeof(Function_t));
+			fn.fn = invoke;
+			map.SetArray("callack"...TEXT(1), fn, sizeof(Function_t));
+			fn.fn = overwrite;
+			map.SetArray("callack"...TEXT(2), fn, sizeof(Function_t));
+			fn.fn = on_end;
+			map.SetArray("callack"...TEXT(3), fn, sizeof(Function_t));
+		}
+		
 		map.SetValue("this", plugin);
 		map.SetString("this_plugin", pl_name);
-		map.SetString("prefix", prefix);
 		map.SetString("ability", ab_name);
 		map.SetValue("cooldown", GetGameTime() + 	player.GetArgF(pl_name, ab_name, "initial cd", 0.0));
 		map.SetValue("abilitycd", player.GetArgF(pl_name, ab_name, "ability cd", 10.0));
@@ -39,8 +66,13 @@ methodmap AMSHash < StringMap
 		return view_as<AMSHash>(map);
 	}
 	
-	public bool GetPrefix(char[] prefix, int size) {
-		return this.GetString("prefix", prefix, size);
+	public Function GetFunction(AMSType type)
+	{
+		char key[12];
+		FormatEx(key, sizeof(key), "callback%i", type);
+		
+		Function_t fn;
+		return this.GetArray(key, fn, sizeof(Function_t)) ? fn.fn:INVALID_FUNCTION;
 	}
 	
 	property float flCooldown {
@@ -76,22 +108,6 @@ methodmap AMSHash < StringMap
 			return this.GetValue("this_end", b) ? b:false;
 		}
 	}
-	
-	public bool GetFunction(const char[] key, Function& fn)
-	{
-		Function_t _fn;
-		if(this.GetArray(key, _fn, sizeof(Function_t))) {
-			fn = _fn.fn;
-			return true;
-		}
-		return false;
-	}
-	
-	public void SetFunction(const char[] key, Function& fn)
-	{
-		Function_t _fn; _fn.fn = fn;
-		this.SetArray(key, _fn, sizeof(Function_t));
-	}
 }
 
 methodmap AMSSettings < ArrayList {
@@ -99,9 +115,15 @@ methodmap AMSSettings < ArrayList {
 		return view_as<AMSSettings>(new ArrayList());
 	}
 	
-	public int Register(const FF2Player player, Handle plugin, const char[] pl_name, const char[] ab_name, const char[] prefix)
+	public int Register(const FF2Player player, 
+						Handle plugin, const char[] pl_name, const char[] ab_name, 
+						Function can_invoke = INVALID_FUNCTION,
+						Function invoke = INVALID_FUNCTION,
+						Function overwrite = INVALID_FUNCTION,
+						Function on_end = INVALID_FUNCTION
+						)
 	{
-		return this.Push(new AMSHash(player, plugin, pl_name, ab_name, prefix));
+		return this.Push(new AMSHash(player, plugin, pl_name, ab_name, can_invoke, invoke, overwrite, on_end));
 	}
 }
 
@@ -290,7 +312,7 @@ void Handle_AMSOnEnd(int client, AMSHash data)
 	
 	Handle hPlugin;
 	Function hFunc;
-	if(AMS_GetCallback(data, "%s_EndAbility", hPlugin, hFunc)) {
+	if(AMS_GetCallback(data, TYPE_End, hPlugin, hFunc)) {
 		Call_StartFunction(hPlugin, hFunc);
 		Call_PushCell(client);
 		Call_PushCell(data);
@@ -304,14 +326,14 @@ static AMSResult AMS_CanInvoke(int client, AMSHash data)
 	AMSResult AMSAction = AMS_Accept;
 	Handle hPlugin;
 	Function hFunc;
-	if(AMS_GetCallback(data, "%s_CanInvoke", hPlugin, hFunc)) {
+	if(AMS_GetCallback(data, TYPE_CanInvoke, hPlugin, hFunc)) {
 		Call_StartFunction(hPlugin, hFunc);
 		Call_PushCell(client);
 		Call_PushCell(data);
 		Call_Finish(AMSAction);
 	}
 	if(AMSAction == AMS_Overwrite) {
-		if(AMS_GetCallback(data, "%s_Overwrite", hPlugin, hFunc)) {
+		if(AMS_GetCallback(data, TYPE_Overwrite, hPlugin, hFunc)) {
 			Call_StartFunction(hPlugin, hFunc);
 			Call_PushCell(client);
 			Call_PushCell(data);
@@ -327,7 +349,7 @@ static void AMS_DoInvoke(FF2Player player, AMSHash data)
 {
 	Handle hPlugin;
 	Function hFunc;
-	if(AMS_GetCallback(data, "%s_Invoke", hPlugin, hFunc)) {
+	if(AMS_GetCallback(data, TYPE_Invoke, hPlugin, hFunc)) {
 		int client = player.index;
 		Call_StartFunction(hPlugin, hFunc);
 		Call_PushCell(client);
@@ -343,24 +365,12 @@ static void AMS_DoInvoke(FF2Player player, AMSHash data)
 
 
 
-static bool AMS_GetCallback(AMSHash data, const char[] format, Handle &IPlugin, Function &Func)
+static bool AMS_GetCallback(AMSHash data, AMSType type, Handle &IPlugin, Function &Func)
 {
-	if(!data.GetValue("this", IPlugin) || IPlugin == null)
+	if (!data.GetValue("this", IPlugin) || !IPlugin)
 		return false;
 	
-	static char func[32], prefix[8];
-	FormatEx(func, sizeof(func), format, prefix);
-	
-	if(!data.GetPrefix(prefix, sizeof(prefix)))
-		return false;
-	
-	if(!data.GetFunction(func, Func))
-	{
-		Func = GetFunctionByName(IPlugin, func);
-		data.SetFunction(func, Func);
-	}
-	
-	return Func != INVALID_FUNCTION;
+	return (Func = data.GetFunction(type)) != INVALID_FUNCTION;
 }
 
 static stock void CreateTimedParticle(int client, char[] particle, float duration)
