@@ -57,7 +57,8 @@ public void OnMapStart()
 
 public void OnLibraryAdded(const char[] name)
 {
-	if(!strcmp(name, "VSH2")) {
+	if (!strcmp(name, "VSH2"))
+	{
 		VSH2_Hook(OnRoundStart, 	_OnRoundStart);
 		HookEvent("arena_win_panel", _OnRoundEnd, EventHookMode_PostNoCopy);
 		VSH2_Hook(OnBossThink, 		_OnBossThink);
@@ -74,7 +75,8 @@ public void OnLibraryAdded(const char[] name)
 
 public void OnLibraryRemoved(const char[] name)
 {
-	if(!strcmp(name, "VSH2")) {
+	if (!strcmp(name, "VSH2"))
+	{
 		VSH2_Unhook(OnRoundStart, _OnRoundStart);
 		UnhookEvent("arena_win_panel", _OnRoundEnd, EventHookMode_PostNoCopy);
 		VSH2_Unhook(OnBossThink, _OnBossThink);
@@ -89,7 +91,7 @@ public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const
 	AMSUser player;
 	
 	bool exists;
-	for(int i = 0; i < boss_count; i++) 
+	for (int i = 0; i < boss_count; i++) 
 	{
 		player = ToAMSUser(bosses[i]);
 		if(!FF2GameMode.Validate(view_as<VSH2Player>(player)))
@@ -105,17 +107,16 @@ public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const
 		Call_Finish();
 	}
 	
-	if(exists)
-		FF2GameMode.SetProp("bAMSExists", true);
+	FF2GameMode.SetProp("bAMSExists", exists);
 }
 
 public void _OnRoundEnd(Event hEvent, const char[] nName, bool bBroadcast)
 {
-	if(!FF2GameMode.GetPropAny("bAMSExists"))
+	if (!FF2GameMode.GetPropAny("bAMSExists"))
 		return;
 	
 	AMSUser player;
-	for(int client = MaxClients; client > 0; client--)
+	for (int client = MaxClients; client > 0; client--)
 	{
 		player = AMSUser(client);
 		if(!player.Valid)
@@ -134,11 +135,11 @@ public void _OnRoundEnd(Event hEvent, const char[] nName, bool bBroadcast)
 
 public void _OnBossThink(const VSH2Player vsh2player)
 {
-	if(ff2_gm.RoundState != StateRunning)
+	if (ff2_gm.RoundState != StateRunning)
 		return;
 	
 	AMSUser player = ToAMSUser(vsh2player);
-	if(!player.bHasAMS || !IsPlayerAlive(player.index)) 
+	if (!player.bHasAMS || !IsPlayerAlive(player.index)) 
 		return;
 	
 	Handle_AMSThink(player);
@@ -147,7 +148,7 @@ public void _OnBossThink(const VSH2Player vsh2player)
 public Action _OnBossRage(const VSH2Player vsh2player)
 {
 	AMSUser player = ToAMSUser(vsh2player);
-	if(!player.bHasAMS)
+	if (!player.bHasAMS)
 		return Plugin_Continue;
 		
 	player.bWantsToRage = true;
@@ -157,7 +158,7 @@ public Action _OnBossRage(const VSH2Player vsh2player)
 
 public void OnClientDisconnect(int client)
 {
-	if(ff2_gm.FF2IsOn)
+	if (ff2_gm.FF2IsOn)
 	{
 		AMSUser player = AMSUser(client);
 		if(!player.bHasAMS)
@@ -173,7 +174,7 @@ void Handle_AMSThink(const AMSUser player)
 {
 	int client = player.index;
 	static AMSData_t data; data = AMSData[client];
-	if(!data.hAbilities.Length)
+	if (!data.hAbilities.Length)
 		return;
 	
 	static float flNextPress[MAXCLIENTS];
@@ -181,9 +182,9 @@ void Handle_AMSThink(const AMSUser player)
 	float curTime = GetGameTime();
 	int buttons = GetClientButtons(client);
 	
-	if(flNextPress[client] <= curTime) 
+	if (flNextPress[client] <= curTime) 
 	{
-		if(buttons & data.iForwardKey) 
+		if (buttons & data.iForwardKey) 
 		{
 			SetEntProp(client, Prop_Data, "m_nButtons", buttons ^ data.iForwardKey);
 			AMSData[client].MoveForward();
@@ -191,7 +192,7 @@ void Handle_AMSThink(const AMSUser player)
 			AMS_HudUpdate[client] = curTime;
 			flNextPress[client] = curTime + 0.12;
 		}
-		else if(buttons & data.iReverseKey)
+		else if (buttons & data.iReverseKey)
 		{
 			SetEntProp(client, Prop_Data, "m_nButtons", buttons ^ data.iReverseKey);
 			AMSData[client].MoveBackward();
@@ -203,46 +204,46 @@ void Handle_AMSThink(const AMSUser player)
 	
 	{
 		bool activate = buttons & data.iActivateKey && data.iActivateKey;
-		if(activate || player.bWantsToRage)
+		if (activate || player.bWantsToRage)
 		{
-			AMSHash hash = data.hAbilities.Get(data.Pos);
+			AMSHash __data = data.hAbilities.Get(data.Pos);
 			player.bWantsToRage = false;
 			
-			if(FF2_GetAMSType(player, hash) == AMS_Accept)
+			if (FF2_GetAMSType(player, __data) == AMS_Accept)
 			{
-				Handle_AMSOnAbility(player, hash);
+				Handle_AMSOnAbility(player, __data);
 				
-				player.SetPropFloat("flRAGE", player.GetPropFloat("flRAGE") - hash.flCost);
+				player.SetPropFloat("flRAGE", player.GetPropFloat("flRAGE") - __data.flCost);
 				AMS_HudUpdate[client] = curTime;
 			}
-			else if(hash.bCanEnd) {
-				Handle_AMSOnEnd(client, hash);
-			}
+			else if (__data.bCanEnd) 
+				Handle_AMSOnEnd(client, __data);
 		}
 	}
 	
-	if(curTime >= AMS_HudUpdate[client])
+	if (curTime >= AMS_HudUpdate[client])
 	{
 		AMS_HudUpdate[client] = curTime + 0.2;
-		AMSHash hash = data.hAbilities.Get(data.Pos);
-		bool available = FF2_GetAMSType(player, hash, true) >= AMS_Accept;
+		AMSHash __data = data.hAbilities.Get(data.Pos);
+		bool available = FF2_GetAMSType(player, __data, true) >= AMS_Accept;
 		
 		static char other[48], other2[48];
-		hash.GetString("this_name", other, sizeof(other));
-		hash.GetString("ability desc", other2, sizeof(other2));
+		__data.GetString("this_name", other, sizeof(other));
+		__data.GetString("ability desc", other2, sizeof(other2));
 		
-		static int color[4]; GetRGBA(available ? player.rgba_on : player.rgba_off, color);
+		_Color c;
+		c = available ? data.active_color:data.inactive_color;
 		
 		SetHudTextParams(-1.0, 
 						data.flHudPos, 
 						0.25, 
-						color[0], color[1], color[2], 255);
+						c.r, c.g, c.b, c.a);
 		
 		ShowSyncHudText(client, 
 						hAMSHud, 
-						available ? data.szActive : data.szInactive, 
+						available ? data.active_text : data.inactive_text, 
 						other, 
-						hash.flCost, 
+						__data.flCost, 
 						other2);
 	}
 }
@@ -250,28 +251,16 @@ void Handle_AMSThink(const AMSUser player)
 static AMSResult FF2_GetAMSType(AMSUser player, AMSHash _data, bool hud=false)
 {
 	int client = player.index;
-	if(TF2_IsPlayerInCondition(client, TFCond_Dazed))
+	if (TF2_IsPlayerInCondition(client, TFCond_Dazed))
 		return AMS_Deny;
 	
-	if(_data.flCooldown > GetGameTime())
+	if (_data.flCooldown > GetGameTime())
 		return AMS_Deny;
 	
-	if(player.GetPropFloat("flRAGE") < _data.flCost)
+	if (player.GetPropFloat("flRAGE") < _data.flCost)
 		return AMS_Deny;
 	
 	return hud ? AMS_Accept:Handle_AMSPreAbility(client, _data);
-}
-
-void GetRGBA(const int hex, int color[4])
-{
-	static char fmt[16], c[2];
-	FormatEx(fmt, sizeof(fmt), "%8x", hex);
-	for(int i; i < 4; i++)
-	{
-		c[0] = fmt[i * 2] & 0xFF;
-		c[1] = fmt[i * 2 + 1] & 0xFF;
-		color[i] = StringToInt(c, 16);
-	}
 }
 
 
@@ -326,7 +315,7 @@ public any Native_PushToAMS(Handle hCPlugin, int Params)
 	};
 	
 	char str[48];
-	for(int i; i < view_as<int>(AMSTypes); i++)
+	for (int i; i < view_as<int>(AMSTypes); i++)
 	{
 		Format(str, sizeof(str), "%s%s", prefix, types[i]);
 		fns[i] = GetFunctionByName(hCPlugin, str);
@@ -347,7 +336,7 @@ public any Native_GetAMSAbilities(Handle hCPlugin, int Params)
 public any Native_IsAMSReadyFor(Handle hCPlugin, int Params)
 {
 	int client = GetNativeCell(1);
-	if(client <= 0 || client > MaxClients)
+	if (client <= 0 || client > MaxClients)
 		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index (%i)", client);
 	
 	return AMSData[client].hAbilities != null;
@@ -362,7 +351,7 @@ public any Native_IsAMSActive(Handle hCPlugin, int Params)
 static void ResetPlayer(const int client)
 {
 	AMSSettings settings = AMSData[client].hAbilities;
-	for(int i = settings.Length - 1; i >= 0; i--)
+	for (int i = settings.Length - 1; i >= 0; i--)
 		delete view_as<AMSHash>(settings.Get(i));
 			
 	delete AMSData[client].hAbilities;

@@ -1,4 +1,3 @@
-
 enum AMSType: {
 	TYPE_CanInvoke,
 	TYPE_Invoke,
@@ -17,6 +16,20 @@ enum AMSResult
 	AMS_Overwrite
 };
 
+enum struct _Color {
+	char r;
+	char g;
+	char b;
+	char a;
+	
+	void Init(char r, char g, char b, char a)
+	{
+		this.r = r;
+		this.g = g;
+		this.b = g;
+		this.a = a;
+	}
+}
 
 enum struct Function_t {
 	Function fn;
@@ -129,8 +142,8 @@ methodmap AMSSettings < ArrayList {
 
 
 enum struct AMSData_t {
-	char szActive[128];
-	char szInactive[128];
+	char active_text[128];
+	char inactive_text[128];
 	float flHudPos;
 	
 	int iForwardKey;
@@ -139,6 +152,9 @@ enum struct AMSData_t {
 	
 	int Pos;
 	AMSSettings hAbilities;
+	
+	_Color active_color;
+	_Color inactive_color;
 	
 	void MoveForward()
 	{
@@ -157,24 +173,6 @@ methodmap AMSUser < FF2Player
 {
 	public AMSUser(const int index, bool userid = false) {
 		return view_as<AMSUser>(FF2Player(index, userid));
-	}
-	
-	property int rgba_on {
-		public get() {
-			return this.GetPropInt("rgba_ColorAMS_ON");
-		}
-		public set(const int c) {
-			this.SetPropInt("rgba_ColorAMS_ON", c);
-		}
-	}
-	
-	property int rgba_off {
-		public get() {
-			return this.GetPropInt("rgba_ColorAMS_OFF");
-		}
-		public set(const int c) {
-			this.SetPropInt("rgba_ColorAMS_OFF", c);
-		}
 	}
 	
 	public void GetUserData(AMSData_t data)
@@ -232,24 +230,25 @@ bool CreateAMS(const AMSUser player)
 {
 	int client = player.index;
 	
-	if( !player.GetString(_AMS_TAG "hud.active", AMSData[client].szActive, sizeof(AMSData_t::szActive)) ||
-		!player.GetString(_AMS_TAG "hud.inactive", AMSData[client].szInactive, sizeof(AMSData_t::szInactive)) )
+	if (!player.GetString(_AMS_TAG "hud.active", AMSData[client].active_text, sizeof(AMSData_t::active_text)) ||
+		!player.GetString(_AMS_TAG "hud.inactive", AMSData[client].inactive_text, sizeof(AMSData_t::inactive_text)) )
 		return false;
 	
-	ReplaceString(AMSData[client].szActive, sizeof(AMSData_t::szActive), "\\n", "\n");
-	ReplaceString(AMSData[client].szInactive, sizeof(AMSData_t::szInactive), "\\n", "\n");
+	ReplaceString(AMSData[client].active_text, sizeof(AMSData_t::active_text), "\\n", "\n");
+	ReplaceString(AMSData[client].inactive_text, sizeof(AMSData_t::inactive_text), "\\n", "\n");
 	
 	char buffer[10];
-	int res;
-	if(!player.GetString(_AMS_TAG "hud.cactive", buffer, sizeof(buffer)))
-		res = 0x0000FFFF;
-	else res = StringToInt(buffer, 16);
-	player.rgba_on = res;
+	_Color c;
 	
-	if(!player.GetString(_AMS_TAG "hud.cinactive", buffer, sizeof(buffer)))
-		res = 0xFF0000FF;
-	else res = StringToInt(buffer, 16);
-	player.rgba_off = res;
+	if (!player.GetString(_AMS_TAG "hud.cactive", buffer, sizeof(buffer)))
+		c.Init(0x00, 0x00, 0xFF, 0xFF);
+	else GetRGBA(buffer, c);
+	AMSData[client].active_color = c;
+	
+	if (!player.GetString(_AMS_TAG "hud.cinactive", buffer, sizeof(buffer)))
+		c.Init(0xFF, 0x00, 0x00, 0xFF);
+	else GetRGBA(buffer, c);
+	AMSData[client].inactive_color = c;
 	
 	AMSData[client].iActivateKey = player.GetButton(_AMS_TAG "activation");
 	AMSData[client].iForwardKey = player.GetButton(_AMS_TAG "selection");
@@ -404,4 +403,17 @@ public Action Timer_KillEntity(Handle timer, any EntRef)
 	int entity = EntRefToEntIndex(EntRef);
 	if(IsValidEntity(entity))
 		RemoveEntity(entity);
+}
+
+static void GetRGBA(const char[] str, any color[4])
+{
+    int extra_offset = str[0] == '0' && str[1] == 'x' ? 2:0;
+    char c[4];
+    c[0] = '0'; c[1] = 'x';
+    for (int i; i < 4; i++)
+    {
+        c[2] = str[extra_offset + i * 2] & 0xFF;
+        c[3] = str[extra_offset + i * 2 + 1] & 0xFF;
+        color[i] = StringToInt(c, 16);
+    }
 }
