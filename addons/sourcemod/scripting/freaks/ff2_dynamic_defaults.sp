@@ -4,20 +4,17 @@
 #define JUMP_TELEPORT_MAX_ANGLE -45.0
 #define WEIGHDOWN_MIN_ANGLE 60.0 // first went with 45 but it mistriggered in ways I'd never done.
 
-#pragma semicolon 1
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sourcemod>
-#include <tf2items>
 #include <tf2_stocks>
 #include <sdkhooks>
-#include <sdktools>
-#include <sdktools_functions>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
 #undef REQUIRE_PLUGIN
 #tryinclude <goomba>
 #define REQUIRE_PLUGIN
 
+#pragma semicolon 1
 #pragma newdecls required
 
 /**
@@ -86,6 +83,14 @@ public Plugin myinfo = {
 #define HUD_R_ERROR 255
 #define HUD_G_ERROR 64
 #define HUD_B_ERROR 64
+
+
+void __HideHUD(FF2Player player) {
+	player.SetPropAny("bHideHUD", true);
+}
+
+#define __IsHUDVisible(%0) (%0.GetPropAny("bHideHUD") != 0)
+
 
 /**
  * Everything
@@ -392,6 +397,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 				
 			if (DJ_Multiplier[clientIdx] <= 0)
 				DJ_Multiplier[clientIdx] = 1.0;
+			
+			__HideHUD(ToFF2Player(bossIdx));
 		}
 		
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DT_STRING))
@@ -423,6 +430,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			
 			if (DT_UsesRemaining[clientIdx] <= 0)
 				DT_UsesRemaining[clientIdx] = 999999999;
+			
+			__HideHUD(ToFF2Player(bossIdx));
 		}
 		
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DW_STRING))
@@ -445,6 +454,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			// assume zero gravity is an error.
 			if (DW_DefaultGravity[clientIdx] <= 0.0)
 				DW_DefaultGravity[clientIdx] = 1.0;
+			
+			ToFF2Player(bossIdx).SetPropAny("bNoWeighdown", true);
 		}
 		
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DG_STRING))
@@ -579,6 +590,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			// other internal inits
 			DP_JumpKeyDown[clientIdx] = (GetClientButtons(clientIdx) & IN_JUMP) != 0;
 			DP_IgnoreActivationUntil[clientIdx] = 0.0;
+			
+			__HideHUD(ToFF2Player(bossIdx));
 		}
 
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DEM_STRING))
@@ -946,7 +959,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 	// draw the HUD if it's time
 	if (curTime >= DJ_UpdateHUDAt[clientIdx])
 	{
-		if (!(FF2_GetFF2flags(clientIdx) & FF2FLAG_HUDDISABLED) || DD_BypassHUDRestrictions[clientIdx])
+		if (!__IsHUDVisible(FF2Player(clientIdx)) || DD_BypassHUDRestrictions[clientIdx])
 		{
 			if (DJ_EmergencyReady[clientIdx])
 			{
@@ -1213,7 +1226,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 	// draw the HUD if it's time
 	if (curTime >= DT_UpdateHUDAt[clientIdx] && (buttons & IN_SCORE) == 0)
 	{
-		if (!(FF2_GetFF2flags(clientIdx) & FF2FLAG_HUDDISABLED) || DD_BypassHUDRestrictions[clientIdx])
+		if (!__IsHUDVisible(FF2Player(clientIdx)) || DD_BypassHUDRestrictions[clientIdx])
 		{
 			if (!(DJ_ActiveThisRound && DJ_CanUse[clientIdx] && !DJ_IsDisabled[clientIdx]))
 			{
@@ -2087,7 +2100,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 	// print the HUD message
 	if (curTime >= DP_NextHUDAt[clientIdx])
 	{
-		if (!(FF2_GetFF2flags(clientIdx) & FF2FLAG_HUDDISABLED) || DD_BypassHUDRestrictions[clientIdx])
+		if (!__IsHUDVisible(FF2Player(clientIdx)) || DD_BypassHUDRestrictions[clientIdx])
 		{
 			static char hudMessage[MAX_CENTER_TEXT_LENGTH];
 			bool isError = DP_GetHUDStateString(clientIdx, hudMessage, MAX_CENTER_TEXT_LENGTH);

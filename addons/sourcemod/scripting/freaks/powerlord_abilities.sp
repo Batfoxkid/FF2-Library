@@ -88,7 +88,8 @@ public void OnMapStart()
 	
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
+		if(IsClientInGame(i))
+			SDKHook(i, SDKHook_OnTakeDamagePost, OnTakeDamagePost);
 	}
 	
 }
