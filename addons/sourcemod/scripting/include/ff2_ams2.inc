@@ -92,11 +92,11 @@ forward void FF2AMS_PreRoundStart(int client);
  * @error			: invalid client index, or any empty string
  */
 native int FF2AMS_PushToAMSEx(	int client, 
-								const char[] plugin, const char[] ability, 
-								AMSCallbackPrototype can_invoke = NULL_FUNCTION,
-								AMSCallbackPrototype do_invoke = NULL_FUNCTION,
-								AMSCallbackPrototype do_overwrite = NULL_FUNCTION,
-								AMSCallbackPrototype do_end );
+				const char[] plugin, const char[] ability, 
+				AMSCallbackPrototype can_invoke = NULL_FUNCTION,
+				AMSCallbackPrototype do_invoke = NULL_FUNCTION,
+				AMSCallbackPrototype do_overwrite = NULL_FUNCTION,
+				AMSCallbackPrototype do_end = NULL_FUNCTION);
 
 /**
  *	bool FF2AMS_PushToAMS(int, char[], const char[], const char[]);
