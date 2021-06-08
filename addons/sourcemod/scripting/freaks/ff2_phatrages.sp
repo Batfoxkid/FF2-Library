@@ -1173,7 +1173,7 @@ public void HLF_Invoke(int client, int aidx)
 public Action AfterBurn(Handle timer, DataPack pack)
 {
 	pack.Reset();
-	int client = pack.ReadCell();
+	int client = GetClientFromSerial(pack.ReadCell());
 	int packafterBurnDamage = pack.ReadCell();
 	int packafterBurnDuration = pack.ReadCell();
 	int packDistance = pack.ReadCell();
@@ -1192,7 +1192,14 @@ public Action AfterBurn(Handle timer, DataPack pack)
 		
 		return Plugin_Stop;
 	}
-	SetExplodeAtClient( client, packafterBurnDamage, packDistance, DMG_BURN );
+	if(client)
+		SetExplodeAtClient( client, packafterBurnDamage, packDistance, DMG_BURN );
+	else
+	{
+		gAfterburn = 0;
+		return Plugin_Stop;
+	}
+	
 	gAfterburn++;
 	return Plugin_Continue;	
 }

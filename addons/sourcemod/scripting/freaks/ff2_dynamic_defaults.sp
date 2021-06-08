@@ -85,11 +85,17 @@ public Plugin myinfo = {
 #define HUD_B_ERROR 64
 
 
+void __NoDefaultSuperJump(FF2Player player) {
+	player.SetPropAny("bNoSuperJump", true);
+}
+
 void __HideHUD(FF2Player player) {
 	player.SetPropAny("bHideHUD", true);
 }
 
-#define __IsHUDVisible(%0) (%0.GetPropAny("bHideHUD") != 0)
+bool __IsHUDVisible(FF2Player player) {
+	return player.GetPropAny("bHideHUD") == 0;
+}
 
 
 /**
@@ -186,8 +192,8 @@ bool DG_UseHoldControls[MAX_PLAYERS_ARRAY]; // arg7
  */
 #define DSSG_STRING "dynamic_stunsg"
 #define MAX_SENTRIES 10
-int DSSG_EntRef[MAX_SENTRIES];
-int DSSG_ParticleEntRef[MAX_SENTRIES];
+int DSSG_EntRef[MAX_SENTRIES] = { INVALID_ENT_REFERENCE, ... };
+int DSSG_ParticleEntRef[MAX_SENTRIES] = { INVALID_ENT_REFERENCE, ... };
 float DSSG_UnstunAt[MAX_SENTRIES];
 int DSSG_NormalAmmo[MAX_SENTRIES];
 int DSSG_RocketAmmo[MAX_SENTRIES];
@@ -369,7 +375,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			continue;
 
 		DD_BypassHUDRestrictions[clientIdx] = false;
-
+		
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DJ_STRING))
 		{
 			DJ_ActiveThisRound = true;
@@ -398,6 +404,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			if (DJ_Multiplier[clientIdx] <= 0)
 				DJ_Multiplier[clientIdx] = 1.0;
 			
+			__NoDefaultSuperJump(ToFF2Player(bossIdx));
 			__HideHUD(ToFF2Player(bossIdx));
 		}
 		
@@ -431,6 +438,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			if (DT_UsesRemaining[clientIdx] <= 0)
 				DT_UsesRemaining[clientIdx] = 999999999;
 			
+			__NoDefaultSuperJump(ToFF2Player(bossIdx));
 			__HideHUD(ToFF2Player(bossIdx));
 		}
 		
@@ -486,6 +494,8 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			if (PRINT_DEBUG_INFO)
 				PrintToServer("[ff2_dynamic_defaults] User %d using glide this round. disabled=%d glideVel=%f decayPS=%f cooldown=%f maxDur=%f", clientIdx,
 						DG_IsDisabled[clientIdx], DG_OriginalMaxVelocity[clientIdx], DG_DecayPerSecond[clientIdx], DG_Cooldown[clientIdx], DG_MaxDuration[clientIdx]);
+			
+			__NoDefaultSuperJump(ToFF2Player(bossIdx));
 		}
 		
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DSM_STRING))
@@ -591,6 +601,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DP_JumpKeyDown[clientIdx] = (GetClientButtons(clientIdx) & IN_JUMP) != 0;
 			DP_IgnoreActivationUntil[clientIdx] = 0.0;
 			
+			__NoDefaultSuperJump(ToFF2Player(bossIdx));
 			__HideHUD(ToFF2Player(bossIdx));
 		}
 
@@ -932,7 +943,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 
 				TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
 				static char sound[PLATFORM_MAX_PATH];
-				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
+				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 0b1000 /* CT_UNUSED_DEMO */ : 0b100 /* CT_CHARGE */ ))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, position, NULL_VECTOR, true, 0.0);
@@ -1199,7 +1210,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 				
 				// play the sound
 				static char sound[PLATFORM_MAX_PATH];
-				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
+				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DT_UseReload[clientIdx] ? 0b1000 /* CT_UNUSED_DEMO */ : 0b100 /* CT_CHARGE */))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, bossOrigin, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, bossOrigin, NULL_VECTOR, true, 0.0);

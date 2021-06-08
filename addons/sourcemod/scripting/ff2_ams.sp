@@ -206,30 +206,30 @@ void Handle_AMSThink(const AMSUser player)
 		bool activate = buttons & data.iActivateKey && data.iActivateKey;
 		if (activate || player.bWantsToRage)
 		{
-			AMSHash __data = data.hAbilities.Get(data.Pos);
+			AMSMap map = data.hAbilities.Get(data.Pos);
 			player.bWantsToRage = false;
 			
-			if (FF2_GetAMSType(player, __data) == AMS_Accept)
+			if (FF2_GetAMSType(player, map) == AMS_Accept)
 			{
-				Handle_AMSOnAbility(player, __data);
+				Handle_AMSOnAbility(player, map);
 				
-				player.SetPropFloat("flRAGE", player.GetPropFloat("flRAGE") - __data.flCost);
+				player.SetPropFloat("flRAGE", player.GetPropFloat("flRAGE") - map.flCost);
 				AMS_HudUpdate[client] = curTime;
 			}
-			else if (__data.bCanEnd) 
-				Handle_AMSOnEnd(client, __data);
+			else if (map.bCanEnd) 
+				Handle_AMSOnEnd(client, map);
 		}
 	}
 	
 	if (curTime >= AMS_HudUpdate[client])
 	{
 		AMS_HudUpdate[client] = curTime + 0.2;
-		AMSHash __data = data.hAbilities.Get(data.Pos);
-		bool available = FF2_GetAMSType(player, __data, true) >= AMS_Accept;
+		AMSMap map = data.hAbilities.Get(data.Pos);
+		bool available = FF2_GetAMSType(player, map, true) >= AMS_Accept;
 		
 		static char other[48], other2[48];
-		__data.GetString("this_name", other, sizeof(other));
-		__data.GetString("ability desc", other2, sizeof(other2));
+		map.GetString("this_name", other, sizeof(other));
+		map.GetString("ability desc", other2, sizeof(other2));
 		
 		_Color c;
 		c = available ? data.active_color:data.inactive_color;
@@ -243,24 +243,24 @@ void Handle_AMSThink(const AMSUser player)
 						hAMSHud, 
 						available ? data.active_text : data.inactive_text, 
 						other, 
-						__data.flCost, 
+						map.flCost, 
 						other2);
 	}
 }
 
-static AMSResult FF2_GetAMSType(AMSUser player, AMSHash _data, bool hud=false)
+static AMSResult FF2_GetAMSType(AMSUser player, AMSMap map, bool hud=false)
 {
 	int client = player.index;
 	if (TF2_IsPlayerInCondition(client, TFCond_Dazed))
 		return AMS_Deny;
 	
-	if (_data.flCooldown > GetGameTime())
+	if (map.flCooldown > GetGameTime())
 		return AMS_Deny;
 	
-	if (player.GetPropFloat("flRAGE") < _data.flCost)
+	if (player.GetPropFloat("flRAGE") < map.flCost)
 		return AMS_Deny;
 	
-	return hud ? AMS_Accept:Handle_AMSPreAbility(client, _data);
+	return hud ? AMS_Accept:Handle_AMSPreAbility(client, map);
 }
 
 
@@ -288,8 +288,7 @@ public any Native_PushToAMSEx(Handle hCPlugin, int Params)
 	if (!plugin[0] || !ability[0])
 		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s) cannot be empty!", plugin, ability);
 	
-	Function[] fns = new Function[AMSTypes];
-	
+	Function fns[AMSTypes];
 	for (int i; i < view_as<int>(AMSTypes); i++)
 		fns[i] = GetNativeFunction(i + 4);
 	
@@ -309,12 +308,12 @@ public any Native_PushToAMS(Handle hCPlugin, int Params)
 	if (!plugin[0] || !ability[0] || !prefix[0])
 		return ThrowNativeError(SP_ERROR_NATIVE, "plugin(%s)/ability(%s)/prefix(%s) cannot be empty!", plugin, ability, prefix);
 	
-	Function[] fns = new Function[AMSTypes];
 	char types[][] = {
 		"_CanInvoke", "_Invoke", "_Overwrite", "_EndAbility"
 	};
 	
 	char str[48];
+	Function fns[AMSTypes];
 	for (int i; i < view_as<int>(AMSTypes); i++)
 	{
 		Format(str, sizeof(str), "%s%s", prefix, types[i]);
@@ -352,7 +351,7 @@ static void ResetPlayer(const int client)
 {
 	AMSSettings settings = AMSData[client].hAbilities;
 	for (int i = settings.Length - 1; i >= 0; i--)
-		delete view_as<AMSHash>(settings.Get(i));
+		delete view_as<AMSMap>(settings.Get(i));
 			
 	delete AMSData[client].hAbilities;
 	AMSData[client].Pos = 0;

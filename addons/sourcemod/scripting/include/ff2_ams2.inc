@@ -93,10 +93,10 @@ forward void FF2AMS_PreRoundStart(int client);
  */
 native int FF2AMS_PushToAMSEx(	int client, 
 								const char[] plugin, const char[] ability, 
-								AMSCallbackPrototype can_invoke,
-								AMSCallbackPrototype do_invoke,
-								AMSCallbackPrototype do_overwrite,
-								AMSCallbackPrototype do_end);
+								AMSCallbackPrototype can_invoke = NULL_FUNCTION,
+								AMSCallbackPrototype do_invoke = NULL_FUNCTION,
+								AMSCallbackPrototype do_overwrite = NULL_FUNCTION,
+								AMSCallbackPrototype do_end );
 
 /**
  *	bool FF2AMS_PushToAMS(int, char[], const char[], const char[]);

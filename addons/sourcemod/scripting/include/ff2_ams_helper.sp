@@ -35,9 +35,9 @@ enum struct Function_t {
 	Function fn;
 }
 
-methodmap AMSHash < StringMap
+methodmap AMSMap < StringMap
 {
-	public AMSHash(	const FF2Player player, 
+	public AMSMap(	const FF2Player player, 
 					Handle plugin, const char[] pl_name, const char[] ab_name, 
 					Function can_invoke = INVALID_FUNCTION,
 					Function invoke = INVALID_FUNCTION,
@@ -76,7 +76,7 @@ methodmap AMSHash < StringMap
 		map.SetValue("this_cost", player.GetArgF(pl_name, ab_name, "cost", 25.0));
 		map.SetValue("this_end", player.GetArgI(pl_name, ab_name, "can end", 0));
 		
-		return view_as<AMSHash>(map);
+		return view_as<AMSMap>(map);
 	}
 	
 	public Function GetFunction(AMSType type)
@@ -136,7 +136,7 @@ methodmap AMSSettings < ArrayList {
 						Function on_end = INVALID_FUNCTION
 						)
 	{
-		return this.Push(new AMSHash(player, plugin, pl_name, ab_name, can_invoke, invoke, overwrite, on_end));
+		return this.Push(new AMSMap(player, plugin, pl_name, ab_name, can_invoke, invoke, overwrite, on_end));
 	}
 }
 
@@ -266,7 +266,7 @@ bool CreateAMS(const AMSUser player)
 }
 
 
-AMSResult Handle_AMSPreAbility(int client, AMSHash data)
+AMSResult Handle_AMSPreAbility(int client, AMSMap data)
 {
 	Call_StartForward(AMSForward[hPreAbility]);
 	Call_PushCell(client);
@@ -285,7 +285,7 @@ AMSResult Handle_AMSPreAbility(int client, AMSHash data)
 	return AMS_CanInvoke(client, data);
 }
 
-void Handle_AMSOnAbility(FF2Player player, AMSHash data)
+void Handle_AMSOnAbility(FF2Player player, AMSMap data)
 {
 	int client = player.index;
 	Call_StartForward(AMSForward[hOnAbility]);
@@ -296,7 +296,7 @@ void Handle_AMSOnAbility(FF2Player player, AMSHash data)
 	AMS_DoInvoke(player, data);
 }
 
-void Handle_AMSOnEnd(int client, AMSHash data)
+void Handle_AMSOnEnd(int client, AMSMap data)
 {
 	Call_StartForward(AMSForward[hPreForceEnd]);
 	Call_PushCell(client);
@@ -320,7 +320,7 @@ void Handle_AMSOnEnd(int client, AMSHash data)
 }
 
 
-static AMSResult AMS_CanInvoke(int client, AMSHash data)
+static AMSResult AMS_CanInvoke(int client, AMSMap data)
 {
 	AMSResult AMSAction = AMS_Accept;
 	Handle hPlugin;
@@ -344,7 +344,7 @@ static AMSResult AMS_CanInvoke(int client, AMSHash data)
 	return AMSAction;
 }
 
-static void AMS_DoInvoke(FF2Player player, AMSHash data)
+static void AMS_DoInvoke(FF2Player player, AMSMap data)
 {
 	Handle hPlugin;
 	Function hFunc;
@@ -364,7 +364,7 @@ static void AMS_DoInvoke(FF2Player player, AMSHash data)
 
 
 
-static bool AMS_GetCallback(AMSHash data, AMSType type, Handle &IPlugin, Function &Func)
+static bool AMS_GetCallback(AMSMap data, AMSType type, Handle& IPlugin, Function& Func)
 {
 	if (!data.GetValue("this", IPlugin) || !IPlugin)
 		return false;
