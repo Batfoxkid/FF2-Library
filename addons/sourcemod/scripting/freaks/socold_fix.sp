@@ -21,12 +21,12 @@ public Plugin myinfo = {
 public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_win", event_round_end, EventHookMode_PostNoCopy);
-	
+
 	PrecacheSound(BARON_LIFE);
 }
 
@@ -34,7 +34,7 @@ public void event_round_start(Event event, const char[] name, bool dontBroadcast
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
-	
+
 	g_baron_life = 0;
 	baron_boss = 0;
 }
@@ -56,7 +56,7 @@ void GetBossVars()
 			return;
 		}
 	}
-	
+
 	baron_boss = 0;
 }
 
@@ -79,25 +79,25 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 }
 
 public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
-{		
+{
 	if (!g_baron_life && baron_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == baron_boss && IsPlayerAlive(baron_boss))
-	{		
+	{
 		FF2_StopMusic(0);
-		
+
 		EmitSoundToAll(BARON_LIFE);
-		
+
 		g_baron_life++;
 	}
 	return Plugin_Continue;
 }
 
-public Action FF2_OnMusic(char[] path, float& time)
+public Action FF2_OnMusic(int boss, char[] path, float& time)
 {
 	if (g_baron_life)
 	{
 		return Plugin_Stop;
 	}
-	
+
 	return Plugin_Continue;
 }
 

@@ -1,6 +1,3 @@
-/*
-**
-*/
 #if defined _FF2AMS_Redux
  #endinput
 #endif
@@ -91,12 +88,14 @@ forward void FF2AMS_PreRoundStart(int client);
  * @return			: AMS index, -1 on failure
  * @error			: invalid client index, or any empty string
  */
-native int FF2AMS_PushToAMSEx(	int client, 
+native int FF2AMS_PushToAMSEx(
+				int client, 
 				const char[] plugin, const char[] ability, 
-				AMSCallbackPrototype can_invoke = NULL_FUNCTION,
-				AMSCallbackPrototype do_invoke = NULL_FUNCTION,
-				AMSCallbackPrototype do_overwrite = NULL_FUNCTION,
-				AMSCallbackPrototype do_end = NULL_FUNCTION);
+				AMSCallbackPrototype can_invoke = INVALID_FUNCTION,
+				AMSCallbackPrototype do_invoke = INVALID_FUNCTION,
+				AMSCallbackPrototype do_overwrite = INVALID_FUNCTION,
+				AMSCallbackPrototype do_end = INVALID_FUNCTION
+			);
 
 /**
  *	bool FF2AMS_PushToAMS(int, char[], const char[], const char[]);
@@ -206,7 +205,24 @@ methodmap AMSUser < FF2Player
 	
 	public int Push(const char[] pl_name, const char[] ab_name, const char[] tag)
 	{
-		return FF2AMS_PushToAMSEx(this.index, pl_name, ab_name, tag);
+		char func_str[48];
+		FormatEx(func_str, sizeof(func_str), "%s_CanInvoke");
+		Function can_invoke = GetFunctionByName(null, func_str);
+		FormatEx(func_str, sizeof(func_str), "%s_Invoke");
+		Function do_invoke = GetFunctionByName(null, func_str);
+		FormatEx(func_str, sizeof(func_str), "%s_Overwrite");
+		Function do_overwrite = GetFunctionByName(null, func_str);
+		FormatEx(func_str, sizeof(func_str), "%s_EndAbility");
+		Function on_end = GetFunctionByName(null, func_str);
+		return FF2AMS_PushToAMSEx(
+			this.index,
+			pl_name,
+			ab_name,
+			view_as<AMSCallbackPrototype>(can_invoke),
+			view_as<AMSCallbackPrototype>(do_invoke),
+			view_as<AMSCallbackPrototype>(do_overwrite),
+			view_as<AMSCallbackPrototype>(on_end)
+		);
 	}
 }
 

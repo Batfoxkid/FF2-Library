@@ -30,12 +30,12 @@ public Plugin:myinfo = {
 public OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_win", event_round_end, EventHookMode_PostNoCopy);
-	
+
 	PrecacheSound(SOUND_SCT_LIFE);
 }
 
@@ -43,7 +43,7 @@ public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
-	
+
 	g_sct_life = 0;
 	sct_boss = 0;
 	MadMilk_CanUse = false;
@@ -56,8 +56,8 @@ public TF2_OnConditionAdded(client, TFCond:condition)
 		TF2_RemoveCondition(client, TFCond_Jarated);
 		TF2_RemoveCondition(client, TFCond_Milked);
 		TF2_RemoveCondition(client, TFCond_Gas);
-		
-		TF2_StunPlayer(client, StunDuration, 0.0, TF_STUNFLAGS_NORMALBONK);	
+
+		TF2_StunPlayer(client, StunDuration, 0.0, TF_STUNFLAGS_NORMALBONK);
     }
 }
 
@@ -78,7 +78,7 @@ GetBossVars()
 			return;
 		}
 	}
-	
+
 	sct_boss = 0;
 }
 
@@ -100,26 +100,26 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
-		
+
 	new clientIdx=GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
+
 	if(FF2_HasAbility(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK))
 	{
 		decl String:attributes[256], String:classname[64];
-				
+
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK, 1, classname, sizeof(classname));
 		FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK, 2, attributes, sizeof(attributes));
-				
+
 		TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Secondary);
 
 		new index=FF2_GetAbilityArgument(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK, 3);
 		new weapon=SpawnWeapon(clientIdx, classname, index, 101, 5, attributes, bool:FF2_GetAbilityArgument(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK, 4));
 		FF2_SetAmmo(clientIdx, weapon, 1, 1);
-				
+
 		MadMilk_CanUse = true;
 		Float:StunDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SOMECLEANTRASH_MADMILK, 5);
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -127,7 +127,7 @@ public Action:FF2_OnAbility2(bossIdx, const String:plugin_name[], const String:a
 stock int SpawnWeapon(int client, char[] name, int index, int level, int quality, char[] attribute, int visible = 1, bool preserve = false)
 {
 	if(StrEqual(name,"saxxy", false)) // if "saxxy" is specified as the name, replace with appropiate name
-	{ 
+	{
 		switch(TF2_GetPlayerClass(client))
 		{
 			case TFClass_Scout: ReplaceString(name, 64, "saxxy", "tf_weapon_bat", false);
@@ -141,7 +141,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 			case TFClass_Spy: ReplaceString(name, 64, "saxxy", "tf_weapon_knife", false);
 		}
 	}
-	
+
 	if(StrEqual(name, "tf_weapon_shotgun", false)) // If using tf_weapon_shotgun for Soldier/Pyro/Heavy/Engineer
 	{
 		switch(TF2_GetPlayerClass(client))
@@ -194,13 +194,13 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 
 	int entity = TF2Items_GiveNamedItem(client, weapon);
 	delete weapon;
-	
+
 	if(!visible)
 	{
 		SetEntProp(entity, Prop_Send, "m_iWorldModelIndex", -1);
 		SetEntPropFloat(entity, Prop_Send, "m_flModelScale", 0.001);
 	}
-	
+
 	if (StrContains(name, "tf_wearable")==-1)
 	{
 		EquipPlayerWeapon(client, entity);
@@ -209,7 +209,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 	{
 		Wearable_EquipWearable(client, entity);
 	}
-	
+
 	return entity;
 }
 
@@ -240,25 +240,25 @@ stock void Wearable_EquipWearable(client, wearable)
 #endif
 
 public Action:FF2_OnLoseLife(index)
-{		
+{
 	if (!g_sct_life && sct_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == sct_boss && IsPlayerAlive(sct_boss))
-	{		
+	{
 		FF2_StopMusic(0);
-		
+
 		EmitSoundToAll(SOUND_SCT_LIFE);
-		
+
 		g_sct_life++;
 	}
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnMusic(String:path[], &Float:time)
+public Action:FF2_OnMusic(boss, String:path[], &Float:time)
 {
 	if (g_sct_life)
 	{
 		return Plugin_Stop;
 	}
-	
+
 	return Plugin_Continue;
 }
 

@@ -1,7 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
+
 #include <tf2_stocks>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
+//#include <freak_fortress_2_subplugin>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -10,7 +12,7 @@
  * -----------------------------------------------------------------
  *	//01Pollux : This whole platform need a new rework... like AMS
  *				even tho no one seems to use it besides sarysa
- *				for now i will just update to new syntax 
+ *				for now i will just update to new syntax
  * -----------------------------------------------------------------
  *
  * A platform for drain over time rages. Combines all the common aspects of such rages to
@@ -155,7 +157,7 @@ public void OnPluginStart2()
 	Handle_OnDOTAbilityTick = new GlobalForward("OnDOTAbilityTickInternal", ET_Hook, Param_Cell, Param_Cell);
 	Handle_DOTPostRoundStartInit = new GlobalForward("DOTPostRoundStartInitInternal", ET_Hook);
 	Handle_OnDOTUserDeath = new GlobalForward("OnDOTUserDeathInternal", ET_Hook, Param_Cell, Param_Cell);
-	
+
 	// events to listen to
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
@@ -178,14 +180,14 @@ public Action Event_RoundStart(Handle event,const char[] name, bool dontBroadcas
 		for (int i = 0; i < MAX_CONDITIONS; i++)
 			DOT_ConditionChanges[clientIdx][i] = -1;
 	}
-		
+
 	// initialize these
 	DOT_ActiveThisRound = false;
 	DOT_NextTick = FAR_FUTURE;
-	
+
 	// round is now in progress
 	RoundInProgress = true;
-	
+
 	// post-round start inits
 	CreateTimer(0.3, Timer_PostRoundStartInits, _, TIMER_FLAG_NO_MAPCHANGE);
 }
@@ -205,19 +207,19 @@ public Action Timer_PostRoundStartInits(Handle timer)
 		PrintToServer("[drain_over_time] Timer_PostRoundStartInits() in %s called after round ended. User probably suicided.", this_plugin_name);
 		return Plugin_Stop;
 	}
-		
+
 	int dotUserCount = 0;
-		
+
 	// some things we'll be checking on for later
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++) // make no boss count assumptions, though anything above 3 is very weird
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
-	
+
 		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
-			
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DOT_STRING))
 		{
 			DOT_ActiveThisRound = true; // looks like we'll start the looping timer.
@@ -254,7 +256,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 			DOT_CooldownDurationTicks[clientIdx] = RoundFloat(FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DOT_STRING, 13) * 10.0);
 			DOT_ActivationKey[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DOT_STRING, 14);
 			DOT_AllowWhileStunned[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DOT_STRING, 15) == 1;
-			
+
 			// fix activation key
 			switch(DOT_ActivationKey[clientIdx])
 			{
@@ -262,7 +264,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 				case 1: DOT_ActivationKey[clientIdx] = IN_ATTACK3;
 				case 2: DOT_ActivationKey[clientIdx] = IN_ATTACK2;
 			}
-			
+
 			// warn user of mistake
 			if (DOT_MinRage[clientIdx] < DOT_EnterPenalty[clientIdx])
 				PrintToServer("[drain_over_time] For %d, minimum rage (%f) < rage entry cost (%f), should set minimum higher!", clientIdx, DOT_MinRage[clientIdx], DOT_EnterPenalty[clientIdx]);
@@ -287,7 +289,7 @@ public Action Timer_PostRoundStartInits(Handle timer)
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[drain_over_time] No DOT rage users this round.");
 	}
-	
+
 	return Plugin_Stop;
 }
 
@@ -295,7 +297,7 @@ public Action Event_RoundEnd(Handle event,const char[] name, bool dontBroadcast)
 {
 	// round has ended, this'll kill the looping timer
 	RoundInProgress = false;
-	
+
 	// remove overlays for all bosses
 	for (int clientIdx = 0; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
@@ -331,7 +333,7 @@ void PlaySoundLocal(int clientIdx, const char[] soundPath)
 		return; // prevent spam
 	else if (strlen(soundPath) < 3)
 		return; // nothing to play
-		
+
 	// play a speech sound that travels normally, local from the player.
 	// I can swear that sounds are louder from eye position than origin...
 	float playerPos[3];
@@ -348,7 +350,7 @@ void TransitionEffect(int clientIdx, char[] effectName, float duration)
 		return; // nothing to play
 	if (duration == 0.0)
 		duration = 0.1; // probably doesn't matter for this effect, I just don't feel comfortable passing 0 to a timer
-		
+
 	float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
 	int particle = AttachParticle(clientIdx, effectName, 75.0);
@@ -362,7 +364,7 @@ public void TickDOTs(float curTime)
 {
 	if (curTime >= DOT_NextTick)
 		overlayTickCount++;
-		
+
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		// only bother if client is using the plugin
@@ -376,14 +378,14 @@ public void TickDOTs(float curTime)
 		}
 		else if (curTime < DOT_NextTick)
 			continue;
-		
+
 		if (DOT_IsOnCooldown[clientIdx])
 		{
 			DOT_CooldownTicksRemaining[clientIdx]--;
 			if (DOT_CooldownTicksRemaining[clientIdx] <= 0)
 				DOT_IsOnCooldown[clientIdx] = false;
 		}
-			
+
 		bool dotRageStart = false;
 		bool dotRageStop = false;
 		float ragePenalty = 0.0;
@@ -398,10 +400,10 @@ public void TickDOTs(float curTime)
 			}
 			else if (rage >= DOT_MinRage[clientIdx]) // player enters DOT
 				dotRageStart = true;
-				
+
 			DOT_ReloadPressPending[clientIdx] = false;
 		}
-		
+
 		// drain rage if DOT is active
 		if (DOT_RageActive[clientIdx])
 		{
@@ -413,7 +415,7 @@ public void TickDOTs(float curTime)
 			}
 			FF2_SetBossCharge(bossIdx, 0, rage);
 		}
-		
+
 		// don't start rage if on cooldown
 		if (DOT_IsOnCooldown[clientIdx])
 			dotRageStart = false;
@@ -441,7 +443,7 @@ public void TickDOTs(float curTime)
 
 					TF2_AddCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx]), -1.0);
 				}
-				
+
 				// cooldown
 				if (DOT_CooldownDurationTicks[clientIdx] > 0)
 				{
@@ -471,7 +473,7 @@ public void TickDOTs(float curTime)
 				{
 					if (DOT_ConditionChanges[clientIdx][condIdx] == -1)
 						break;
-					
+
 					if (TF2_IsPlayerInCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx])))
 						TF2_RemoveCondition(clientIdx, view_as<TFCond>(DOT_ConditionChanges[clientIdx][condIdx]));
 				}
@@ -479,12 +481,12 @@ public void TickDOTs(float curTime)
 			DOT_ActivationCancel[clientIdx] = false;
 			DOT_ForceDeactivation[clientIdx] = false;
 		}
-		
+
 		// in some cases, standard rages may force the deactivation of a DOT, but it has no way of knowing if it's
 		// really active. just silently set this to false in such a case.
 		if (!DOT_RageActive[clientIdx] && DOT_ForceDeactivation[clientIdx])
 			DOT_ForceDeactivation[clientIdx] = false;
-		
+
 		// handle any rage penalties, entry or exit
 		if (ragePenalty > 0)
 		{
@@ -493,17 +495,17 @@ public void TickDOTs(float curTime)
 				rage = 0.0;
 			FF2_SetBossCharge(bossIdx, 0, rage);
 		}
-		
+
 		// DOT overlay, some conditions for its appearance and removal
 		if (DOT_RageActive[clientIdx] || (rage >= DOT_MinRage[clientIdx] && !DOT_IsOnCooldown[clientIdx]))
 			DisplayDOTOverlay(clientIdx);
 		else if ((rage < DOT_MinRage[clientIdx] || DOT_IsOnCooldown[clientIdx]) && DOT_OverlayVisible[clientIdx])
 			RemoveDOTOverlay(clientIdx); // this only happens if standard 100% rage is used
 	}
-	
+
 	if (curTime >= DOT_NextTick)
 		DOT_NextTick += DOT_INTERVAL; // get more accuracy with these ticks
-		
+
 }
 
 public void OnGameFrame()
@@ -512,8 +514,8 @@ public void OnGameFrame()
 		TickDOTs(GetGameTime());	//01Pollux: if you are going to return just one value then not use, then perhaps DONT and make it void!
 }
 
-public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, 
-							float vel[3], float angles[3], int& weapon, 
+public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse,
+							float vel[3], float angles[3], int& weapon,
 							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	if (!DOT_ActiveThisRound || !RoundInProgress || !IsLivingPlayer(clientIdx) || !DOT_CanUse[clientIdx])
@@ -536,7 +538,7 @@ public Action OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse,
 		if (DOT_ReloadDown[clientIdx])
 			DOT_ReloadDown[clientIdx] = false;
 	}
-		
+
 	return Plugin_Continue;
 }
 
@@ -568,7 +570,7 @@ void DisplayDOTOverlay(int clientIdx)
 	shouldExecute = shouldExecute && !DOT_NoOverlay[clientIdx];
 	if (!shouldExecute)
 		return;
-	
+
 	int flags = GetCommandFlags("r_screenoverlay");
 	SetCommandFlags("r_screenoverlay", flags & ~FCVAR_CHEAT);
 	if ((overlayTickCount / 5) % 2 == 0)
@@ -587,10 +589,10 @@ void DisplayDOTOverlay(int clientIdx)
 		else if (DOT_ActivationKey[clientIdx] == IN_ATTACK3)
 			ClientCommand(clientIdx, "r_screenoverlay freak_fortress_2/dots/attack3_overlay2");
 		else
-			ClientCommand(clientIdx, "r_screenoverlay freak_fortress_2/dots/alt_fire_overlay2");	
+			ClientCommand(clientIdx, "r_screenoverlay freak_fortress_2/dots/alt_fire_overlay2");
 	}
 	SetCommandFlags("r_screenoverlay", flags);
-	
+
 	DOT_OverlayVisible[clientIdx] = true;
 }
 
@@ -598,12 +600,12 @@ void RemoveDOTOverlay(int clientIdx)
 {
 	if (!IsClientInGame(clientIdx) || DOT_NoOverlay[clientIdx])
 		return;
-	
+
 	int flags = GetCommandFlags("r_screenoverlay");
 	SetCommandFlags("r_screenoverlay", flags & ~FCVAR_CHEAT);
 	ClientCommand(clientIdx, "r_screenoverlay \"\"");
 	SetCommandFlags("r_screenoverlay", flags);
-	
+
 	DOT_OverlayVisible[clientIdx] = false;
 }
 
@@ -614,7 +616,7 @@ stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
-		
+
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 

@@ -1,8 +1,9 @@
+#define FF2_USING_AUTO_PLUGIN__OLD
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
 #include <freak_fortress_2>
-#include <freak_fortress_2_subplugin>
+//#include <freak_fortress_2_subplugin>
 
 new bool:g_Enabled = false;
 new Float:g_ProjectileScale = 1.0;
@@ -26,7 +27,7 @@ public OnEntityCreated(entity, const String:classname[])
 {
 	if (g_Enabled)
 	{
-		if (strcmp(classname, g_Projectile) == 0) 
+		if (strcmp(classname, g_Projectile) == 0)
 		{
 			SDKHook(entity, SDKHook_SpawnPost, ProjectileSpawned);
 		}
@@ -59,7 +60,7 @@ public Action:Timer_ProjectileModel(Handle:timer, any:ref)
 			SetEntPropVector(entity, Prop_Send, "m_vecMins", nullVec);
 			SetEntPropVector(entity, Prop_Send, "m_vecMaxs", nullVec);
 	}
-} 
+}
 
 public Action:Event_RoundStart(Handle:event, const String:name[], bool:dontBroadcast)
 {

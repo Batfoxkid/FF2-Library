@@ -24,12 +24,12 @@ public Plugin:myinfo = {
 public OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_win", event_round_end, EventHookMode_PostNoCopy);
-	
+
 	PrecacheSound(SOUND_THEME_LIFE);
 }
 
@@ -37,7 +37,7 @@ public event_round_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
-	
+
 	g_theme_life = 0;
 	theme_boss = 0;
 }
@@ -59,7 +59,7 @@ GetBossVars()
 			return;
 		}
 	}
-	
+
 	theme_boss = 0;
 }
 
@@ -82,25 +82,25 @@ public Action:FF2_OnAbility2(boss, const String:plugin_name[], const String:abil
 }
 
 public Action:FF2_OnLoseLife(index)
-{		
+{
 	if (!g_theme_life && theme_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == theme_boss && IsPlayerAlive(theme_boss))
-	{		
+	{
 		FF2_StopMusic(0);
-		
+
 		EmitSoundToAll(SOUND_THEME_LIFE);
-		
+
 		g_theme_life++;
 	}
 	return Plugin_Continue;
 }
 
-public Action:FF2_OnMusic(String:path[], &Float:time)
+public Action:FF2_OnMusic(boss, String:path[], &Float:time)
 {
 	if (g_theme_life)
 	{
 		return Plugin_Stop;
 	}
-	
+
 	return Plugin_Continue;
 }
 

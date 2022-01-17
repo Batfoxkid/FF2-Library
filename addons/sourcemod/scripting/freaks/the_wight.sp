@@ -25,14 +25,14 @@ public Plugin myinfo = {
 public void OnPluginStart2()
 {
 	HookEvent("teamplay_round_start", event_round_start, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_active", event_round_active, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", event_round_active, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("teamplay_round_win", event_round_end, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("player_death", event_player_death, EventHookMode_PostNoCopy);
-	
+
 	PrecacheSound(SOUND_WIGHT);
 	PrecacheModel(MODEL_WIGHT);
 }
@@ -41,7 +41,7 @@ public void event_round_start(Event event, const char[] name, bool dontBroadcast
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return;
-	
+
 	wight_life = 0;
 	wight_boss = 0;
 }
@@ -63,7 +63,7 @@ void GetBossVars()
 			return;
 		}
 	}
-	
+
 	wight_boss = 0;
 }
 
@@ -81,32 +81,32 @@ public void event_round_end(Event event, const char[] name, bool dontBroadcast)
 }
 
 public Action FF2_OnLoseLife(int index, int& lives, int maxLives)
-{		
+{
 	if (!wight_life && wight_boss && GetClientOfUserId(FF2_GetBossUserId(index)) == wight_boss && IsPlayerAlive(wight_boss))
 	{
 		char wight_model[PLATFORM_MAX_PATH];
 		FF2_GetAbilityArgumentString(index, this_plugin_name, WIGHT, 2, wight_model, sizeof(wight_model));
-		
+
 		SetVariantString(wight_model);
 		AcceptEntityInput(wight_boss, "SetCustomModel");
 		SetEntProp(wight_boss, Prop_Send, "m_bUseClassAnimations", 1);
-		
+
 		FF2_StopMusic(0);
-		
+
 		EmitSoundToAll(SOUND_WIGHT);
-		
+
 		wight_life++;
 	}
 	return Plugin_Continue;
 }
 
-public Action FF2_OnMusic(char[] path, float& time)
+public Action FF2_OnMusic(int boss, char[] path, float& time)
 {
 	if (wight_life)
 	{
 		return Plugin_Stop;
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -114,12 +114,12 @@ public Action FF2_OnAbility2(int clientIdx, const char[] plugin_name, const char
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
-	
+
 	int bossIdx=GetClientOfUserId(FF2_GetBossUserId(clientIdx));
 	float bossPosition[3], targetPosition[3];
 	float distance=FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, WIGHT, 1, FF2_GetRageDist(bossIdx, this_plugin_name, WIGHT));
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPosition);
-	
+
 	for(int target=1; target<=MaxClients; target++)
 	{
 		if(IsClientInGame(target) && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
@@ -131,7 +131,7 @@ public Action FF2_OnAbility2(int clientIdx, const char[] plugin_name, const char
 			}
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -146,28 +146,28 @@ public void event_player_death(Event hEvent, const char[] name, bool dontBroadca
 			if (prop != -1)
 			{
 				RemoveRagdoll(client);
-				
+
 				static float pos[3], ang[3];
-				
+
 				GetClientAbsOrigin(client, pos);
 				GetClientAbsAngles(client, ang);
-				
+
 				DispatchKeyValueVector(prop, "origin", pos);
 				DispatchKeyValueVector(prop, "angles", ang);
 				DispatchKeyValue(prop, "model", MODEL_WIGHT);
 				DispatchKeyValue(prop, "disableshadows", "1");
-				
+
 				SetEntProp(prop, Prop_Send, "m_CollisionGroup", 1);
 				SetEntProp(prop, Prop_Send, "m_usSolidFlags", 16);
-				
+
 				DispatchSpawn(prop);
-				
+
 				ActivateEntity(prop);
 				AcceptEntityInput(prop, "EnableMotion");
-				
+
 				SetEntPropFloat(prop, Prop_Send, "m_flModelScale", WIGHT_SCALE);
 			}
-			
+
 			wight_boss = 0;
 		}
 	}
