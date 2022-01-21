@@ -8,7 +8,7 @@
 #define ToAMSUser(%0)		view_as<AMSUser>(%0)
 #define INVALID_AMS_INDEX	-1
 
-typedef AMSCallbackPrototype = function void(int client, StringMap infos)
+typedef AMSCallbackPrototype = function void(int client, StringMap infos);
 
 enum AMSResult {
 	AMS_INVALID = -1,
@@ -223,6 +223,74 @@ methodmap AMSUser < FF2Player
 			view_as<AMSCallbackPrototype>(do_overwrite),
 			view_as<AMSCallbackPrototype>(on_end)
 		);
+	}
+}
+
+#warning Boss is using deprecated function from AMS 'AMS_IsSubabilityReady'.
+stock bool AMS_IsSubabilityReady(int boss_index, const char[] plugin_name, const char[] ability_name)
+{
+	int index = FF2_GetBossUserId(boss_index);
+	return index == -1 ? false : AMSUser(index).HasAMS;
+}
+
+#warning Boss is using deprecated function from AMS 'AMS_InitSubability'.
+stock bool AMS_InitSubability(int boss_index, int client_index, const char[] plugin_name, const char[] ability_name, const char[] prefix)
+{
+	if (!AMS_IsSubabilityReady(boss_index, "", ""))
+		return false;
+	return FF2AMS_PushToAMS(boss_index, plugin_name, ability_name, prefix);
+}
+
+
+static stock Handle AMS_FindPlugin(char[] plugin_name)
+{
+	char pl_name_iter[PLATFORM_MAX_PATH];
+	Handle final_pl;
+	Handle iter = GetPluginIterator();
+
+	while (MorePlugins(iter))
+	{
+		Handle pl = ReadPlugin(iter);
+		GetPluginFilename(pl, pl_name_iter, sizeof(pl_name_iter));
+		if (StrContains(pl_name_iter, plugin_name, false) >= 0)
+		{
+			final_pl = pl;
+			break;
+		}
+	}
+	delete iter;
+	return final_pl;
+}
+
+/**
+ *	Check if plugin exists
+ *	
+ *	@param pluginName		Plugin Name
+ *	@return					True if plugin exists, false otherwise.
+ **/
+stock bool PluginExists(char[] plugin_name)
+{
+	return AMS_FindPlugin(plugin_name);
+}
+
+/**
+ *	Check if function exists
+ *
+ *	@param pluginName		Plugin Name
+ *	@param functionName		Function name of public analogue
+ *	@return					True if function exists, false otherwise.
+ **/
+#warning Boss is using deprecated function from AMS 'FunctionExists'.
+stock bool FunctionExists(char[] plugin_name, char[] func_name)
+{
+	if (!strcmp(plugin_name, "ff2_sarysapub3.ff2") && !strcmp(func_name, "AMS_InitSubability"))
+	{
+		return FF2AMS_IsAMSActive();
+	}
+	else
+	{
+		Handle plugin = AMS_FindPlugin(plugin_name);
+		return plugin ? GetFunctionByName(plugin, func_name) != INVALID_FUNCTION : false;
 	}
 }
 
