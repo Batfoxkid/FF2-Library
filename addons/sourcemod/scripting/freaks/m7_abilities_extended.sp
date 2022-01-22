@@ -220,19 +220,15 @@ public void FF2AMS_PreRoundStart(int client)
 	}
 	if(FF2_HasAbility(boss, this_plugin_name, AMSSTUN))
 	{
-		Fire_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, AMSSTUN, AMSSTUNALIAS);
+		AMS_InitSubability(boss, client, this_plugin_name, AMSSTUN, AMSSTUNALIAS); // Important function to tell AMS that this subplugin supports it
 	}
 	if(FF2_HasAbility(boss, this_plugin_name, REVIVE_BOSSES))
 	{
-		Fire_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, REVIVE_BOSSES, "REVI");
+		ReviveBosses_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, REVIVE_BOSSES, "REVI");
 	}
 	if(FF2_HasAbility(boss, this_plugin_name, HEAL_BOSSES))
 	{
-		Fire_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, HEAL_BOSSES, "HEAL");
-	}
-	if(FF2_HasAbility(boss, this_plugin_name, FIRE))
-	{
-		Fire_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, FIRE, FIREALIAS);
+		HealBosses_TriggerAMS[client]=FF2AMS_IsAMSActivatedFor(client) && FF2AMS_PushToAMS(client, this_plugin_name, HEAL_BOSSES, "HEAL");
 	}
 }
 
