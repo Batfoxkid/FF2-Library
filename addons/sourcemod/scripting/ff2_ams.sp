@@ -25,7 +25,7 @@ enum {
 GlobalForward AMSForward[MAXFORWARDS];
 float AMS_HudUpdate[MAXCLIENTS];
 
-#include "include/ff2_ams_helper.sp"
+#include "ff2_ams_helper.sp"
 
 public Plugin myinfo = 
 {
@@ -98,6 +98,8 @@ public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const
 			continue;
 
 		int client = player.index;
+		player.bWantsToRage = false;
+
 		if (!CreateAMS(client, player) && !CreateAMS_Old(client, player))
 			continue;
 
@@ -120,12 +122,12 @@ public void _OnRoundEnd(Event hEvent, const char[] nName, bool bBroadcast)
 	for (int client = MaxClients; client > 0; client--)
 	{
 		player = AMSUser(client);
-		if(!player.Valid)
+		if (!player.Valid)
 			continue;
 
-		if(player.bHasAMS)
+		if (player.bHasAMS)
 		{
-			player.bHasAMS = false;
+			player.bHasAMS = player.bWantsToRage = false;
 			player.SetPropAny("bSupressRAGE", false);
 			ResetPlayer(client);
 		}
@@ -156,16 +158,29 @@ public Action _OnBossRage(const VSH2Player vsh2player)
 	return Plugin_Stop;
 }
 
+static void NextFrame_InitAMSPlayer(int client)
+{
+	if (ff2_gm.FF2IsOn)
+	{
+		AMSUser player = AMSUser(client);
+		player.bHasAMS = player.bWantsToRage = false;
+	}
+}
+
+public void OnClientPutInServer(int client)
+{
+	RequestFrame(NextFrame_InitAMSPlayer, client);
+}
 
 public void OnClientDisconnect(int client)
 {
 	if (ff2_gm.FF2IsOn)
 	{
 		AMSUser player = AMSUser(client);
-		if(!player.bHasAMS)
+		if (!player.bHasAMS)
 			return;
 
-		player.bHasAMS = false;
+		player.bHasAMS = player.bWantsToRage = false;
 		ResetPlayer(client);
 	}
 }
@@ -209,7 +224,8 @@ void Handle_AMSThink(const AMSUser player)
 			AMSMap map = AMSData[client].hAbilities.Get(AMSData[client].Pos);
 			player.bWantsToRage = false;
 
-			if (FF2_GetAMSType(player, map) == AMS_Accept)
+			AMSResult res = FF2_GetAMSType(player, map);
+			if (res == AMS_Accept)
 			{
 				Handle_AMSOnAbility(player, map);
 
@@ -251,9 +267,6 @@ void Handle_AMSThink(const AMSUser player)
 static AMSResult FF2_GetAMSType(AMSUser player, AMSMap map, bool hud=false)
 {
 	int client = player.index;
-	if (TF2_IsPlayerInCondition(client, TFCond_Dazed))
-		return AMS_Deny;
-
 	if (map.flCooldown > GetGameTime())
 		return AMS_Deny;
 
