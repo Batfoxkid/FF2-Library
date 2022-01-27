@@ -28,9 +28,9 @@
  * Concept of improved teleport by Friagram, though no code was referenced.
  * Improvements by sarysa
  */
- 
+
 #define ARG_LENGTH 256
- 
+
 bool PRINT_DEBUG_INFO = true;
 bool PRINT_DEBUG_SPAM = false;
 
@@ -327,6 +327,8 @@ bool DST_CanUse[MAX_PLAYERS_ARRAY];
 bool DST_ActivateNextTick[MAX_PLAYERS_ARRAY]; // internal
 bool DST_DoNotStopMotion[MAX_PLAYERS_ARRAY]; // arg1
 
+
+
 /**
  * METHODS REQUIRED BY ff2 subplugin
  */
@@ -336,12 +338,15 @@ public void OnPluginStart2()
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	DD_HUDHandle = CreateHudSynchronizer();
+	if( FF2GameMode().RoundState == StateRunning ) {
+		Event_RoundStart(null, "arena_round_start", false);
+	}
 }
 
 public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = true;
-	
+
 	// initialize variables
 	DJ_ActiveThisRound = false;
 	DT_ActiveThisRound = false;
@@ -352,7 +357,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 	DP_ActiveThisRound = false;
 	DEM_ActiveThisRound = false;
 	DPT_ActiveThisRound = false;
-	
+
 	// initialize arrays
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
@@ -375,14 +380,14 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			continue;
 
 		DD_BypassHUDRestrictions[clientIdx] = false;
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DJ_STRING))
 		{
 			DJ_ActiveThisRound = true;
 			DJ_CanUse[clientIdx] = true;
 			DJ_CrouchOrAltFireDownSince[clientIdx] = FAR_FUTURE;
 			DJ_EmergencyReady[clientIdx] = false;
-			
+
 			DJ_ChargeTime[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DJ_STRING, 1);
 			DJ_Cooldown[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DJ_STRING, 2);
 			DJ_IsDisabled[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DJ_STRING, 3) == 1;
@@ -393,21 +398,21 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DJ_Multiplier[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DJ_STRING, 8);
 			DJ_UseReload[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DJ_STRING, 9) == 1;
 			DJ_DontAffectWeighdown[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DJ_STRING, 10) == 1;
-			
+
 			ReadCenterText(bossIdx, DJ_STRING, 17, DJ_EmergencyJumpString);
 			ReadCenterText(bossIdx, DJ_STRING, 18, DJ_JumpCooldownString);
 			ReadCenterText(bossIdx, DJ_STRING, 19, DJ_JumpReadyString);
-			
+
 			if (DJ_UsesRemaining[clientIdx] <= 0)
 				DJ_UsesRemaining[clientIdx] = 999999999;
-				
+
 			if (DJ_Multiplier[clientIdx] <= 0)
 				DJ_Multiplier[clientIdx] = 1.0;
-			
-			__NoDefaultSuperJump(ToFF2Player(bossIdx));
-			__HideHUD(ToFF2Player(bossIdx));
+
+			__NoDefaultSuperJump(FF2Player(bossIdx));
+			__HideHUD(FF2Player(bossIdx));
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DT_STRING))
 		{
 			DT_ActiveThisRound = true;
@@ -416,7 +421,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DT_EmergencyReady[clientIdx] = false;
 			DT_BlockAttacksUntil[clientIdx] = FAR_FUTURE;
 			DT_GoombaBlockedUntil[clientIdx] = 0.0;
-			
+
 			DT_ChargeTime[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DT_STRING, 1);
 			DT_Cooldown[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DT_STRING, 2);
 			DT_IsDisabled[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DT_STRING, 4) == 1;
@@ -429,48 +434,48 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DT_UseReload[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DT_STRING, 11) == 1;
 			DT_SameTeam[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DT_STRING, 12) == 1;
 			DT_IsReverseTeleport[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DT_STRING, 13) == 1;
-			
+
 			ReadCenterText(bossIdx, DT_STRING, 16, DT_NoMinionString);
 			ReadCenterText(bossIdx, DT_STRING, 17, DT_EmergencyTeleportString);
 			ReadCenterText(bossIdx, DT_STRING, 18, DT_TeleportCooldownString);
 			ReadCenterText(bossIdx, DT_STRING, 19, DT_TeleportReadyString);
-			
+
 			if (DT_UsesRemaining[clientIdx] <= 0)
 				DT_UsesRemaining[clientIdx] = 999999999;
-			
-			__NoDefaultSuperJump(ToFF2Player(bossIdx));
-			__HideHUD(ToFF2Player(bossIdx));
+
+			__NoDefaultSuperJump(FF2Player(bossIdx));
+			__HideHUD(FF2Player(bossIdx));
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DW_STRING))
 		{
 			DW_ActiveThisRound = true;
 			DW_CanUse[clientIdx] = true;
 			DW_RestoreGravityAt[clientIdx] = FAR_FUTURE;
-			
+
 			DW_IsDisabled[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DW_STRING, 1) == 1;
 			DW_UsesRemaining[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DW_STRING, 2);
 			DW_DefaultGravity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DW_STRING, 3);
-			
+
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DW_STRING, 19, DW_UsageString, MAX_CENTER_TEXT_LENGTH);
-			
+
 			ReplaceString(DW_UsageString, MAX_CENTER_TEXT_LENGTH, "\\n", "\n");
 
 			if (DW_UsesRemaining[clientIdx] <= 0)
 				DW_UsesRemaining[clientIdx] = 999999999;
-			
+
 			// assume zero gravity is an error.
 			if (DW_DefaultGravity[clientIdx] <= 0.0)
 				DW_DefaultGravity[clientIdx] = 1.0;
-			
-			ToFF2Player(bossIdx).SetPropAny("bNoWeighdown", true);
+
+			FF2Player(bossIdx).SetPropAny("bNoWeighdown", true);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DG_STRING))
 		{
 			DG_ActiveThisRound = true;
 			DG_CanUse[clientIdx] = true;
-			
+
 			DG_IsDisabled[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DG_STRING, 1) == 1;
 			DG_OriginalMaxVelocity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DG_STRING, 2);
 			DG_DecayPerSecond[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DG_STRING, 3);
@@ -478,7 +483,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DG_MaxDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DG_STRING, 5);
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DG_STRING, 6, DG_UseSound, MAX_SOUND_FILE_LENGTH);
 			DG_UseHoldControls[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DG_STRING, 7) == 1;
-			
+
 			// internal inits
 			DG_IsUsing[clientIdx] = false;
 			DG_SingleUseStartTime[clientIdx] = 0.0;
@@ -486,25 +491,25 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DG_SpaceBarWasDown[clientIdx] = false;
 			if (DG_MaxDuration[clientIdx] <= 0.0) // usable as long as the user wants
 				DG_MaxDuration[clientIdx] = 999999.0;
-			
+
 			// precache
 			if (strlen(DG_UseSound) > 3)
 				PrecacheSound(DG_UseSound);
-				
+
 			if (PRINT_DEBUG_INFO)
 				PrintToServer("[ff2_dynamic_defaults] User %d using glide this round. disabled=%d glideVel=%f decayPS=%f cooldown=%f maxDur=%f", clientIdx,
 						DG_IsDisabled[clientIdx], DG_OriginalMaxVelocity[clientIdx], DG_DecayPerSecond[clientIdx], DG_Cooldown[clientIdx], DG_MaxDuration[clientIdx]);
-			
-			__NoDefaultSuperJump(ToFF2Player(bossIdx));
+
+			__NoDefaultSuperJump(FF2Player(bossIdx));
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DSM_STRING))
 		{
 			DSM_ActiveThisRound = true;
 			DSM_CanUse[clientIdx] = true;
 			DSM_OverrideSpeed[clientIdx] = -1.0;
 			DSM_OverrideUseModifiers[clientIdx] = true;
-			
+
 			DSM_LowSpeed[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DSM_STRING, 1);
 			DSM_HighSpeed[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DSM_STRING, 2);
 			DSM_UseBFB[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DSM_STRING, 3, 1) == 1;
@@ -527,7 +532,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			// these were in development, but now it seems slowed is too complex to mess with
 			//DSM_UseSlowed[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DSM_STRING, 11, 1) == 1;
 			//DSM_SlowedModifier[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DSM_STRING, 12);
-			
+
 			// fill these in now
 			DSM_ValidateModifier(DSM_BFBModifier[clientIdx], DSM_UseBFB[clientIdx], 0.444);
 			DSM_ValidateModifier(DSM_RifleModifier[clientIdx], DSM_UseRifle[clientIdx], 0.27);
@@ -537,16 +542,16 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DSM_ValidateModifier(DSM_CritAColaModifier[clientIdx], DSM_UseCritACola[clientIdx], 1.35);
 			DSM_ValidateModifier(DSM_WhipModifier[clientIdx], DSM_UseWhip[clientIdx], 1.35);
 			DSM_ValidateModifier(DSM_DazedModifier[clientIdx], DSM_UseDazed[clientIdx], 0.75);
-			
+
 			// needs to be filled later
 			DSM_MaxHP[clientIdx] = 0;
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DMM_STRING))
 		{
 			DMM_ActiveThisRound = true;
 			DMM_CanUse[clientIdx] = true;
-			
+
 			DMM_ResetWeaponAt[clientIdx] = GetEngineTime() + 0.5;
 		}
 
@@ -556,7 +561,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DP_CanUse[clientIdx] = true;
 			DP_KnockbackImmuneUntil[clientIdx] = 0.0;
 			DP_ResetAirJumpsAt[clientIdx] = FAR_FUTURE;
-			
+
 			// arg1 is special, and must be immediately modified
 			DP_ActivationKey[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DP_STRING, 1);
 			if (DP_ActivationKey[clientIdx] == 1)
@@ -567,7 +572,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 				DP_ActivationKey[clientIdx] = IN_USE;
 			else // save the best for default
 				DP_ActivationKey[clientIdx] = IN_ATTACK2;
-				
+
 			// other args, not so much
 			DP_MaxDistance[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 2);
 			DP_WallJumpIntensity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 3);
@@ -582,13 +587,13 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DP_AirblastUnlatchDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 11);
 			DP_NormalForwardPush[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 12);
 			DP_ForwardPushWhileMovingBack[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DP_STRING, 13);
-			
+
 			// while args 21-24 (weapon specification) are not stored, get their validity now so useless code isn't executed constantly later.
 			static char weaponName[MAX_WEAPON_NAME_LENGTH];
 			weaponName[0] = 0;
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DP_STRING, 22, weaponName, MAX_WEAPON_NAME_LENGTH);
 			DP_ShouldWeaponSwitch[clientIdx] = !IsEmptyString(weaponName);
-			
+
 			// HUD related args
 			DP_DisableHUD[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DP_STRING, 31) == 1;
 			ReadCenterText(bossIdx, DP_STRING, 32, DP_HUDAvailable);
@@ -596,13 +601,13 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			ReadCenterText(bossIdx, DP_STRING, 34, DP_HUDOnGround);
 			ReadCenterText(bossIdx, DP_STRING, 35, DP_HUDInWater);
 			DP_NextHUDAt[clientIdx] = GetEngineTime() + (DP_DisableHUD[clientIdx] ? 99999.0 : HUD_INTERVAL); // need a short delay since HUD state will take a tick to get
-			
+
 			// other internal inits
 			DP_JumpKeyDown[clientIdx] = (GetClientButtons(clientIdx) & IN_JUMP) != 0;
 			DP_IgnoreActivationUntil[clientIdx] = 0.0;
-			
-			__NoDefaultSuperJump(ToFF2Player(bossIdx));
-			__HideHUD(ToFF2Player(bossIdx));
+
+			__NoDefaultSuperJump(FF2Player(bossIdx));
+			__HideHUD(FF2Player(bossIdx));
 		}
 
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DEM_STRING))
@@ -619,7 +624,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DEM_TeleportSide[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DEM_STRING, 13) == 1;
 			DEM_TeleportStunDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DEM_STRING, 14);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DPT_STRING))
 		{
 			DPT_CanUse[clientIdx] = true;
@@ -651,9 +656,9 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DPT_AddCharges[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DPT_STRING, 9) == 1;
 			DPT_EmptyClipOnTeleport[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DPT_STRING, 10) == 1;
 			DPT_AttackDelayOnTeleport[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DPT_STRING, 11);
-			
+
 			DPT_KeyDown[clientIdx] = (GetClientButtons(clientIdx) & DPT_KeyToUse[clientIdx]) != 0;
-			
+
 			PrecacheSound(NOPE_AVI);
 		}
 
@@ -662,27 +667,27 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			DST_CanUse[clientIdx] = true;
 			DST_ActiveThisRound = true;
 			DST_ActivateNextTick[clientIdx] = false;
-			
+
 			DST_DoNotStopMotion[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DST_STRING, 1) == 1;
 		}
 	}
-	
+
 	if (DT_ActiveThisRound || DJ_ActiveThisRound)
 	{
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (!IsClientInGame(clientIdx))
 				continue;
-		
+
 			if (DT_CanUse[clientIdx] || DJ_CanUse[clientIdx])
 				SDKHook(clientIdx, SDKHook_OnTakeDamage, CheckEnvironmentalDamage);
-			
+
 			// fix for the tele-attack exploit
 			if (DT_ActiveThisRound)
 				SDKHook(clientIdx, SDKHook_OnTakeDamage, DT_CheckTeleAttack);
 		}
 	}
-	
+
 	if (DSM_ActiveThisRound)
 	{
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
@@ -691,7 +696,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 				SDKHook(clientIdx, SDKHook_PreThink, DSM_PreThink);
 		}
 	}
-	
+
 	if (DP_ActiveThisRound)
 	{
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
@@ -699,7 +704,7 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 			if (IsLivingPlayer(clientIdx) && DP_CanUse[clientIdx])
 				SDKHook(clientIdx, SDKHook_OnTakeDamage, DP_OnTakeDamage);
 		}
-		
+
 		HookEvent("object_deflected", DP_OnDeflect, EventHookMode_Pre);
 	}
 
@@ -719,12 +724,12 @@ public Action Event_RoundStart(Handle event, const char[] name, bool dontBroadca
 public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = false;
-	
+
 	if (DT_ActiveThisRound || DJ_ActiveThisRound)
 	{
 		DT_ActiveThisRound = false;
 		DJ_ActiveThisRound = false;
-		
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsClientInGame(clientIdx))
@@ -735,11 +740,11 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 			}
 		}
 	}
-	
+
 	if (DW_ActiveThisRound)
 	{
 		DW_ActiveThisRound = false;
-	
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsClientInGame(clientIdx))
@@ -749,11 +754,11 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 			}
 		}
 	}
-	
+
 	if (DSM_ActiveThisRound)
 	{
 		DSM_ActiveThisRound = false;
-		
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsClientInGame(clientIdx) && DSM_CanUse[clientIdx])
@@ -764,7 +769,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	if (DP_ActiveThisRound)
 	{
 		DP_ActiveThisRound = false;
-		
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsClientInGame(clientIdx) && DP_CanUse[clientIdx])
@@ -773,10 +778,10 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				SetEntityGravity(clientIdx, 1.0);
 			}
 		}
-		
+
 		UnhookEvent("object_deflected", DP_OnDeflect, EventHookMode_Pre);
 	}
-	
+
 	if (DEM_ActiveThisRound)
 	{
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
@@ -785,7 +790,7 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 				SDKUnhook(clientIdx, SDKHook_OnTakeDamage, DEM_OnTakeDamage);
 		}
 	}
-	
+
 	DG_ActiveThisRound = false;
 }
 
@@ -795,7 +800,7 @@ public Action FF2_OnAbility2(int bossIdx, const char[] plugin_name, const char[]
 		return Plugin_Continue;
 	else if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
-		
+
 	if (!strcmp(ability_name, DSSG_STRING))
 	{
 		float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DSSG_STRING, 1);
@@ -824,11 +829,11 @@ public Action CheckEnvironmentalDamage(int clientIdx, int &attacker, int &inflic
 	// ignore fall damage from self
 	if (attacker == 0 && inflictor == 0 && (damagetype & DMG_FALL) != 0)
 		return Plugin_Continue;
-		
+
 	// ignore damage from players
 	if (attacker >= 1 && attacker <= MaxClients)
 		return Plugin_Continue;
-		
+
 	// definitely environmental damage to a player. from here on checks depend on what abilities the hale theoretically has.
 	if (DJ_CanUse[clientIdx] && !DJ_IsDisabled[clientIdx])
 	{
@@ -847,7 +852,7 @@ public Action CheckEnvironmentalDamage(int clientIdx, int &attacker, int &inflic
 			DT_OnCooldownUntil[clientIdx] = FAR_FUTURE;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -865,10 +870,10 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 {
 	if (DJ_IsDisabled[clientIdx] || DJ_UsesRemaining[clientIdx] == 0)
 		return;
-		
+
 	if (curTime >= DJ_OnCooldownUntil[clientIdx])
 		DJ_OnCooldownUntil[clientIdx] = FAR_FUTURE;
-		
+
 	float chargePercent = 0.0;
 	if (DJ_OnCooldownUntil[clientIdx] == FAR_FUTURE)
 	{
@@ -880,13 +885,13 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 			else
 				chargePercent = fmin((curTime - DJ_CrouchOrAltFireDownSince[clientIdx]) / DJ_ChargeTime[clientIdx], 1.0) * 100.0;
 		}
-			
+
 		int validButtons = DJ_UseReload[clientIdx] ? SJ_TP_BUTTONS_RELOAD : SJ_TP_BUTTONS_ALT_FIRE;
-		
+
 		// do we start the charging now?
 		if (DJ_CrouchOrAltFireDownSince[clientIdx] == FAR_FUTURE && (buttons & validButtons) != 0)
 			DJ_CrouchOrAltFireDownSince[clientIdx] = curTime;
-			
+
 		// has key been released?
 		if (DJ_CrouchOrAltFireDownSince[clientIdx] != FAR_FUTURE && (buttons & validButtons) == 0)
 		{
@@ -900,7 +905,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 				DJ_OnCooldownUntil[clientIdx] = curTime + DJ_Cooldown[clientIdx];
 				if (!DJ_DontAffectWeighdown[clientIdx])
 					DW_CooldownUntil(clientIdx, DJ_OnCooldownUntil[clientIdx]);
-					
+
 				// taken from default_abilities, modified only lightly
 				float multiplier = DJ_Multiplier[clientIdx];
 				int bossIdx = FF2_GetBossIndex(clientIdx);
@@ -943,7 +948,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 
 				TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
 				static char sound[PLATFORM_MAX_PATH];
-				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 0b1000 /* CT_UNUSED_DEMO */ : 0b100 /* CT_CHARGE */ ))
+				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, position, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, position, NULL_VECTOR, true, 0.0);
@@ -957,16 +962,16 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 						}
 					}
 				}
-				
+
 				// decrement uses remaining
 				DJ_UsesRemaining[clientIdx]--;
 			}
-			
+
 			// regardless of outcome, cancel the charge.
 			DJ_CrouchOrAltFireDownSince[clientIdx] = FAR_FUTURE;
 		}
 	}
-		
+
 	// draw the HUD if it's time
 	if (curTime >= DJ_UpdateHUDAt[clientIdx])
 	{
@@ -988,7 +993,7 @@ public void DJ_Tick(int clientIdx, int buttons, float curTime)
 				ShowSyncHudText(clientIdx, DD_HUDHandle, DJ_JumpCooldownString, DJ_OnCooldownUntil[clientIdx] - curTime);
 			}
 		}
-		
+
 		DJ_UpdateHUDAt[clientIdx] = curTime + HUD_INTERVAL;
 	}
 }
@@ -1003,7 +1008,7 @@ public bool TestTeleportLocation(int clientIdx, float origin[3], float targetPos
 	targetPos[0] = origin[0] + xOffset;
 	targetPos[1] = origin[1] + yOffset;
 	targetPos[2] = origin[2] + zOffset;
-	
+
 	static float mins[3];
 	static float maxs[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecMins", mins);
@@ -1011,7 +1016,7 @@ public bool TestTeleportLocation(int clientIdx, float origin[3], float targetPos
 	Handle trace = TR_TraceHullFilterEx(origin, targetPos, mins, maxs, MASK_PLAYERSOLID, TraceWallsOnly);
 	TR_GetEndPosition(endPos, trace);
 	CloseHandle(trace);
-	
+
 	// first, the distance check
 	if (GetVectorDistance(origin, endPos, true) < GetVectorDistance(origin, targetPos, true))
 	{
@@ -1019,11 +1024,11 @@ public bool TestTeleportLocation(int clientIdx, float origin[3], float targetPos
 			PrintToServer("[ff2_dynamic_defaults] Distance check failed. Start: %f,%f,%f    End: %f,%f,%f", origin[0], origin[1], origin[2], endPos[0], endPos[1], endPos[2]);
 		return false;
 	}
-		
+
 	// if this is just a teleport above, we've already succeeded
 	if (xOffset == 0.0 && yOffset == 0.0)
 		return true;
-		
+
 	// otherwise, do the pit test, ensuring the teleporter doesn't teleport above a hole (don't want unreachable players)
 	static float pitFailPos[3];
 	pitFailPos[0] = targetPos[0];
@@ -1032,14 +1037,14 @@ public bool TestTeleportLocation(int clientIdx, float origin[3], float targetPos
 	trace = TR_TraceHullFilterEx(targetPos, pitFailPos, mins, maxs, MASK_PLAYERSOLID, TraceWallsOnly);
 	TR_GetEndPosition(endPos, trace);
 	CloseHandle(trace);
-	
+
 	if (GetVectorDistance(targetPos, endPos, true) >= GetVectorDistance(targetPos, pitFailPos, true))
 	{
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("[ff2_dynamic_defaults] Pit test failed. Start: %f,%f,%f    End: %f,%f,%f", targetPos[0], targetPos[1], targetPos[2], endPos[0], endPos[1], endPos[2]);
 		return false;
 	}
-	
+
 	// success!
 	return true;
 }
@@ -1057,7 +1062,7 @@ public bool DD_PerformTeleport(int clientIdx, float stunDuration, bool tryAbove,
 			target ^= clientIdx;
 			clientIdx ^= target;
 		}
-		
+
 		static float targetOrigin[3];
 		static float teleportCoords[3];
 		bool coordsSet = false;
@@ -1106,11 +1111,11 @@ public bool DD_PerformTeleport(int clientIdx, float stunDuration, bool tryAbove,
 			SetEntityFlags(clientIdx, GetEntityFlags(clientIdx) | FL_DUCKING);
 		}
 		TeleportEntity(clientIdx, teleportCoords, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
-		
+
 		DT_GoombaBlockedUntil[clientIdx] = GetEngineTime() + 2.0;
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -1144,10 +1149,10 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 
 	if (DT_IsDisabled[clientIdx] || DT_UsesRemaining[clientIdx] == 0)
 		return;
-		
+
 	if (curTime >= DT_OnCooldownUntil[clientIdx])
 		DT_OnCooldownUntil[clientIdx] = FAR_FUTURE;
-		
+
 	float chargePercent = 0.0;
 	if (DT_OnCooldownUntil[clientIdx] == FAR_FUTURE)
 	{
@@ -1159,13 +1164,13 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 			else
 				chargePercent = fmin((curTime - DT_CrouchOrAltFireDownSince[clientIdx]) / DT_ChargeTime[clientIdx], 1.0) * 100.0;
 		}
-			
+
 		int validButtons = DT_UseReload[clientIdx] ? SJ_TP_BUTTONS_RELOAD : SJ_TP_BUTTONS_ALT_FIRE;
-		
+
 		// do we start the charging now?
 		if (DT_CrouchOrAltFireDownSince[clientIdx] == FAR_FUTURE && (buttons & validButtons) != 0)
 			DT_CrouchOrAltFireDownSince[clientIdx] = curTime;
-			
+
 		// has key been released?
 		if (DT_CrouchOrAltFireDownSince[clientIdx] != FAR_FUTURE && (buttons & validButtons) == 0)
 		{
@@ -1178,20 +1183,20 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 				int bossIdx = FF2_GetBossIndex(clientIdx);
 				static float bossOrigin[3];
 				GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
-				
+
 				// perform teleport has been made its own thing now...
 				float stunDuration = DT_StunDuration[clientIdx] * (DT_EmergencyReady[clientIdx] ? 2.0 : 1.0);
 				if (DD_PerformTeleport(clientIdx, view_as<float>(stunDuration), DT_TryTeleportAbove[clientIdx], DT_TryTeleportSide[clientIdx], DT_SameTeam[clientIdx], DT_IsReverseTeleport[clientIdx]))
 				{
 					// unlike the original, I'm managing cooldown myself. so lets do it now.
 					DT_OnCooldownUntil[clientIdx] = curTime + DT_Cooldown[clientIdx];
-					
+
 					if (stunDuration > 0.0)
 						DT_BlockAttacksUntil[clientIdx] = curTime + stunDuration;
 
 					// emergency teleport no longer needs to be ready
 					DT_EmergencyReady[clientIdx] = false;
-					
+
 					// attach the particle...which I had no idea existed since it's broken in 1.9.2. lol
 					static char particleName[MAX_EFFECT_NAME_LENGTH];
 					FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DT_STRING, 3, particleName, MAX_EFFECT_NAME_LENGTH);
@@ -1199,7 +1204,7 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 					{
 						int particle = AttachParticle(clientIdx, particleName);
 						if (IsValidEntity(particle))
-							CreateTimer(3.0, Timer_RemoveEntity, EntIndexToEntRef(particle));		
+							CreateTimer(3.0, Timer_RemoveEntity, EntIndexToEntRef(particle));
 					}
 				}
 				else if (strlen(DT_NoMinionString) > 0)
@@ -1207,10 +1212,10 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 					PrintToChat(clientIdx, "[FF2] %s", DT_NoMinionString);
 					PrintCenterText(clientIdx, DT_NoMinionString);
 				}
-				
+
 				// play the sound
 				static char sound[PLATFORM_MAX_PATH];
-				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DT_UseReload[clientIdx] ? 0b1000 /* CT_UNUSED_DEMO */ : 0b100 /* CT_CHARGE */))
+				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, bossIdx, DJ_UseReload[clientIdx] ? 2 : 1))
 				{
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, bossOrigin, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(sound, clientIdx, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, clientIdx, bossOrigin, NULL_VECTOR, true, 0.0);
@@ -1224,16 +1229,16 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 						}
 					}
 				}
-				
+
 				// decrement uses remaining
 				DT_UsesRemaining[clientIdx]--;
 			}
-			
+
 			// regardless of outcome, cancel the charge.
 			DT_CrouchOrAltFireDownSince[clientIdx] = FAR_FUTURE;
 		}
 	}
-		
+
 	// draw the HUD if it's time
 	if (curTime >= DT_UpdateHUDAt[clientIdx] && (buttons & IN_SCORE) == 0)
 	{
@@ -1258,7 +1263,6 @@ public void DT_Tick(int clientIdx,int  buttons, float curTime)
 				}
 			}
 		}
-		
 		DT_UpdateHUDAt[clientIdx] = curTime + HUD_INTERVAL;
 	}
 }
@@ -1270,33 +1274,33 @@ public void DW_Tick(int clientIdx, int buttons, float curTime)
 {
 	if (DW_IsDisabled[clientIdx])
 		return;
-		
+
 	if (curTime >= DW_RestoreGravityAt[clientIdx])
 	{
 		SetEntityGravity(clientIdx, DW_DefaultGravity[clientIdx]);
 		DW_RestoreGravityAt[clientIdx] = FAR_FUTURE;
 	}
-	
+
 	if (curTime >= DW_OnCooldownUntil[clientIdx])
 		DW_OnCooldownUntil[clientIdx] = FAR_FUTURE;
-		
+
 	if (DW_UsesRemaining[clientIdx] == 0)
 		return; // no more uses.
-		
+
 	if (DW_OnCooldownUntil[clientIdx] == FAR_FUTURE)
 	{
 		if (buttons & IN_DUCK)
 		{
 			static float eyeAngles[3];
 			GetClientEyeAngles(clientIdx, eyeAngles);
-			
+
 			if (eyeAngles[0] >= WEIGHDOWN_MIN_ANGLE && !IsInInvalidCondition(clientIdx))
 			{
 				SetEntityGravity(clientIdx, 6.0);
 				DW_OnCooldownUntil[clientIdx] = curTime + 2.0;
 				DW_RestoreGravityAt[clientIdx] = curTime + 2.0;
 				DW_UsesRemaining[clientIdx]--;
-				
+
 				PrintToChat(clientIdx, DW_UsageString);
 			}
 		}
@@ -1310,7 +1314,7 @@ public void DG_Tick(int clientIdx, int buttons, float curTime)
 {
 	bool spaceBarIsDown = (buttons & IN_JUMP) != 0;
 	bool onGround = (GetEntityFlags(clientIdx) & FL_ONGROUND) != 0;
-	
+
 	bool shouldActivate = false;
 	bool shouldDeactivate = false;
 	if (DG_UseHoldControls[clientIdx])
@@ -1390,7 +1394,7 @@ public void DSSG_PerformStunFromCoords(int clientIdx, float x, float y, float z,
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[ff2_dynamic_defaults] ERROR: Sentry stun duration/radius must be above 0. radius=%f duration=%f", radius, duration);
 	}
-	
+
 	static float stunOrigin[3];
 	stunOrigin[0] = x;
 	stunOrigin[1] = y;
@@ -1403,16 +1407,16 @@ public void DSSG_PerformStunFromCoords(int clientIdx, float x, float y, float z,
 	{
 		if (GetEntProp(sentry, Prop_Send, "m_bCarried") || GetEntProp(sentry, Prop_Send, "m_bPlacing"))
 			continue; // invalid
-			
+
 		// ensure sentry's team is correct, for very rare cases like the mann bros hale or the summon ability
 		if ((GetEntProp(sentry, Prop_Send, "m_nSkin") % 2) == (GetClientTeam(clientIdx) % 2))
 			continue;
-	
+
 		static float sentryOrigin[3];
 		GetEntPropVector(sentry, Prop_Send, "m_vecOrigin", sentryOrigin);
 		if (GetVectorDistance(sentryOrigin, stunOrigin, true) > radiusSquared)
 			continue;
-		
+
 		DSSG_StunOneSentry(sentry, duration);
 	}
 }
@@ -1470,7 +1474,7 @@ public void DSSG_RemoveSentry(int sentryIdx)
 	if (DSSG_ParticleEntRef[sentryIdx] != INVALID_ENTREF)
 		RemoveEntity(DSSG_ParticleEntRef[sentryIdx]);
 	DSSG_EntRef[sentryIdx] = INVALID_ENTREF;
-	
+
 	for (int i = sentryIdx; i < MAX_SENTRIES - 1; i++)
 	{
 		DSSG_EntRef[i] = DSSG_EntRef[i+1];
@@ -1479,7 +1483,7 @@ public void DSSG_RemoveSentry(int sentryIdx)
 		DSSG_NormalAmmo[i] = DSSG_NormalAmmo[i+1];
 		DSSG_RocketAmmo[i] = DSSG_RocketAmmo[i+1];
 	}
-	
+
 	DSSG_EntRef[MAX_SENTRIES - 1] = INVALID_ENTREF;
 }
 
@@ -1489,14 +1493,14 @@ public void DSSG_Tick(float curTime)
 	{
 		if (DSSG_EntRef[i] == INVALID_ENTREF)
 			continue;
-		
+
 		int sentry = EntRefToEntIndex(DSSG_EntRef[i]);
 		if (!IsValidEntity(sentry))
 		{
 			DSSG_RemoveSentry(i);
 			continue;
 		}
-		
+
 		if (curTime >= DSSG_UnstunAt[i])
 		{
 			DSSG_PerformUnstunActions(sentry, i);
@@ -1531,11 +1535,11 @@ public void DSM_PreThink(int clientIdx)
 
 		float primaryModifier = 1.0;
 		float conditionModifier = 1.0;
-		
+
 		// grab the player's primary weapon now, which is important for various calculations
 		int primary = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
 		bool primaryIsCurrent = (IsValidEntity(primary) && primary == GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"));
-		
+
 		// weapon positives first
 		bool bfbExists = false;
 		if (IsValidEntity(primary) && IsInstanceOf(primary, "tf_weapon_pep_brawler_blaster")) // bfb
@@ -1544,7 +1548,7 @@ public void DSM_PreThink(int clientIdx)
 			if (DSM_UseBFB[clientIdx])
 				bfbExists = true;
 		}
-		
+
 		// next weapon negatives, which are not nullified by megaheal and need to disable the "slowed" condition
 		bool slowedByWeapon = false;
 		if (primaryIsCurrent)
@@ -1559,30 +1563,30 @@ public void DSM_PreThink(int clientIdx)
 			else
 				slowedByWeapon = false;
 		}
-		
+
 		// condition negatives
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed))
 			conditionModifier *= DSM_DazedModifier[clientIdx];
 		//else if (TF2_IsPlayerInCondition(clientIdx, TFCond_Slowed) && !slowedByWeapon)
 		//	conditionModifier *= DSM_SlowedModifier[clientIdx];
-		
+
 		// slowed seems to automatically happen. need to override weapon slows
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_Slowed) && slowedByWeapon)
 			TF2_RemoveCondition(clientIdx, TFCond_Slowed);
-			
+
 		// negatives are nullified by megaheal and condition 103
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_MegaHeal) || TF2_IsPlayerInCondition(clientIdx, view_as<TFCond>(103)))
 			conditionModifier = 1.0;
-			
+
 		// finally, condition positives
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_CritCola))
 			conditionModifier *= bfbExists ? (1.0 + ((DSM_CritAColaModifier[clientIdx] - 1.0) * 0.5)) : DSM_CritAColaModifier[clientIdx];
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_SpeedBuffAlly) ||
 				TF2_IsPlayerInCondition(clientIdx, TFCond_RegenBuffed) || TF2_IsPlayerInCondition(clientIdx, TFCond_HalloweenSpeedBoost))
 			conditionModifier *= bfbExists ? (1.0 + ((DSM_WhipModifier[clientIdx] - 1.0) * 0.5)) : DSM_WhipModifier[clientIdx];
-		
+
 		float modifier = primaryModifier * conditionModifier;
-		
+
 		int maxHP = DSM_MaxHP[clientIdx];
 		if (maxHP > 0)
 		{
@@ -1613,7 +1617,7 @@ public void DSM_PreThink(int clientIdx)
 							maxSpeed = 320.0;
 						else if (disguiseClass == TFClass_Scout)
 							maxSpeed = 400.0;
-							
+
 						if (DSM_UseDisguiseSpeed[clientIdx])
 							baseSpeed = fmin(baseSpeed, maxSpeed);
 						if (DSM_DisguiseCanIncreaseSpeed[clientIdx])
@@ -1643,7 +1647,7 @@ public void DMM_ResetWeapon(int clientIdx) // also an exposed interface
 {
 	if (!DMM_ActiveThisRound || !DMM_CanUse[clientIdx])
 		return;
-		
+
 	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
@@ -1654,7 +1658,7 @@ public void DMM_ResetWeapon(int clientIdx) // also an exposed interface
 	int weaponIdx = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DMM_STRING, 2);
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DMM_STRING, 3, weaponArgs, MAX_WEAPON_ARG_LENGTH);
 	int weaponVisibility = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DMM_STRING, 4);
-	
+
 	PrepareForWeaponSwitch(clientIdx);
 	TF2_RemoveWeaponSlot(clientIdx, TFWeaponSlot_Melee);
 	int weapon = SpawnWeapon(clientIdx, weaponName, weaponIdx, 101, 5, weaponArgs, weaponVisibility);
@@ -1668,11 +1672,11 @@ public void DP_SetTempWeapon(int clientIdx, bool shouldRemove)
 {
 	if (!DP_ShouldWeaponSwitch[clientIdx])
 		return;
-	
+
 	int bossIdx = FF2_GetBossIndex(clientIdx);
 	if (bossIdx < 0)
 		return;
-		
+
 	int slot = FF2_GetAbilityArgument(bossIdx, this_plugin_name, DP_STRING, 21);
 	PrepareForWeaponSwitch(clientIdx);
 	TF2_RemoveWeaponSlot(clientIdx, slot);
@@ -1733,7 +1737,7 @@ public Action DP_OnTakeDamage(int victim, int &attacker, int &inflictor, float &
 		damagetype |= DMG_PREVENT_PHYSICS_FORCE;
 		return Plugin_Changed;
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -1742,7 +1746,7 @@ public void DP_OnDeflect(Handle event, const char[] name, bool dontBroadcast)
 	int victim = GetClientOfUserId(GetEventInt(event, "ownerid"));
 	if (!IsLivingPlayer(victim) || !DP_CanUse[victim])
 		return;
-		
+
 	// unlatch the victim and give them a delay before they can relatch
 	if (DP_Latched[victim])
 	{
@@ -1786,13 +1790,13 @@ public bool DP_AttemptLatch(int clientIdx)
 		float thisDistance = 100000000.0;
 		float tmpDistance;
 		yaw = fixAngle(yaw + increment);
-		
+
 		static float angle[3];
 		angle[0] = angle[2] = 0.0;
 		angle[1] = yaw;
 		static float endPos[3];
 		static float otherEndPos[3];
-		
+
 		// trace a line to from the boss' feet outward, and then another line from that point upward
 		TR_TraceRayFilter(bossFeetPos, angle, DP_TraceOptions[clientIdx], RayType_Infinite, TraceWallsOnly);
 		TR_GetEndPosition(endPos);
@@ -1808,7 +1812,7 @@ public bool DP_AttemptLatch(int clientIdx)
 			if (GetVectorDistance(endPos, otherEndPos) < headLength)
 				thisDistance = fmin(thisDistance, DP_MaxDistance[clientIdx] - 0.1);
 		}
-		
+
 		// now trace a line from the boss' head outward. even if we already know this is a potential latch point, we want the SHORTEST DISTANCE yaw
 		angle[0] = 0.0;
 		TR_TraceRayFilter(bossHeadPos, angle, DP_TraceOptions[clientIdx], RayType_Infinite, TraceWallsOnly);
@@ -1826,7 +1830,7 @@ public bool DP_AttemptLatch(int clientIdx)
 			if (GetVectorDistance(endPos, otherEndPos) < headLength)
 				thisDistance = fmin(thisDistance, DP_MaxDistance[clientIdx] - 0.1);
 		}
-		
+
 		// report if it's the lowest distance yaw so far. this funny logic will allow going left-right around angled walls, but not 90 degree angles
 		if (thisDistance < closestDistance)
 		{
@@ -1834,9 +1838,9 @@ public bool DP_AttemptLatch(int clientIdx)
 			closestYaw = yaw;
 		}
 	}
-	
+
 	// special logic, to minimize certain weird behaviors. only applies when already latched
-	// one weird behavior is not 
+	// one weird behavior is not
 	if (DP_Latched[clientIdx])
 	{
 		static float endPos[3];
@@ -1845,7 +1849,7 @@ public bool DP_AttemptLatch(int clientIdx)
 		bossFeetPos[2] -= feetOffset;
 		bossHeadPos[2] += 81.0 - headOffset;
 		bool tossOutYawChanges = false;
-		
+
 		// the cheaper one, see if we're balanced on a thin ramp and suddenly getting influenced by the ramp itself, from a different angle
 		// most commonly reproduced on a map like vsh_weaponsdepot_final, which has thin ramps by the control point
 		bool excessYawShift = fabs(DP_ClimbingYaw[clientIdx] - closestYaw) > 8.0 &&
@@ -1863,7 +1867,7 @@ public bool DP_AttemptLatch(int clientIdx)
 			if (GetVectorDistance(endPos, bossFeetPos) > DP_MaxDistance[clientIdx] && GetVectorDistance(otherEndPos, bossHeadPos) > DP_MaxDistance[clientIdx])
 				tossOutYawChanges = true; // but don't do it yet, otherwise the more important test will fail (these two tests can and do overlap)
 		}
-		
+
 		// the pricier one, test if we're nearing an edge
 		excessYawShift = fabs(DP_ClimbingYaw[clientIdx] - closestYaw) > 20.0 &&
 					fabs(DP_ClimbingYaw[clientIdx] - closestYaw) < (360.0 - 20.0);
@@ -1874,7 +1878,7 @@ public bool DP_AttemptLatch(int clientIdx)
 				static float angle[3];
 				angle[0] = angle[2] = 0.0;
 				angle[1] = DP_ClimbingYaw[clientIdx]; // the old yaw
-				
+
 				// first we need to trace a little to the sides
 				static float tmpAngle[3];
 				CopyVector(angle, tmpAngle);
@@ -1916,7 +1920,7 @@ public bool DP_AttemptLatch(int clientIdx)
 		if (tossOutYawChanges)
 			closestYaw = DP_ClimbingYaw[clientIdx];
 	}
-	
+
 	DP_ClimbingYaw[clientIdx] = closestYaw;
 	return closestDistance <= DP_MaxDistance[clientIdx];
 }
@@ -1924,7 +1928,7 @@ public bool DP_AttemptLatch(int clientIdx)
 public void DP_Tick(int clientIdx, int &buttons, float curTime)
 {
 	bool justLatched = false; // don't repeat some expensive code
-	
+
 	bool activationKeyDown = (buttons & DP_ActivationKey[clientIdx]) != 0;
 	if (activationKeyDown && !DP_Latched[clientIdx] && curTime >= DP_IgnoreActivationUntil[clientIdx])
 	{
@@ -1939,14 +1943,14 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 		// just unceremoniously unlatch. nothing else to do.
 		DP_Unlatch(clientIdx, curTime);
 	}
-	
+
 	// see if should jump (and unlatch) before performing any additional latch-only checks
 	bool jumpKeyDown = (buttons & IN_JUMP) != 0;
 	if (DP_Latched[clientIdx] && jumpKeyDown && !DP_JumpKeyDown[clientIdx])
 	{
 		DP_Unlatch(clientIdx, curTime);
 		DP_IgnoreActivationUntil[clientIdx] = curTime + DP_GRACE_PERIOD; // a little grace period which allows the jump to execute properly
-		
+
 		// perform a wall jump
 		static float adjustedAngles[3];
 		adjustedAngles[0] = DP_WallJumpPitch[clientIdx];
@@ -1960,12 +1964,12 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 		static float velocity[3];
 		GetAngleVectors(adjustedAngles, velocity, NULL_VECTOR, NULL_VECTOR);
 		ScaleVector(velocity, DP_WallJumpIntensity[clientIdx]);
-		
+
 		TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
 		buttons &= (~IN_JUMP);
 	}
 	DP_JumpKeyDown[clientIdx] = jumpKeyDown;
-	
+
 	// check for validity of latching and see if we need to reangle
 	if (DP_Latched[clientIdx])
 	{
@@ -1975,7 +1979,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			DP_IgnoreActivationUntil[clientIdx] = curTime + DP_GRACE_PERIOD; // a little grace period which allows the user to move away from the wall
 		}
 	}
-	
+
 	// now for movement along the walls
 	if (DP_Latched[clientIdx] && curTime >= DP_NextMoveAt[clientIdx])
 	{
@@ -1988,7 +1992,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			forwardPressed = false;
 			backPressed = false;
 		}
-		
+
 		bool leftPressed = (buttons & IN_MOVELEFT) != 0;
 		bool rightPressed = (buttons & IN_MOVERIGHT) != 0;
 		if (justLatched || (leftPressed && rightPressed))
@@ -1996,7 +2000,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			leftPressed = false;
 			rightPressed = false;
 		}
-		
+
 		static float eyeAngles[3];
 		GetClientEyeAngles(clientIdx, eyeAngles);
 		eyeAngles[1] = fixAngle(eyeAngles[1]); // angles are a real pain in the arse...since their range in source engine often exceeds 360 degrees
@@ -2026,7 +2030,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			else if (eyeAngles[0] >= DP_UDPitchThreshold[clientIdx])
 				movingUp = true;
 		}
-		
+
 		// regardless of whether the player's moving or not, we need to prevent minor drifts out of the wall
 		static float attractVelocity[3];
 		GetAngleVectors(motionAngle, attractVelocity, NULL_VECTOR, NULL_VECTOR);
@@ -2034,7 +2038,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			ScaleVector(attractVelocity, DP_ForwardPushWhileMovingBack[clientIdx]); // geez you have to set it high to counter tf2
 		else
 			ScaleVector(attractVelocity, DP_NormalForwardPush[clientIdx]); // geez you have to set it high to counter tf2
-		
+
 		// test left-right motion
 		static float motionVelocity[3];
 		motionVelocity[0] = motionVelocity[1] = motionVelocity[2] = 0.0;
@@ -2068,7 +2072,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 		}
 		motionVelocity[0] += attractVelocity[0];
 		motionVelocity[1] += attractVelocity[1];
-		
+
 		// should we force angle?
 		bool shouldForceAngle = fabs(forcedAngle[1] - eyeAngles[1]) > DP_MaxYawDeviation[clientIdx] &&
 					fabs(forcedAngle[1] - eyeAngles[1]) < (360.0 - DP_MaxYawDeviation[clientIdx]);
@@ -2087,7 +2091,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 		else
 			TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, motionVelocity);
 	}
-	
+
 	// is it time to reset double jumps?
 	if (curTime >= DP_ResetAirJumpsAt[clientIdx])
 	{
@@ -2107,7 +2111,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 	}
 	else
 		DP_HUDState[clientIdx] = DP_HUD_STATE_AVAILABLE;
-		
+
 	// print the HUD message
 	if (curTime >= DP_NextHUDAt[clientIdx])
 	{
@@ -2118,7 +2122,7 @@ public void DP_Tick(int clientIdx, int &buttons, float curTime)
 			SetHudTextParams(-1.0, HUD_Y, HUD_INTERVAL + HUD_LINGER, isError ? HUD_R_ERROR : HUD_R_OK, isError ? HUD_G_ERROR : HUD_G_OK, isError ? HUD_B_ERROR : HUD_B_OK, HUD_ALPHA);
 			ShowSyncHudText(clientIdx, DD_HUDHandle, hudMessage);
 		}
-		
+
 		DP_NextHUDAt[clientIdx] = curTime + HUD_INTERVAL;
 	}
 }
@@ -2147,7 +2151,7 @@ public bool DP_GetHUDStateString(int clientIdx, char[] hudStr, int length)
 		strcopy(hudStr, length, DP_HUDAvailable);
 		return false;
 	}
-	
+
 	strcopy(hudStr, length, "bad state for dynamic_parkour");
 	return true;
 }
@@ -2162,25 +2166,25 @@ public Action DEM_OnTakeDamage(int victim, int &attacker, int &inflictor, float 
 		return Plugin_Continue;
 	else if (!DEM_CanUse[victim])
 		return Plugin_Continue;
-	
+
 	// ensure attacker is not a player
 	if (attacker >= 1 && attacker <= MaxClients)
 		return Plugin_Continue;
-		
+
 	// exclude fall damage from self
 	if (attacker == 0 && inflictor == 0 && (damagetype & DMG_FALL) != 0)
 		return Plugin_Continue;
-		
+
 	// we now know it's world damage. do whatever is set to be done.
 	if (damage < DEM_DamageThreshold[victim] || DEM_DamageThreshold[victim] <= 0.0)
 		return Plugin_Continue;
-		
+
 	if (DEM_InvincibilityDuration[victim] > 0.0)
 		DEM_InvincibleUntil[victim] = GetEngineTime() + DEM_InvincibilityDuration[victim]; // it'll happen when it ticks
-		
+
 	if (DEM_ShouldTeleport[victim])
 		DD_PerformTeleport(victim, DEM_TeleportStunDuration[victim], DEM_TeleportOnTop[victim], DEM_TeleportSide[victim], false, false);
-		
+
 	return Plugin_Continue;
 }
 
@@ -2214,7 +2218,7 @@ public bool DPT_TracePlayersAndBuildings(int entity, int contentsMask)
 		return true;
 	else if (IsLivingPlayer(entity))
 		return false;
-		
+
 	return IsValidEntity(entity);
 }
 
@@ -2222,7 +2226,7 @@ public bool DPT_TraceWallsOnly(int entity, int contentsMask)
 {
 	return false;
 }
- 
+
 public bool DPT_TryTeleport(int clientIdx)
 {
 	float sizeMultiplier = GetEntPropFloat(clientIdx, Prop_Send, "m_flModelScale");
@@ -2235,7 +2239,7 @@ public bool DPT_TryTeleport(int clientIdx)
 	DPT_Player = clientIdx;
 	TR_TraceRayFilter(startPos, eyeAngles, MASK_PLAYERSOLID, RayType_Infinite, DPT_TracePlayersAndBuildings);
 	TR_GetEndPosition(endPos);
-	
+
 	// don't even try if the distance is less than 82
 	float distance = GetVectorDistance(startPos, endPos);
 	if (distance < 82.0)
@@ -2243,19 +2247,19 @@ public bool DPT_TryTeleport(int clientIdx)
 		Nope(clientIdx);
 		return false;
 	}
-		
+
 	if (distance > DPT_MaxDistance[clientIdx])
 		constrainDistance(startPos, endPos, distance, DPT_MaxDistance[clientIdx]);
 	else // shave just a tiny bit off the end position so our point isn't directly on top of a wall
 		constrainDistance(startPos, endPos, distance, distance - 1.0);
-	
+
 	// now for the tests. I go 1 extra on the standard mins/maxs on purpose.
 	bool found = false;
 	for (int x = 0; x < 3; x++)
 	{
 		if (found)
 			break;
-	
+
 		float xOffset;
 		if (x == 0)
 			xOffset = 0.0;
@@ -2263,14 +2267,14 @@ public bool DPT_TryTeleport(int clientIdx)
 			xOffset = 12.5 * sizeMultiplier;
 		else
 			xOffset = 25.0 * sizeMultiplier;
-		
+
 		if (endPos[0] < startPos[0])
 			testPos[0] = endPos[0] + xOffset;
 		else if (endPos[0] > startPos[0])
 			testPos[0] = endPos[0] - xOffset;
 		else if (xOffset != 0.0)
 			break; // super rare but not impossible, no sense wasting on unnecessary tests
-	
+
 		for (int y = 0; y < 3; y++)
 		{
 			if (found)
@@ -2290,7 +2294,7 @@ public bool DPT_TryTeleport(int clientIdx)
 				testPos[1] = endPos[1] - yOffset;
 			else if (yOffset != 0.0)
 				break; // super rare but not impossible, no sense wasting on unnecessary tests
-		
+
 			for (int z = 0; z < 3; z++)
 			{
 				if (found)
@@ -2318,7 +2322,7 @@ public bool DPT_TryTeleport(int clientIdx)
 				TR_GetEndPosition(tmpPos);
 				if (testPos[0] != tmpPos[0] || testPos[1] != tmpPos[1] || testPos[2] != tmpPos[2])
 					continue;
-				
+
 				// now we do our very expensive test. thankfully there's only 27 of these calls, worst case scenario.
 				if (PRINT_DEBUG_SPAM)
 					PrintToServer("testing %f, %f, %f", testPos[0], testPos[1], testPos[2]);
@@ -2326,30 +2330,30 @@ public bool DPT_TryTeleport(int clientIdx)
 			}
 		}
 	}
-	
+
 	if (!found)
 	{
 		Nope(clientIdx);
 		return false;
 	}
-		
+
 	if (DPT_PreserveMomentum[clientIdx])
 		TeleportEntity(clientIdx, testPos, NULL_VECTOR, NULL_VECTOR);
 	else
 		TeleportEntity(clientIdx, testPos, NULL_VECTOR, view_as<float>({0.0, 0.0, 0.0}));
-		
+
 	// particles and sound
 	if (strlen(DPT_UseSound) > 3)
 	{
 		EmitSoundToAll(DPT_UseSound);
 		EmitSoundToAll(DPT_UseSound);
 	}
-	
+
 	if (!IsEmptyString(DPT_OldLocationParticleEffect))
 		ParticleEffectAt(startPos, DPT_OldLocationParticleEffect);
 	if (!IsEmptyString(DPT_NewLocationParticleEffect))
 		ParticleEffectAt(testPos, DPT_NewLocationParticleEffect);
-		
+
 	// empty clip?
 	if (DPT_EmptyClipOnTeleport[clientIdx])
 	{
@@ -2360,7 +2364,7 @@ public bool DPT_TryTeleport(int clientIdx)
 			SetEntProp(weapon, Prop_Send, "m_iClip2", 0);
 		}
 	}
-	
+
 	// attack delay?
 	if (DPT_AttackDelayOnTeleport[clientIdx] > 0.0)
 	{
@@ -2371,7 +2375,7 @@ public bool DPT_TryTeleport(int clientIdx)
 				SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", GetGameTime() + DPT_AttackDelayOnTeleport[clientIdx]);
 		}
 	}
-		
+
 	return true;
 }
 
@@ -2380,7 +2384,7 @@ public void Rage_DynamicPointTeleport(int bossIdx)
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	if (!IsLivingPlayer(clientIdx) || !DPT_CanUse[clientIdx])
 		return;
-	
+
 	if (DPT_AddCharges[clientIdx])
 		DPT_ChargesRemaining[clientIdx] += DPT_NumSkills[clientIdx];
 	else
@@ -2421,7 +2425,7 @@ public void Rage_DynamicStopTaunt(int bossIdx)
 	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	if (!IsLivingPlayer(clientIdx) || !DST_CanUse[clientIdx])
 		return;
-		
+
 	DST_ActivateNextTick[clientIdx] = true;
 }
 
@@ -2430,7 +2434,7 @@ public void DST_Tick(int clientIdx)
 	if (DST_ActivateNextTick[clientIdx])
 	{
 		DST_ActivateNextTick[clientIdx] = false;
-		
+
 		if (TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 			TF2_RemoveCondition(clientIdx, TFCond_Taunting);
 		if (!DST_DoNotStopMotion[clientIdx])
@@ -2458,7 +2462,7 @@ public void DD_SetDisabled(int clientIdx, bool superjump, bool teleport, bool we
 		if (DT_IsDisabled[clientIdx])
 			DT_CrouchOrAltFireDownSince[clientIdx] = FAR_FUTURE;
 	}
-		
+
 	// weighdown
 	if (DW_CanUse[clientIdx])
 	{
@@ -2470,7 +2474,7 @@ public void DD_SetDisabled(int clientIdx, bool superjump, bool teleport, bool we
 			DW_RestoreGravityAt[clientIdx] = FAR_FUTURE;
 		}
 	}
-	
+
 	// glide
 	if (DG_CanUse[clientIdx])
 	{
@@ -2489,7 +2493,7 @@ public float DD_GetMobilityCooldown(int clientIdx)
 		return (DJ_OnCooldownUntil[clientIdx] == FAR_FUTURE) ? 0.0 : (DJ_OnCooldownUntil[clientIdx] - GetEngineTime());
 	else if (DT_CanUse[clientIdx] && !DT_IsDisabled[clientIdx])
 		return (DT_OnCooldownUntil[clientIdx] == FAR_FUTURE) ? 0.0 : (DT_OnCooldownUntil[clientIdx] - GetEngineTime());
-	
+
 	return -1.0;
 }
 
@@ -2511,7 +2515,7 @@ public float DD_GetChargePercent(int clientIdx)
 			return 0.0;
 		return (DT_OnCooldownUntil[clientIdx] != FAR_FUTURE) ? 0.0 : (fmin((GetEngineTime() - DT_CrouchOrAltFireDownSince[clientIdx]) / DT_ChargeTime[clientIdx], 1.0) * 100.0);
 	}
-	
+
 	return 0.0;
 }
 
@@ -2647,49 +2651,49 @@ public void DSM_SetModifiers(int clientIdx, float bfb, float rifle, float bow, f
 		DSM_UseBFB[clientIdx] = true;
 		DSM_ValidateModifier(DSM_BFBModifier[clientIdx], DSM_UseBFB[clientIdx], 0.444);
 	}
-	
+
 	if (rifle > -1.0)
 	{
 		DSM_RifleModifier[clientIdx] = rifle;
 		DSM_UseRifle[clientIdx] = true;
 		DSM_ValidateModifier(DSM_RifleModifier[clientIdx], DSM_UseRifle[clientIdx], 0.27);
 	}
-	
+
 	if (bow > -1.0)
 	{
 		DSM_BowModifier[clientIdx] = bow;
 		DSM_UseBow[clientIdx] = true;
 		DSM_ValidateModifier(DSM_BowModifier[clientIdx], DSM_UseBow[clientIdx], 0.45);
 	}
-	
+
 	if (minigun > -1.0)
 	{
 		DSM_MinigunModifier[clientIdx] = minigun;
 		DSM_UseMinigun[clientIdx] = true;
 		DSM_ValidateModifier(DSM_MinigunModifier[clientIdx], DSM_UseMinigun[clientIdx], 0.47);
 	}
-	
+
 	if (slowed > -1.0)
 	{
 		DSM_SlowedModifier[clientIdx] = slowed;
 		DSM_UseSlowed[clientIdx] = true;
 		DSM_ValidateModifier(DSM_SlowedModifier[clientIdx], DSM_UseSlowed[clientIdx], 0.60);
 	}
-	
+
 	if (critcola > -1.0)
 	{
 		DSM_CritAColaModifier[clientIdx] = critcola;
 		DSM_UseCritACola[clientIdx] = true;
 		DSM_ValidateModifier(DSM_CritAColaModifier[clientIdx], DSM_UseCritACola[clientIdx], 1.35);
 	}
-	
+
 	if (whip > -1.0)
 	{
 		DSM_WhipModifier[clientIdx] = whip;
 		DSM_UseWhip[clientIdx] = true;
 		DSM_ValidateModifier(DSM_WhipModifier[clientIdx], DSM_UseWhip[clientIdx], 1.35);
 	}
-	
+
 	if (dazed > -1.0)
 	{
 		DSM_DazedModifier[clientIdx] = dazed;
@@ -2725,36 +2729,36 @@ public void OnGameFrame()
 
 	DSSG_Tick(GetEngineTime());
 }
- 
+
 public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse, float vel[3], float unusedangles[3], int &weapon)
 {
 	if (!RoundInProgress)
 		return Plugin_Continue;
 	else if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
-		
+
 	bool changed = false;
-		
+
 	if (DJ_ActiveThisRound && DJ_CanUse[clientIdx])
 	{
 		DJ_Tick(clientIdx, buttons, GetEngineTime());
 	}
-	
+
 	if (DT_ActiveThisRound && DT_CanUse[clientIdx])
 	{
 		DT_Tick(clientIdx, buttons, GetEngineTime());
 	}
-	
+
 	if (DW_ActiveThisRound && DW_CanUse[clientIdx])
 	{
 		DW_Tick(clientIdx, buttons, GetEngineTime());
 	}
-	
+
 	if (DG_ActiveThisRound && DG_CanUse[clientIdx])
 	{
 		DG_Tick(clientIdx, buttons, GetEngineTime());
 	}
-	
+
 	if (DMM_ActiveThisRound && DMM_CanUse[clientIdx])
 	{
 		if (GetEngineTime() >= DMM_ResetWeaponAt[clientIdx])
@@ -2770,22 +2774,22 @@ public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse, float ve
 		DP_Tick(clientIdx, buttons, GetEngineTime());
 		changed = changed & (buttons != oldButtons);
 	}
-	
+
 	if (DEM_ActiveThisRound && DEM_CanUse[clientIdx])
 	{
 		DEM_Tick(clientIdx, GetEngineTime());
 	}
-	
+
 	if (DPT_ActiveThisRound && DPT_CanUse[clientIdx])
 	{
 		DPT_Tick(clientIdx, buttons, GetEngineTime());
 	}
-	
+
 	if (DST_ActiveThisRound && DST_CanUse[clientIdx])
 	{
 		DST_Tick(clientIdx);
 	}
-	
+
 	if (changed)
 		return Plugin_Changed;
 	return Plugin_Continue;
@@ -2801,7 +2805,7 @@ public Action OnStomp(int attacker, int victim, float &damageMult, float &damage
 		damageBonus = 0.0;
 		return Plugin_Changed;
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -2812,7 +2816,7 @@ stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
-		
+
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
@@ -2843,13 +2847,13 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 	{
 		if (clientIdx == exclude)
 			continue;
-	
+
 		if (!IsLivingPlayer(clientIdx))
 			continue;
-			
+
 		if (maxDistance > 0.0 && !IsPlayerInRange(clientIdx, position, maxDistance))
 			continue;
-			
+
 		if (GetEntPropFloat(exclude, Prop_Send, "m_flModelScale") > GetEntPropFloat(clientIdx, Prop_Send, "m_flModelScale"))
 			continue;
 
@@ -2868,13 +2872,13 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 	{
 		if (clientIdx == exclude)
 			continue;
-	
+
 		if (!IsLivingPlayer(clientIdx))
 			continue;
 
 		if (maxDistance > 0.0 && !IsPlayerInRange(clientIdx, position, maxDistance))
 			continue;
-			
+
 		if (GetEntPropFloat(exclude, Prop_Send, "m_flModelScale") > GetEntPropFloat(clientIdx, Prop_Send, "m_flModelScale"))
 			continue;
 
@@ -2893,7 +2897,7 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 			}
 		}
 	}
-	
+
 	return player;
 }
 
@@ -2905,7 +2909,7 @@ public bool TraceWallsOnly(int entity, int contentsMask)
 stock bool IsPlayerInRange(int player, float position[3], float maxDistance)
 {
 	maxDistance *= maxDistance;
-	
+
 	static float playerPos[3];
 	GetEntPropVector(player, Prop_Data, "m_vecOrigin", playerPos);
 	return GetVectorDistance(position, playerPos, true) <= maxDistance;
@@ -2914,7 +2918,7 @@ stock bool IsPlayerInRange(int player, float position[3], float maxDistance)
 stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
 	int particle = CreateEntityByName("info_particle_system");
-	
+
 	if (!IsValidEntity(particle))
 		return -1;
 
@@ -3020,14 +3024,14 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int quality
 	int entity = TF2Items_GiveNamedItem(client, weapon);
 	CloseHandle(weapon);
 	EquipPlayerWeapon(client, entity);
-	
+
 	// sarysa addition
 	if (!visible)
 	{
 		SetEntProp(entity, Prop_Send, "m_iWorldModelIndex", -1);
 		SetEntPropFloat(entity, Prop_Send, "m_flModelScale", 0.001);
 	}
-	
+
 	return entity;
 }
 
@@ -3038,10 +3042,10 @@ stock float fixAngle(float angle)
 		angle = FloatModulus(angle, 360.0);
 	else
 		angle = 360.0 - FloatModulus(-angle, 360.0);
-		
+
 	if (angle > 180.0)
 		angle -= 360.0;
-		
+
 	return angle;
 }
 
@@ -3075,7 +3079,7 @@ stock bool ConformLineDistance(float result[3], const float src[3], const float 
 		result[1] = ConformAxisValue(src[1], dst[1], distCorrectionFactor);
 		result[2] = ConformAxisValue(src[2], dst[2], distCorrectionFactor);
 	}
-	
+
 	return distance != 0.0;
 }
 
@@ -3101,16 +3105,16 @@ stock bool CheckGroundClearance(int clientIdx, float minClearance, bool failInWa
 		return false;
 	else if (failInWater && (GetEntityFlags(clientIdx) & (FL_SWIM | FL_INWATER)))
 		return false;
-		
+
 	// need to do a trace
 	static float origin[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", origin);
-	
+
 	Handle trace = TR_TraceRayFilterEx(origin, view_as<float>({90.0,0.0,0.0}), (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 	static float endPos[3];
 	TR_GetEndPosition(endPos, trace);
 	CloseHandle(trace);
-	
+
 	// only Z should change, so this is easy.
 	return origin[2] - endPos[2] >= minClearance;
 }
@@ -3145,7 +3149,7 @@ stock int ParticleEffectAt(float position[3], char[] effectName, float duration 
 {
 	if (IsEmptyString(effectName))
 		return -1; // nothing to display
-		
+
 	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
@@ -3169,7 +3173,7 @@ stock void PrepareForWeaponSwitch(int clientIdx)
 	int primary = GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Primary);
 	if (!IsValidEntity(primary) || primary != GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"))
 		return;
-	
+
 	bool shouldStun = false;
 	if (EntityStartsWith(primary, "tf_weapon_minigun"))
 	{
@@ -3245,7 +3249,7 @@ bool Resize_OneTrace(const float startPos[3], const float endPos[3])
 			PrintToServer("[ff2_dynamic_defaults] Could not resize player. Hit a wall. Offsets: %f, %f, %f", startPos[0] - endPos[0], startPos[1] - endPos[1], startPos[2] - endPos[2]);
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -3260,26 +3264,26 @@ bool Resize_TestResizeOffset(const float bossOrigin[3], float xOffset, float yOf
 	targetOrigin[0] = bossOrigin[0] + xOffset;
 	targetOrigin[1] = bossOrigin[1] + yOffset;
 	targetOrigin[2] = bossOrigin[2];
-	
+
 	if (!(xOffset == 0.0 && yOffset == 0.0))
 		if (!Resize_OneTrace(tmpOrigin, targetOrigin))
 			return false;
-		
+
 	tmpOrigin[0] = targetOrigin[0];
 	tmpOrigin[1] = targetOrigin[1];
 	tmpOrigin[2] = targetOrigin[2] + zOffset;
 
 	if (!Resize_OneTrace(targetOrigin, tmpOrigin))
 		return false;
-		
+
 	targetOrigin[0] = bossOrigin[0];
 	targetOrigin[1] = bossOrigin[1];
 	targetOrigin[2] = bossOrigin[2] + zOffset;
-		
+
 	if (!(xOffset == 0.0 && yOffset == 0.0))
 		if (!Resize_OneTrace(tmpOrigin, targetOrigin))
 			return false;
-		
+
 	return true;
 }
 
@@ -3354,7 +3358,7 @@ bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float 
 				return false;
 		}
 	}
-		
+
 	return true;
 }
 
@@ -3397,7 +3401,7 @@ public bool IsSpotSafe(int clientIdx, float playerPos[3], float sizeMultiplier)
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.75, maxs[0] * 0.75, mins[1] * 0.75, maxs[1] * 0.75, maxs[2])) return false;
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.5, maxs[0] * 0.5, mins[1] * 0.5, maxs[1] * 0.5, maxs[2])) return false;
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.25, maxs[0] * 0.25, mins[1] * 0.25, maxs[1] * 0.25, maxs[2])) return false;
-	
+
 	return true;
 }
 
