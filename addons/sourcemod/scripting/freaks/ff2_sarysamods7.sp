@@ -9,6 +9,7 @@
 #include <drain_over_time_subplugin>
 #include <tf2attributes>
 #include <ff2_dynamic_defaults>
+#include <vsh2>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -21,14 +22,14 @@
  * RageSkyNuke: Send one or more projectiles that the player can control to some degree from the noclip skies.
  * Known Issues: Two bosses using this in a duo boss setup will have issues if either have a model to swap to.
  *
- * DOTSuckAndChuck: 
+ * DOTSuckAndChuck:
  * Known Issues: Two bosses cannot have access to this rage at once, due to issues with the collision group settings.
  *               If you have maps where RED spawn eventually becomes uninhabitable, like run blitz, the anti-punking options will get the mercs killed on these maps.
  *		 Because of workarounds I've had to implement re: body blocking, collision is server-based thus sluggish the round this rage is active.
  *
  * General credits: Asherkin and voogru created the original rocket spawning code that I have used probably too many times now.
  */
- 
+
 // copied from tf2 sdk
 // effects, for m_fEffects
 #define EF_BONEMERGE 0x001	// Performs bone merge on client side
@@ -90,9 +91,9 @@ enum // Collision_Group_t in const.h
 
 	LAST_SHARED_COLLISION_GROUP
 };
- 
+
 #define ARG_LENGTH 256
- 
+
 bool PRINT_DEBUG_INFO = true;
 bool PRINT_DEBUG_SPAM = false;
 
@@ -317,7 +318,7 @@ float SNA_UpdateHUDAt[MAX_PLAYERS_ARRAY]; // internal
 float SNA_RefreshOverlayAt[MAX_PLAYERS_ARRAY]; // internal
 int SNA_TrailEntRef[MAX_PLAYERS_ARRAY]; // internal
 int SNA_DopplegangerEntRef[MAX_PLAYERS_ARRAY]; // internal
-char SNA_OriginalModel[MAX_MODEL_FILE_LENGTH]; 
+char SNA_OriginalModel[MAX_MODEL_FILE_LENGTH];
 char SNA_LoopingSound[MAX_SOUND_FILE_LENGTH]; // arg1
 float SNA_LoopInterval; // arg2
 char SNA_ArmingSound[MAX_SOUND_FILE_LENGTH]; // arg3
@@ -529,7 +530,7 @@ float MR_RequiredVelocity[MAX_PLAYERS_ARRAY]; // arg9
 float MR_BounceIntensity[MAX_PLAYERS_ARRAY]; // arg10
 char MR_UseSound[MAX_SOUND_FILE_LENGTH]; // arg11
 float MR_MinZLift[MAX_PLAYERS_ARRAY]; // arg12
-		
+
 /**
  * Gem Seeker
  */
@@ -632,15 +633,15 @@ float MAB_Speed[MAX_PLAYERS_ARRAY]; // arg7
 int MAB_Model[MAX_PLAYERS_ARRAY]; // arg8, derived from a model import
 bool MAB_IsLooseCannon[MAX_PLAYERS_ARRAY]; // arg9
 int MAB_MaxProjectiles[MAX_PLAYERS_ARRAY]; // arg10
-		
- 
+
+
 #define CMD_FORCE_RAGE "rage"
 public void OnPluginStart2()
 {
 	HookEvent("arena_win_panel", Event_RoundEnd, EventHookMode_PostNoCopy);
 	HookEvent("arena_round_start", Event_RoundStart, EventHookMode_PostNoCopy);
 	PrecacheSound(NOPE_AVI); // DO NOT DELETE IN FUTURE MOD PACKS
-	
+
 	RegConsoleCmd("mega1", MA_MegaCommand);
 	RegConsoleCmd("mega2", MA_MegaCommand);
 	RegConsoleCmd("mega3", MA_MegaCommand);
@@ -652,10 +653,32 @@ public void OnPluginStart2()
 	RegConsoleCmd("mega9", MA_MegaCommand);
 }
 
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "VSH2")) {
+		VSH2_Hook(OnBossModelTimer, FF2_OnBossModelTimer);
+	}
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "VSH2")) {
+		VSH2_Unhook(OnBossModelTimer, FF2_OnBossModelTimer);
+	}
+}
+
+public Action FF2_OnBossModelTimer(const VSH2Player player)
+{
+  if (SN_ProjectileActive[player.index])
+		return Plugin_Handled;
+
+  return Plugin_Continue;
+}
+
 public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = true;
-	
+
 	// initialize variables
 	PluginActiveThisRound = false;
 	DE_ActiveThisRound = false;
@@ -677,7 +700,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 	MM_ActiveThisRound = false;
 	MP_ActiveThisRound = false;
 	MAB_ActiveThisRound = false;
-	
+
 	// initialize arrays
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
@@ -723,14 +746,14 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		int bossIdx = FF2_GetBossIndex(clientIdx);
 		if (bossIdx < 0)
 			continue;
-		
+
 		// DOT entrapment
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DE_STRING))
 		{
 			DE_ActiveThisRound = true;
 			DE_CanUse[clientIdx] = true;
 			DE_NextHUDAt[clientIdx] = GetEngineTime();
-			
+
 			DE_Velocity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 1);
 			DE_AnglePerSecond[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 2);
 			DE_Lifetime[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 3);
@@ -742,10 +765,10 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			DE_SoundInterval[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DE_STRING, 9);
 			ReadSound(bossIdx, DE_STRING, 10, DE_TrapLoopingSound);
 			ReadCenterText(bossIdx, DE_STRING, 11, DE_HudMessage);
-			
+
 			DE_Flags[clientIdx] = ReadHexOrDecString(bossIdx, DE_STRING, 19);
 			DE_OneObjectPerPerson = (DE_Flags[clientIdx] & DE_FLAG_ONE_OBJECT_PER_PERSON) != 0;
-			
+
 			if (DE_ReskinnedModelIdx[clientIdx] == -1 || strlen(DE_TrappedModel) <= 3)
 			{
 				PrintToServer("[sarysamods7] ERROR: Invalid model specified for projectile reskin and/or entrapped model. Disabling %s", DE_STRING);
@@ -763,23 +786,23 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			PluginActiveThisRound = true;
 			SM_ActiveThisRound = true;
 			SM_CanUse[clientIdx] = true;
-			
+
 			SM_MinPosChange[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SM_STRING, 1);
 			SM_BlockX[clientIdx] = (FF2_GetAbilityArgument(bossIdx, this_plugin_name, SM_STRING, 2) == 1);
 			SM_BlockY[clientIdx] = (FF2_GetAbilityArgument(bossIdx, this_plugin_name, SM_STRING, 3) == 1);
 			SM_BlockZ[clientIdx] = (FF2_GetAbilityArgument(bossIdx, this_plugin_name, SM_STRING, 4) == 1);
-			
+
 			if (PRINT_DEBUG_INFO)
 				PrintToServer("[sarysamods7] User %d is using workaround for twitchy model.", clientIdx);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, RR_STRING))
 		{
 			PluginActiveThisRound = true;
 			RR_ActiveThisRound = true;
 			RR_CanUse[clientIdx] = true;
 			RR_ReorientAt = FAR_FUTURE;
-			
+
 			RR_RocketCount[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 1);
 			RR_RocketYawPerSecond[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 2);
 			RR_RocketReangleInterval = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 3);
@@ -791,13 +814,13 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			RR_EndVelocity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 9);
 			RR_VelocityScaleFactor[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RR_STRING, 10);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, DK_STRING))
 		{
 			PluginActiveThisRound = true;
 			DK_ActiveThisRound = true;
 			DK_CanUse[clientIdx] = true;
-			
+
 			DK_DamageFactorMin[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DK_STRING, 1);
 			DK_DamageFactorMax[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DK_STRING, 2);
 			FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, DK_STRING, 3, DK_ParticleName, MAX_EFFECT_NAME_LENGTH);
@@ -805,7 +828,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			DK_NonFatalEffectDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DK_STRING, 5);
 			DK_FatalityDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DK_STRING, 6);
 			DK_CritChance[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, DK_STRING, 7);
-			
+
 			// sound files, and their precaching
 			ReadSound(bossIdx, DK_STRING, 10, DK_ScoutDeathSound);
 			ReadSound(bossIdx, DK_STRING, 11, DK_SoldierDeathSound);
@@ -816,21 +839,21 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			ReadSound(bossIdx, DK_STRING, 16, DK_MedicDeathSound);
 			ReadSound(bossIdx, DK_STRING, 17, DK_SniperDeathSound);
 			ReadSound(bossIdx, DK_STRING, 18, DK_SpyDeathSound);
-			
+
 			// flags
 			DK_Flags = ReadHexOrDecString(bossIdx, DK_STRING, 19);
-			
+
 			// precache crit sound
 			PrecacheSound(DK_CRIT_SOUND);
 			PrecacheSound(DK_CRIT_SOUND_ATTACKER);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, SN_STRING) && FF2_HasAbility(bossIdx, this_plugin_name, SNA_STRING))
 		{
 			PluginActiveThisRound = true;
 			SN_ActiveThisRound = true;
 			SN_CanUse[clientIdx] = true;
-			
+
 			// normal props
 			SN_ProjectilesPerRage[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, SN_STRING, 1);
 			SN_Duration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SN_STRING, 2);
@@ -865,13 +888,13 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			ReadSound(bossIdx, SNA_STRING, 16, SNA_DGLoopingSound);
 			SNA_DGLoopInterval = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SNA_STRING, 17);
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, SAC_STRING))
 		{
 			PluginActiveThisRound = true;
 			SAC_ActiveThisRound = true;
 			SAC_CanUse[clientIdx] = true;
-			
+
 			SAC_MaxVelocity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SAC_STRING, 1);
 			SAC_MaxVelocityShiftPerTick[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SAC_STRING, 2);
 			SAC_MaxSuctionRadius[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SAC_STRING, 3);
@@ -885,20 +908,20 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			SAC_PitImmunityDuration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SAC_STRING, 11);
 			SAC_DamageCap[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SAC_STRING, 12);
 			SAC_Flags = ReadHexOrDecString(bossIdx, SAC_STRING, 19);
-			
+
 			if (IsLivingPlayer(clientIdx))
 				GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", SAC_LastValidBossPos[clientIdx]);
-			
+
 			if (SAC_OverlayFrames <= 0)
 				SAC_OverlayFrames = 1;
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, CN_STRING))
 		{
 			PluginActiveThisRound = true;
 			CN_ActiveThisRound = true;
 			CN_CanUse[clientIdx] = true;
-			
+
 			char unparsedString[40];
 			char damageMultStrs[4][10];
 			for (int i = 1; i <= 9; i++)
@@ -923,12 +946,12 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				}
 			}
 		}
-		
+
 		if (FF2_HasAbility(bossIdx, this_plugin_name, MB_STRING))
 		{
 			MB_ActiveThisRound = true;
 			MB_CanUse[clientIdx] = true;
-			
+
 			MB_BaseDamage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MB_STRING, 1);
 			MB_HalfChargeDamage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MB_STRING, 2);
 			MB_FullChargeDamage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MB_STRING, 3);
@@ -946,7 +969,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			MB_BonusDamageExp[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MB_STRING, 15);
 			MB_DamageFalloffType[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MB_STRING, 18);
 			MB_Flags[clientIdx] = ReadHexOrDecString(bossIdx, MB_STRING, 19);
-			
+
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MBA_STRING))
 			{
 				PluginActiveThisRound = true;
@@ -960,7 +983,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				MBA_ChargeSoundTwoDelay[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MBA_STRING, 6);
 				ReadSound(bossIdx, MBA_STRING, 7, MBA_ChargeSoundTwo[clientIdx]);
 				MBA_ChargeSoundLoopInterval[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MBA_STRING, 8);
-				
+
 				ReadSound(bossIdx, MBA_STRING, 9, MBA_NormalFiringSound[clientIdx]);
 				ReadSound(bossIdx, MBA_STRING, 10, MBA_HalfChargeFiringSound[clientIdx]);
 				ReadSound(bossIdx, MBA_STRING, 11, MBA_FullChargeFiringSound[clientIdx]);
@@ -970,25 +993,25 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 
 				FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MBA_STRING, 15, MBA_AttachmentName[clientIdx], MBA_MAX_ATTACHMENT_NAME_LENGTH);
 				FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MBA_STRING, 16, MBA_AttachmentParticle, MAX_EFFECT_NAME_LENGTH);
-			
+
 				// sanity
 				if (MB_MaxProjectiles[clientIdx] > MB_HARD_PROJECTILE_MAX)
 				{
 					PrintToServer("[sarysamods7] WARNING: Mega Buster: You've specified a projectile max (%d) higher than hard maximum. (%d) Reducing.", MB_MaxProjectiles[clientIdx], MB_HARD_PROJECTILE_MAX);
 					MB_MaxProjectiles[clientIdx] = MB_HARD_PROJECTILE_MAX;
 				}
-			
+
 				// initialize
 				for (int i = 0; i < MB_HARD_PROJECTILE_MAX; i++)
 					MB_ProjectileEntRefs[clientIdx][i] = 0;
-				
+
 				if (PRINT_DEBUG_INFO)
 					PrintToServer("[sarysamods7] Boss %d will use %s this round, reskins are %d %d %d", clientIdx, MB_STRING, MBA_NormalReskin[clientIdx], MBA_HalfReskin[clientIdx], MBA_FullReskin[clientIdx]);
-					
+
 				// schedule making the shotgun useless
 				MB_InertShotgunEntRef[clientIdx] = 0;
 				MB_FireDown[clientIdx] = false;
-				
+
 				// schedule attachment of effect, we can't do this immediately due to first round bug check
 				MBA_AttachParticleAt[clientIdx] = GetEngineTime() + 0.3;
 				MBA_ParticleEntRef[clientIdx] = 0;
@@ -1000,7 +1023,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				MB_CanUse[clientIdx] = false;
 			}
 		}
-		
+
 		if (MB_CanUse[clientIdx] && FF2_HasAbility(bossIdx, this_plugin_name, MA_STRING))
 		{
 			MA_ActiveThisRound = true;
@@ -1013,7 +1036,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			MA_MaxHealth[clientIdx] = 0;
 			MA_ReloadDown[clientIdx] = false;
 			MA_UseDown[clientIdx] = false;
-			
+
 			MA_DefaultWeaponColor[clientIdx] = ReadHexOrDecString(bossIdx, MA_STRING, 1);
 			ReadSound(bossIdx, MA_STRING, 2, MA_DepletedWeaponSound);
 			ReadSound(bossIdx, MA_STRING, 3, MA_WeaponSwitchSound);
@@ -1023,23 +1046,23 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			ReadCenterText(bossIdx, MA_STRING, 7, MA_SecondaryWeaponMessage);
 			ReadCenterText(bossIdx, MA_STRING, 8, MA_ChargeHUDMessage);
 			ReadCenterText(bossIdx, MA_STRING, 9, MA_ChargeFailHUDMessage);
-			
+
 			MA_Flags[clientIdx] = ReadHexOrDecString(bossIdx, MA_STRING, 19);
 		}
-		
+
 		// sub-abilities
 		if (MA_CanUse[clientIdx])
 		{
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MR_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MR_STRING);
-				
+
 				MR_ActiveThisRound = true;
 				MR_CanUse[clientIdx] = true;
 				MR_HasToxicTouch[clientIdx] = false;
 				MR_VerifyRageAt[clientIdx] = FAR_FUTURE;
 				MR_ForceFinishAt[clientIdx] = FAR_FUTURE;
-				
+
 				MR_Damage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MR_STRING, 6);
 				MR_ChargeIntensity[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MR_STRING, 7);
 				MR_ChargeDuration[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MR_STRING, 8);
@@ -1052,11 +1075,11 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MG_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MG_STRING);
-				
+
 				MG_ActiveThisRound = true;
 				MG_CanUse[clientIdx] = true;
 				MG_IsImmune[clientIdx] = false;
-				
+
 				MG_ToxicRadius[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MG_STRING, 6);
 				MG_ToxicDamagePerTick[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MG_STRING, 7);
 				MG_ToxicImmunityPeriod[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MG_STRING, 8);
@@ -1067,13 +1090,13 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				MG_MaxProjectiles[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MG_STRING, 13);
 				MG_Model[clientIdx] = ReadModelToInt(bossIdx, MG_STRING, 14);
 				ReadSound(bossIdx, MG_STRING, 15, MG_FireSound);
-				
+
 				if (MG_MaxProjectiles[clientIdx] > MG_HARD_PROJECTILE_MAX)
 				{
 					PrintToServer("[sarysamods7] WARNING (%s): Exceeded hard projectile max of %d. Reducing.", MG_STRING, MG_HARD_PROJECTILE_MAX);
 					MG_MaxProjectiles[clientIdx] = MG_HARD_PROJECTILE_MAX;
 				}
-				
+
 				for (int i = 0; i < MG_MaxProjectiles[clientIdx]; i++)
 					MG_EntRefs[clientIdx][i] = 0;
 			}
@@ -1081,10 +1104,10 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MS_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MS_STRING);
-				
+
 				MS_ActiveThisRound = true;
 				MS_CanUse[clientIdx] = true;
-				
+
 				MS_Radius[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 6);
 				MS_Damage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 7);
 				MS_SlowFactor[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 8);
@@ -1096,11 +1119,11 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MM_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MM_STRING);
-				
+
 				MM_ActiveThisRound = true;
 				MM_CanUse[clientIdx] = true;
 				MM_ReangleAt[clientIdx] = GetEngineTime();
-				
+
 				MM_Damage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MM_STRING, 6);
 				MM_Speed[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MM_STRING, 7);
 				MM_DistanceLimit[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MM_STRING, 8);
@@ -1111,13 +1134,13 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, MM_STRING, 13, MM_Particle, MAX_EFFECT_NAME_LENGTH);
 				ReadSound(bossIdx, MM_STRING, 14, MM_FireSound);
 				MM_AngleDeviation[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MM_STRING, 15);
-				
+
 				if (MM_MaxProjectiles[clientIdx] > MM_HARD_PROJECTILE_MAX)
 				{
 					PrintToServer("[sarysamods7] WARNING (%s): Exceeded hard projectile max of %d. Reducing.", MM_STRING, MM_HARD_PROJECTILE_MAX);
 					MM_MaxProjectiles[clientIdx] = MM_HARD_PROJECTILE_MAX;
 				}
-				
+
 				for (int i = 0; i < MM_MaxProjectiles[clientIdx]; i++)
 				{
 					MM_EntRefs[clientIdx][i] = 0;
@@ -1128,11 +1151,11 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MP_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MP_STRING);
-				
+
 				MP_ActiveThisRound = true;
 				MP_CanUse[clientIdx] = true;
 				MP_CheckAutoDetonationAt[clientIdx] = GetEngineTime() + MP_AUTO_DETONATION_INTERVAL;
-				
+
 				MP_Damage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MP_STRING, 6);
 				MP_Speed[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MP_STRING, 7);
 				MP_Lifetime[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MP_STRING, 8);
@@ -1140,13 +1163,13 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				MP_AutoDetonationDistance[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MP_STRING, 10);
 				MP_MaxProjectiles[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MP_STRING, 11);
 				ReadSound(bossIdx, MP_STRING, 12, MP_FireSound);
-				
+
 				if (MP_MaxProjectiles[clientIdx] > MP_HARD_PROJECTILE_MAX)
 				{
 					PrintToServer("[sarysamods7] WARNING (%s): Exceeded hard projectile max of %d. Reducing.", MP_STRING, MP_HARD_PROJECTILE_MAX);
 					MP_MaxProjectiles[clientIdx] = MP_HARD_PROJECTILE_MAX;
 				}
-				
+
 				for (int i = 0; i < MP_MaxProjectiles[clientIdx]; i++)
 					MP_EntRefs[clientIdx][i] = 0;
 			}
@@ -1154,28 +1177,28 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			if (FF2_HasAbility(bossIdx, this_plugin_name, MAB_STRING))
 			{
 				MA_InitSubAbility(clientIdx, bossIdx, MAB_STRING);
-				
+
 				MAB_ActiveThisRound = true;
 				MAB_CanUse[clientIdx] = true;
-				
+
 				MAB_Damage[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MAB_STRING, 6);
 				MAB_Speed[clientIdx] = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MAB_STRING, 7);
 				MAB_Model[clientIdx] = ReadModelToInt(bossIdx, MAB_STRING, 8);
 				MAB_IsLooseCannon[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MAB_STRING, 9) == 1;
 				MAB_MaxProjectiles[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MAB_STRING, 10);
-				
+
 				if (MAB_MaxProjectiles[clientIdx] > MAB_HARD_PROJECTILE_MAX)
 				{
 					PrintToServer("[sarysamods7] WARNING (%s): Exceeded hard projectile max of %d. Reducing.", MAB_STRING, MAB_HARD_PROJECTILE_MAX);
 					MAB_MaxProjectiles[clientIdx] = MAB_HARD_PROJECTILE_MAX;
 				}
-				
+
 				for (int i = 0; i < MAB_MaxProjectiles[clientIdx]; i++)
 					MAB_EntRefs[clientIdx][i] = 0;
 			}
 		}
 	}
-	
+
 	if (DE_ActiveThisRound)
 	{
 		for (int i = 0; i < DET_MAX_PROJECTILES; i++)
@@ -1183,7 +1206,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			DET_EntRef[i] = 0;
 			DET_HomingTarget[i] = -1;
 		}
-		
+
 		// add hooks to all players
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1202,18 +1225,18 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			}
 		}
 	}
-	
+
 	if (RR_ActiveThisRound)
 	{
 		for (int i = 0; i < RRP_MAX_PROJECTILES; i++)
 			RRP_EntRef[i] = 0;
 	}
-	
+
 	if (DK_ActiveThisRound)
 	{
 		// add sound hook
 		AddNormalSoundHook(DK_HookPainSounds);
-	
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			// add damage hooks
@@ -1224,7 +1247,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			}
 		}
 	}
-	
+
 	if (SN_ActiveThisRound)
 	{
 		HookEvent("object_deflected", SN_OnDeflect, EventHookMode_Pre);
@@ -1236,7 +1259,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 		int randomRed = FindRandomPlayer(false);
 		if (IsValidEntity(randomRed))
 			GetEntPropVector(randomRed, Prop_Data, "m_vecOrigin", SAC_UnstuckCoords);
-			
+
 		// add hooks
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1248,7 +1271,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			}
 		}
 	}
-	
+
 	if (CN_ActiveThisRound)
 	{
 		// add hooks
@@ -1260,7 +1283,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 			}
 		}
 	}
-	
+
 	if (MB_ActiveThisRound)
 	{
 		// add hooks
@@ -1270,7 +1293,7 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 				SDKHook(clientIdx, SDKHook_OnTakeDamage, MB_OnTakeDamage);
 		}
 	}
-	
+
 	if (MA_ActiveThisRound)
 	{
 		// add hook for medic command
@@ -1307,17 +1330,17 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	RoundInProgress = false;
-	
+
 	if (DE_ActiveThisRound)
 	{
 		DE_ActiveThisRound = false;
-		
+
 		// cleanup, removing entities and fixing visibility
 		for (int i = 0; i < DET_MAX_PROJECTILES; i++)
 		{
 			if (DET_EntRef[i] == 0)
 				continue;
-			
+
 			RemoveEntityTele(DET_EntRef[i]);
 			DET_EntRef[i] = 0;
 			int victim = DET_HomingTarget[i];
@@ -1331,7 +1354,7 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 				SetEntityMoveType(victim, MOVETYPE_WALK);
 			}
 		}
-		
+
 		// add hooks to all players
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1339,11 +1362,11 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 				SDKUnhook(clientIdx, SDKHook_OnTakeDamage, DE_OnTakeDamage);
 		}
 	}
-	
+
 	if (SM_ActiveThisRound)
 	{
 		SM_ActiveThisRound = false;
-		
+
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (SM_CanUse[clientIdx] && IsClientInGame(clientIdx))
@@ -1357,18 +1380,18 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	if (RR_ActiveThisRound)
 	{
 		RR_ActiveThisRound = false;
-		
+
 		for (int i = 0; i < RRP_MAX_PROJECTILES; i++)
 			RRP_EntRef[i] = 0;
 	}
-	
+
 	if (DK_ActiveThisRound)
 	{
 		DK_ActiveThisRound = false;
-		
+
 		// remove sound hook
 		RemoveNormalSoundHook(DK_HookPainSounds);
-		
+
 		// remove damage hooks
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1385,12 +1408,12 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if (SN_ActiveThisRound)
 	{
 		SN_ActiveThisRound = false;
 		UnhookEvent("object_deflected", SN_OnDeflect, EventHookMode_Pre);
-		
+
 		// post-rage cleanup
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1402,14 +1425,14 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	if (SAC_ActiveThisRound)
 	{
 		SAC_ActiveThisRound = false;
-		
+
 		// get people unstuck, as a courtesy. also restore their collision group.
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsLivingPlayer(clientIdx) && GetClientTeam(clientIdx) == MercTeam)
 			{
 				SetEntProp(clientIdx, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_PLAYER);
-				
+
 				if (SACV_IsTrapped[clientIdx])
 				{
 					SACV_IsTrapped[clientIdx] = false;
@@ -1438,17 +1461,17 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if (MB_ActiveThisRound)
 	{
 		MB_ActiveThisRound = false;
-	
+
 		// remove damage hooks
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
 			if (IsClientInGame(clientIdx))
 				SDKUnhook(clientIdx, SDKHook_OnTakeDamage, MB_OnTakeDamage);
-				
+
 			if (MB_CanUse[clientIdx])
 			{
 				MB_CanUse[clientIdx] = false;
@@ -1458,24 +1481,24 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if (MA_ActiveThisRound)
 	{
 		MA_ActiveThisRound = false;
-	
+
 		// add hook for medic command
 		RemoveCommandListener(MA_MedicCommand, "voicemenu");
-		
+
 		// must re-enable HUD...this actually leaks into the next round!
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 			if (MA_CanUse[clientIdx])
 			FF2Player(clientIdx).SetPropAny("bHideHUD", false);
 	}
-	
+
 	if (MR_ActiveThisRound)
 	{
 		MR_ActiveThisRound = false;
-		
+
 		// remove that touch hook, which in rare cases may linger
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1486,11 +1509,11 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if (MP_ActiveThisRound)
 	{
 		MP_ActiveThisRound = false;
-	
+
 		// remove damage hooks
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1501,11 +1524,11 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if (MAB_ActiveThisRound)
 	{
 		MAB_ActiveThisRound = false;
-	
+
 		// remove damage hooks
 		for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 		{
@@ -1522,18 +1545,18 @@ public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const cha
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
-		
+
 	if (!strcmp(ability_name, RR_STRING))
 	{
 		Rage_RocketRing(bossPlayer);
-		
+
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Rocket Ring");
 	}
 	else if (!strcmp(ability_name, SN_STRING))
 	{
 		Rage_SkyNuke(bossPlayer);
-		
+
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Sky Nuke");
 	}
@@ -1541,10 +1564,10 @@ public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const cha
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Super rare edge case of rage executing with %s, this code isn't useless! Yay.", MA_STRING);
-		
+
 		MA_EnergyPercent[bossPlayer] = 100.0;
 	}
-		
+
 	return Plugin_Continue;
 }
 
@@ -1558,10 +1581,10 @@ void DOTPostRoundStartInit()
 		PrintToServer("[sarysamods7] DOTPostRoundStartInit() called when the round is over?! Shouldn't be possible!");
 		return;
 	}
-	
+
 	// nothing to do
 }
- 
+
 void OnDOTAbilityActivated(int clientIdx)
 {
 	if (!PluginActiveThisRound)
@@ -1570,7 +1593,7 @@ void OnDOTAbilityActivated(int clientIdx)
 	if (DE_CanUse[clientIdx])
 	{
 		DE_CreateProjectile(clientIdx); // it cannot fail.
-		
+
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] %d created trapping projectile.", clientIdx);
 	}
@@ -1599,7 +1622,7 @@ void OnDOTUserDeath(int clientIdx, int isInGame)
 }
 
 Action OnDOTAbilityTick(int clientIdx, int tickCount)
-{	
+{
 	if (!PluginActiveThisRound)
 		return;
 
@@ -1608,7 +1631,7 @@ Action OnDOTAbilityTick(int clientIdx, int tickCount)
 		// since DOT entrapment is one-time use, deactivate it.
 		ForceDOTAbilityDeactivation(clientIdx);
 	}
-	
+
 	if (SAC_CanUse[clientIdx])
 	{
 		SAC_DOTTick(clientIdx);
@@ -1625,28 +1648,28 @@ public bool DE_PlayerTrappedAlready(int victim)
 {
 	if (DE_OneObjectPerPerson)
 		return false;
-		
+
 	for (int i = 0; i < DET_MAX_PROJECTILES; i++)
 	{
 		if (DET_EntRef[i] == 0)
 			break;
-			
+
 		if (DET_IsTrapping[i] && victim == DET_HomingTarget[i])
 			return true;
 	}
-	
+
 	return false;
 }
- 
-public Action DE_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+
+public Action DE_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(victim))
 		return Plugin_Continue;
 	else if (GetClientTeam(victim) == BossTeam)
 		return Plugin_Continue;
-		
+
 	for (int i = 0; i < DET_MAX_PROJECTILES; i++)
 	{
 		if (DET_IsTrapping[i] && DET_HomingTarget[i] == victim)
@@ -1655,10 +1678,10 @@ public Action DE_OnTakeDamage(int victim, int& attacker, int& inflictor,
 				return Plugin_Handled; // disable normal damage
 		}
 	}
-		
+
 	return Plugin_Continue;
 }
- 
+
 int DET_TracingForIndex = -1;
 public bool DET_TraceRedPlayers(int entity, int contentsMask)
 {
@@ -1677,7 +1700,7 @@ public Action DE_OtherTouches(int projectile, int victim)
 {
 	return Plugin_Handled; // prevent explosion
 }
- 
+
 public Action DE_OnStartTouch(int projectile, int victim)
 {
 	bool deflect = false;
@@ -1688,31 +1711,31 @@ public Action DE_OnStartTouch(int projectile, int victim)
 		deflect = true;
 	else if (DE_PlayerTrappedAlready(victim))
 		deflect = true;
-	
+
 	// deflect the projectile, invert all velocities and fix the angle
 	if (deflect)
 	{
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("[sarysamods7] Deflecting projectile %d which touched %d", projectile, victim);
-	
+
 		// invert velocity
 		//float velocity[3];
 		//GetEntPropVector(projectile, Prop_Data, "m_vecVelocity", velocity);
 		//velocity[0] = -velocity[0];
 		//velocity[1] = -velocity[1];
 		//velocity[2] = -velocity[2];
-		
+
 		// invert angles
 		float angle[3];
 		GetEntPropVector(projectile, Prop_Data, "m_angRotation", angle);
 		angle[0] = -angle[0]; //fixAngle(angle[0] + 180.0);
 		angle[1] = fixAngle(angle[1] + 180.0);
-		
+
 		// redo velocity
 		float velocity[3];
 		GetAngleVectors(angle, velocity, NULL_VECTOR, NULL_VECTOR);
 		ScaleVector(velocity, 600.0);
-		
+
 		// move the projectile out a little to prevent touches from stacking
 		float position[3];
 		GetEntPropVector(projectile, Prop_Data, "m_vecOrigin", position);
@@ -1722,17 +1745,17 @@ public Action DE_OnStartTouch(int projectile, int victim)
 		//position[0] -= offset[0];
 		//position[1] -= offset[1];
 		//position[2] -= offset[2];
-		
+
 		// teleport
 		TeleportEntity(projectile, position, angle, velocity);
-		
+
 		return Plugin_Handled;
 	}
-	
+
 	// get the angle
 	float oldAngle[3];
 	GetEntPropVector(projectile, Prop_Data, "m_angRotation", oldAngle);
-	
+
 	// find out which projectile this is
 	int trapIdx = -1;
 	for (int i = 0; i < DET_MAX_PROJECTILES; i++)
@@ -1743,7 +1766,7 @@ public Action DE_OnStartTouch(int projectile, int victim)
 			break;
 		}
 	}
-	
+
 	// wtf?
 	if (trapIdx == -1)
 	{
@@ -1751,13 +1774,13 @@ public Action DE_OnStartTouch(int projectile, int victim)
 		SDKUnhook(projectile, SDKHook_StartTouch, DE_OnStartTouch);
 		return Plugin_Continue;
 	}
-	
+
 	// if it hits someone else en route to the intended target, since this is still used
 	DET_HomingTarget[trapIdx] = victim;
-	
+
 	// need the owner
 	int owner = DET_Owner[trapIdx];
-	
+
 	// destroy old entity, create int entity, begin entrapment
 	RemoveEntityTele(DET_EntRef[trapIdx]);
 	DET_EntRef[trapIdx] = 0;
@@ -1774,7 +1797,7 @@ public Action DE_OnStartTouch(int projectile, int victim)
 		DE_RemoveObject(trapIdx);
 		return Plugin_Handled;
 	}
-	
+
 	SetEntityModel(prop, DE_TrappedModel);
 	DispatchSpawn(prop);
 	if (DE_Flags[owner] & DE_FLAG_TRAP_MODEL_ON_PLAYER_ORIGIN)
@@ -1789,11 +1812,11 @@ public Action DE_OnStartTouch(int projectile, int victim)
 
 	// save the entity ref
 	DET_EntRef[trapIdx] = EntIndexToEntRef(prop);
-	
+
 	// play the sound if one exists
 	if (strlen(DE_TrapSound) > 3)
 		PseudoAmbientSound(victim, DE_TrapSound);
-		
+
 	// hide victim if victim should be hidden
 	if (DE_Flags[owner] & DE_FLAG_HIDE_VICTIM)
 	{
@@ -1802,7 +1825,7 @@ public Action DE_OnStartTouch(int projectile, int victim)
 	TF2_StunPlayer(victim, 99999.0, 0.0, TF_STUNFLAG_BONKSTUCK | TF_STUNFLAG_NOSOUNDOREFFECT, owner);
 	SetEntProp(DET_HomingTarget[trapIdx], Prop_Data, "m_takedamage", 0); // 2015-03-24, temporary invincibility so shields aren't broken
 	SetEntityMoveType(victim, MOVETYPE_NONE);
-	
+
 	return Plugin_Handled;
 }
 
@@ -1811,14 +1834,14 @@ public void DE_CreateProjectile(int clientIdx)
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float speed = DE_Velocity[clientIdx];
 	float damage = 0.0;
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return;
 	}
-	
+
 	// determine spawn position, angle, and velocity
 	static float position[3];
 	GetClientEyePosition(clientIdx, position);
@@ -1830,7 +1853,7 @@ public void DE_CreateProjectile(int clientIdx)
 	spawnVelocity[0] *= speed;
 	spawnVelocity[1] *= speed;
 	spawnVelocity[2] *= speed;
-	
+
 	// deploy!
 	TeleportEntity(rocket, position, angle, spawnVelocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -1840,23 +1863,23 @@ public void DE_CreateProjectile(int clientIdx)
 	SetVariantInt(MercTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(MercTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// reskin it
 	if (DE_ReskinnedModelIdx[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", DE_ReskinnedModelIdx[clientIdx]);
-	
+
 	// this may or not be needed for this application
 	SetEntPropEnt(rocket, Prop_Send, "m_hOriginalLauncher", GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Melee));
 	SetEntPropEnt(rocket, Prop_Send, "m_hLauncher", GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Melee));
-	
+
 	// add the projectile to the array
 	for (int i = 0; i < DET_MAX_PROJECTILES; i++)
 	{
 		if (DET_EntRef[i] != 0)
 			continue;
-			
+
 		DET_EntRef[i] = EntIndexToEntRef(rocket);
 		DET_Owner[i] = clientIdx;
 		DET_IsTrapping[i] = false;
@@ -1872,13 +1895,13 @@ public void DE_CreateProjectile(int clientIdx)
 		DET_ReangleAt[i] = DET_HomingTarget[i] == -1 ? FAR_FUTURE : GetEngineTime(); // do not reangle until a target is found
 		DET_DieAt[i] = GetEngineTime() + DE_Lifetime[clientIdx];
 		GetEntPropVector(rocket, Prop_Data, "m_vecOrigin", DET_LastPosition[i]);
-		
+
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("[sarysamods7] Projectile spawned with default target of %d", DET_HomingTarget[i]);
-		
+
 		break;
 	}
-	
+
 	// hook touches
 	SDKHook(rocket, SDKHook_StartTouch, DE_OnStartTouch);
 	SDKHook(rocket, SDKHook_StartTouchPost, DE_OtherTouches);
@@ -1902,7 +1925,7 @@ public void DE_RemoveObject(int removeIdx)
 		DE_GraceEndsAt[victim] = GetEngineTime() + 1.0;
 		SetEntityMoveType(victim, MOVETYPE_WALK);
 	}
-	
+
 	RemoveEntityTele(DET_EntRef[removeIdx]);
 	DET_EntRef[removeIdx] = 0;
 	for (int i = removeIdx; i < DET_MAX_PROJECTILES - 1; i++)
@@ -1941,7 +1964,7 @@ public void DE_Tick(float curTime)
 	{
 		if (DET_EntRef[i] == 0)
 			continue;
-		
+
 		// basic checks
 		int trapObject = EntRefToEntIndex(DET_EntRef[i]);
 		if (!IsValidEntity(trapObject) || curTime >= DET_DieAt[i])
@@ -1952,7 +1975,7 @@ public void DE_Tick(float curTime)
 			DE_RemoveObject(i);
 			continue;
 		}
-		
+
 		// is owner alive?
 		if (!IsLivingPlayer(DET_Owner[i]))
 		{
@@ -1962,15 +1985,15 @@ public void DE_Tick(float curTime)
 			DE_RemoveObject(i);
 			continue;
 		}
-		
+
 		int owner = DET_Owner[i];
-		
+
 		// used by multiple
 		static float trapPos[3];
 		static float trapAngle[3];
 		GetEntPropVector(trapObject, Prop_Data, "m_vecOrigin", trapPos);
 		GetEntPropVector(trapObject, Prop_Data, "m_angRotation", trapAngle);
-		
+
 		// some trapping conditions destroy the object
 		if (DET_IsTrapping[i] && !IsLivingPlayer(DET_HomingTarget[i]))
 		{
@@ -1988,7 +2011,7 @@ public void DE_Tick(float curTime)
 			DE_RemoveObject(i);
 			continue;
 		}
-		
+
 		// perform wall test, trapped already test, and uber test
 		if (DET_HomingTarget[i] != -1 && !DET_IsTrapping[i])
 		{
@@ -2004,13 +2027,13 @@ public void DE_Tick(float curTime)
 				static float angleToPlayer[3];
 				GetEntPropVector(DET_HomingTarget[i], Prop_Data, "m_vecOrigin", victimPos);
 				GetVectorAnglesTwoPoints(trapPos, victimPos, angleToPlayer);
-				
+
 				// trace
 				static float endPos[3];
 				Handle trace = TR_TraceRayFilterEx(trapPos, angleToPlayer, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(endPos, trace);
 				CloseHandle(trace);
-	
+
 				// test distance to ensure no wall between the two
 				float distance = GetVectorDistance(endPos, trapPos);
 				float minDistance = GetVectorDistance(victimPos, trapPos) - 0.5; // give a little allowance
@@ -2024,13 +2047,13 @@ public void DE_Tick(float curTime)
 				}
 			}
 		}
-		
+
 		// find a target. if no target can be found, stop moving until one pops up.
 		if (DET_HomingTarget[i] == -1 && curTime >= DET_RetargetAt[i])
 		{
 			int bestValidTarget = -1;
 			float bestValidAngleDeviation = 999.0;
-			
+
 			for (int victim = 1; victim < MAX_PLAYERS; victim++)
 			{
 				if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
@@ -2039,37 +2062,37 @@ public void DE_Tick(float curTime)
 					continue;
 				else if (DE_PlayerTrappedAlready(victim)) // do not pursue already trapped targets
 					continue;
-				
+
 				// get information we need for the trace
 				static float endPos[3];
 				static float victimPos[3];
 				static float angleToPlayer[3];
 				GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimPos);
 				GetVectorAnglesTwoPoints(trapPos, victimPos, angleToPlayer);
-				
+
 				// perform trace
 				Handle trace = TR_TraceRayFilterEx(trapPos, angleToPlayer, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 				TR_GetEndPosition(endPos, trace);
 				CloseHandle(trace);
-				
+
 				// test distance to ensure no wall between the two
 				float distance = GetVectorDistance(endPos, trapPos);
 				float minDistance = GetVectorDistance(victimPos, trapPos) - 0.5; // give a little allowance
 				if (distance < minDistance)
 					continue; // no good, means we hit a between the two points.
-					
+
 				// ensure angle deviation is the best we've got
 				float angleDeviation = fmax(fabs(angleToPlayer[0] - trapAngle[0]), fabs(angleToPlayer[1] - trapAngle[1]));
 				if (angleDeviation > 180.0) // 2015-01-12, fix obvious (now) fail math, was causing scallop to just run out to who knows where
 					angleDeviation = fabs(360.0 - angleDeviation);
-					
+
 				if (angleDeviation < bestValidAngleDeviation)
 				{
 					bestValidTarget = victim;
 					bestValidAngleDeviation = angleDeviation;
 				}
 			}
-			
+
 			// no good target? stop the rocket in its tracks
 			if (bestValidTarget == -1)
 			{
@@ -2082,7 +2105,7 @@ public void DE_Tick(float curTime)
 
 					TeleportEntity(trapObject, NULL_VECTOR, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 				}
-					
+
 				// don't retry immediately. I believe this is one thing that causes homing projectiles to lag the server
 				DET_RetargetAt[i] = curTime + DE_RETARGET_INTERVAL;
 			}
@@ -2095,13 +2118,13 @@ public void DE_Tick(float curTime)
 				DET_ReangleAt[i] = curTime;
 			}
 		}
-		
+
 		// always store the last position
 		if (!DET_IsTrapping[i])
 		{
 			GetEntPropVector(trapObject, Prop_Data, "m_vecOrigin", DET_LastPosition[i]);
 		}
-		
+
 		// perform ticks for the rocket first, ticks for the trapping entity second
 		if (DET_HomingTarget[i] != -1 && !DET_IsTrapping[i])
 		{
@@ -2116,7 +2139,7 @@ public void DE_Tick(float curTime)
 				GetEntPropVector(DET_HomingTarget[i], Prop_Data, "m_vecOrigin", victimPos);
 				victimPos[2] += 41.5; // seek their midsection, not their feet
 				GetVectorAnglesTwoPoints(trapPos, victimPos, angleToPlayer);
-				
+
 				// how much should we deviate the angle this check?
 				float maxDeviation = deltaTime * DE_AnglePerSecond[owner];
 				for (int angleIdx = 0; angleIdx < 2; angleIdx++)
@@ -2145,13 +2168,13 @@ public void DE_Tick(float curTime)
 
 					trapAngle[angleIdx] = fixAngle(trapAngle[angleIdx]);
 				}
-				
+
 				// reangle the projectile and fix the velocity
 				static float trapVelocity[3];
 				GetAngleVectors(trapAngle, trapVelocity, NULL_VECTOR, NULL_VECTOR);
 				ScaleVector(trapVelocity, DE_Velocity[owner]);
 				TeleportEntity(trapObject, NULL_VECTOR, trapAngle, trapVelocity);
-			
+
 				DET_ReangleAt[i] += DE_ANGLE_ADJUST_INTERVAL;
 			}
 		}
@@ -2179,29 +2202,29 @@ public void DE_Tick(float curTime)
 					}
 				}
 			}
-		
+
 			// workaround, in case MOVETYPE_NONE or is lost somehow
 			SetEntityMoveType(DET_HomingTarget[i], MOVETYPE_NONE);
-					
+
 			if (curTime >= DET_SoundAt[i])
 			{
 				if (strlen(DE_TrapLoopingSound) > 3)
 					PseudoAmbientSound(DET_HomingTarget[i], DE_TrapLoopingSound);
 				DET_SoundAt[i] += DE_SoundInterval[owner];
 			}
-			
+
 			if (curTime >= DET_DamageAt[i])
 			{
 				if (PRINT_DEBUG_SPAM)
 					PrintToServer("[sarysamods7] Victim %d being damaged by trap entity.", DET_HomingTarget[i]);
-					
+
 				// is the victim a cloaked spy?
 				float actualDamage = DE_DamagePerTick[owner];
 				int cloak = GetPlayerWeaponSlot(DET_HomingTarget[i], 4);
 				if (TF2_GetPlayerClass(DET_HomingTarget[i]) == TFClass_Spy)
 				{
 					int weaponIdx = 1;
-					
+
 					if (IsValidEntity(cloak))
 					{
 						// ff2 does this for some reason
@@ -2210,7 +2233,7 @@ public void DE_Tick(float curTime)
 
 						weaponIdx = StrContains(classname, "tf_weapon") == 0 ? GetEntProp(cloak, Prop_Send, "m_iItemDefinitionIndex") : 1;
 					}
-					
+
 					// cloak
 					if (weaponIdx != 59 && TF2_IsPlayerInCondition(DET_HomingTarget[i], TFCond_Cloaked))
 						actualDamage = fmax(actualDamage * 0.1, 1.0);
@@ -2223,7 +2246,7 @@ public void DE_Tick(float curTime)
 				// mmmph defense buff (not applicable to sea pony), MUST BE LAST!
 				if ((DE_Flags[owner] & DE_FLAG_MMMPH_NULLIFY) != 0 && TF2_IsPlayerInCondition(DET_HomingTarget[i], TFCond_DefenseBuffMmmph))
 					actualDamage = 0.0;
-					
+
 				if (actualDamage > 0.0)
 				{
 					SetEntProp(DET_HomingTarget[i], Prop_Data, "m_takedamage", 2);
@@ -2235,7 +2258,7 @@ public void DE_Tick(float curTime)
 				}
 			}
 		}
-		
+
 		// block healing
 		if (DET_IsTrapping[i])
 		{
@@ -2265,10 +2288,10 @@ public void SM_PreThink(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return;
-		
+
 //	static float velocity[3];
 //	GetEntPropVector(clientIdx, Prop_Data, "m_vecVelocity", velocity);
-	
+
 	// see if we should tamper with vel
 //	bool shouldTamper = true;
 //	if (SM_BlockX[clientIdx] && fabs(velocity[0]) >= SM_MinVelocity[clientIdx])
@@ -2277,13 +2300,13 @@ public void SM_PreThink(int clientIdx)
 //		shouldTamper = false;
 //	if (SM_BlockZ[clientIdx] && fabs(velocity[2]) >= SM_MinVelocity[clientIdx])
 //		shouldTamper = false;
-		
+
 	static float origin[3];
 	GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", origin);
 	if (origin[0] != SM_LastPosition[clientIdx][0] && origin[1] != SM_LastPosition[clientIdx][1] && origin[2] != SM_LastPosition[clientIdx][2])
 	{
 		//PrintToServer("Origin changed: %f,%f,%f --> %f,%f,%f", SM_LastPosition[clientIdx][0], SM_LastPosition[clientIdx][1], SM_LastPosition[clientIdx][2], origin[0], origin[1], origin[2]);
-		
+
 		bool shouldTamper = true;
 		if (SM_BlockX[clientIdx] && fabs(SM_LastPosition[clientIdx][0] - origin[0]) >= SM_MinPosChange[clientIdx])
 			shouldTamper = false;
@@ -2291,7 +2314,7 @@ public void SM_PreThink(int clientIdx)
 			shouldTamper = false;
 		else if (SM_BlockZ[clientIdx] && fabs(SM_LastPosition[clientIdx][2] - origin[2]) >= SM_MinPosChange[clientIdx])
 			shouldTamper = false;
-		
+
 		if (shouldTamper)
 		{
 			//PrintToServer("Tampering");
@@ -2301,7 +2324,7 @@ public void SM_PreThink(int clientIdx)
 				origin[1] = SM_LastPosition[clientIdx][1];
 			if (SM_BlockZ[clientIdx])
 				origin[2] = SM_LastPosition[clientIdx][2];
-				
+
 			TeleportEntity(clientIdx, origin, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 		}
 
@@ -2309,13 +2332,13 @@ public void SM_PreThink(int clientIdx)
 		SM_LastPosition[clientIdx][1] = origin[1];
 		SM_LastPosition[clientIdx][2] = origin[2];
 	}
-		
+
 	// tamper with whatever we're set to tamper with
 //	if (shouldTamper)
 //	{
 //		//if (velocity[0] != 0.0 && velocity[1] != 0.0)
 //		//	PrintToServer("tampering with velocity, was %f, %f, %f", velocity[0], velocity[1], velocity[2]);
-//		
+//
 //		if (SM_BlockX[clientIdx])
 //			velocity[0] = 0.0;
 //		if (SM_BlockY[clientIdx])
@@ -2333,7 +2356,7 @@ public void RR_RemoveRocket(int rrpIdx)
 {
 	RemoveEntityTele(RRP_EntRef[rrpIdx]);
 	RRP_EntRef[rrpIdx] = 0;
-	
+
 	for (int i = rrpIdx; i < RRP_MAX_PROJECTILES - 1; i++)
 	{
 		RRP_EntRef[i] = RRP_EntRef[i+1];
@@ -2359,7 +2382,7 @@ public void RR_GetRocketAngle(int rrpIdx, float angle[3])
 			newPitch = -((fabs(newYaw) - 90.0) / 90.0) * RRP_PitchAtZeroYaw[rrpIdx];
 	}
 	newYaw = fixAngle(newYaw + RRP_YawOffset[rrpIdx]);
-	
+
 	angle[0] = newPitch;
 	angle[1] = newYaw;
 }
@@ -2373,19 +2396,19 @@ public void RR_ReorientRocket(int rrpIdx, float curTime)
 		RR_RemoveRocket(rrpIdx);
 		return;
 	}
-	
+
 	static float angle[3];
 	static float velocity[3];
 	RR_GetRocketAngle(rrpIdx, angle);
 	GetAngleVectors(angle, velocity, NULL_VECTOR, NULL_VECTOR);
-	
+
 	// velocity scaling requires knowing how far into the rocket's lifetime we are
 	int owner = RRP_Owner[rrpIdx];
 	float scaleFactor = RR_StartVelocity[owner] + (RR_VelocityScaleFactor[owner] * ((RR_EndVelocity[owner] - RR_StartVelocity[owner]) * ((curTime - RRP_SpawnedAt[rrpIdx]) / RR_Lifespan[owner])));
 	scaleFactor = fmin(scaleFactor, fmax(RR_EndVelocity[owner], RR_StartVelocity[owner]));
 	scaleFactor = fmax(scaleFactor, fmin(RR_EndVelocity[owner], RR_StartVelocity[owner]));
 	ScaleVector(velocity, scaleFactor);
-	
+
 	TeleportEntity(rocket, NULL_VECTOR, angle, velocity);
 }
 
@@ -2395,19 +2418,19 @@ public int RR_CreateRocket(int owner, float rocketMotionValue)
 {
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float damage = fixDamageForFF2(RR_RocketDamage[owner]);
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return -1;
 	}
-	
+
 	// need boss origin
 	static float bossOrigin[3];
 	GetEntPropVector(owner, Prop_Send, "m_vecOrigin", bossOrigin);
 	bossOrigin[2] += 41.5; // don't spawn at the boss' feet
-	
+
 	// determine spawn position. no angle or velocity yet
 	// position is basically, 1HU in front of the hale at 0.0N, 1HU behind the hale at 0.5N, going clockwise
 	static float spawnPosition[3];
@@ -2419,7 +2442,7 @@ public int RR_CreateRocket(int owner, float rocketMotionValue)
 	TR_GetEndPosition(spawnPosition, trace);
 	CloseHandle(trace);
 	ConformLineDistance(spawnPosition, bossOrigin, spawnPosition, 1.0);
-	
+
 	// deploy!
 	TeleportEntity(rocket, spawnPosition, NULL_VECTOR, NULL_VECTOR);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -2429,17 +2452,17 @@ public int RR_CreateRocket(int owner, float rocketMotionValue)
 	SetVariantInt(MercTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(MercTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// to get stats from the sentry
 	SetEntPropEnt(rocket, Prop_Send, "m_hOriginalLauncher", GetPlayerWeaponSlot(owner, TFWeaponSlot_Melee));
 	SetEntPropEnt(rocket, Prop_Send, "m_hLauncher", GetPlayerWeaponSlot(owner, TFWeaponSlot_Melee));
-	
+
 	// reskin after spawn
 	if (RR_ModelReskin[owner] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", RR_ModelReskin[owner]);
-	
+
 	return rocket;
 }
 
@@ -2449,7 +2472,7 @@ public void RR_Tick(float curTime)
 	{
 		if (RRP_EntRef[rrpIdx] == 0)
 			continue;
-		
+
 		// hale must be alive
 		int owner = RRP_Owner[rrpIdx];
 		if (!IsLivingPlayer(owner))
@@ -2457,14 +2480,14 @@ public void RR_Tick(float curTime)
 			RR_RemoveRocket(rrpIdx);
 			continue;
 		}
-		
+
 		// rocket must not have reached EOL
 		if (curTime >= RRP_SpawnedAt[rrpIdx] + RR_Lifespan[owner])
 		{
 			RR_RemoveRocket(rrpIdx);
 			continue;
 		}
-		
+
 		// rocket must not have exploded
 		int rocket = EntRefToEntIndex(RRP_EntRef[rrpIdx]);
 		if (!IsValidEntity(rocket))
@@ -2472,7 +2495,7 @@ public void RR_Tick(float curTime)
 			RR_RemoveRocket(rrpIdx);
 			continue;
 		}
-		
+
 		// all that's left to do is reorient, if valid
 		float deltaTime = (curTime - RR_ReorientAt) + RR_RocketReangleInterval;
 		if (deltaTime >= RR_RocketReangleInterval)
@@ -2483,15 +2506,15 @@ public void RR_Tick(float curTime)
 			{
 				RRP_TimeInCurrentRotation[rrpIdx] -= RRP_FullRotationTime[rrpIdx];
 				sanity++;
-				
+
 				if (sanity == 50)
 					PrintToServer("[sarysamods7] ERROR: Sanity failed on rocket ring, time in current rotation.");
 			}
-			
+
 			RR_ReorientRocket(rrpIdx, curTime);
 		}
 	}
-	
+
 	if (curTime >= RR_ReorientAt)
 		RR_ReorientAt = curTime + RR_RocketReangleInterval;
 }
@@ -2505,17 +2528,17 @@ public void Rage_RocketRing(int clientIdx)
 		if (RRP_EntRef[startAt] == 0)
 			break;
 	}
-	
+
 	// not good
 	if (startAt == RRP_MAX_PROJECTILES)
 	{
 		PrintToServer("[sarysamods7] WARNING: Somehow user reached rocket ring projectile limit %d", RRP_MAX_PROJECTILES);
 		return;
 	}
-	
+
 	// and our ending position
 	int endAt = min(startAt + RR_RocketCount[clientIdx], RRP_MAX_PROJECTILES) - 1;
-	
+
 	// get our rocket count, which is important for configuring our ring
 	int rocketCount = (endAt - startAt) + 1;
 	if (rocketCount <= 0)
@@ -2523,14 +2546,14 @@ public void Rage_RocketRing(int clientIdx)
 		PrintToServer("[sarysamods7] ERROR: Somehow set to spawn %d rockets. Aborting.", rocketCount);
 		return;
 	}
-	
+
 	// need the hale's eye angles
 	float eyeAngles[3];
 	GetClientEyeAngles(clientIdx, eyeAngles);
-	
+
 	// figure out the full rotation time now
 	float fullRotationTime = 360.0 / RR_RocketYawPerSecond[clientIdx];
-	
+
 	// spawn 'em
 	for (int rrpIdx = startAt; rrpIdx <= endAt; rrpIdx++)
 	{
@@ -2542,7 +2565,7 @@ public void Rage_RocketRing(int clientIdx)
 		int rocket = RR_CreateRocket(clientIdx, rocketMotionValue);
 		if (rocket == -1)
 			break;
-			
+
 		RRP_EntRef[rrpIdx] = EntIndexToEntRef(rocket);
 		RRP_Owner[rrpIdx] = clientIdx;
 		RRP_PitchAtZeroYaw[rrpIdx] = eyeAngles[0];
@@ -2550,10 +2573,10 @@ public void Rage_RocketRing(int clientIdx)
 		RRP_SpawnedAt[rrpIdx] = GetEngineTime();
 		RRP_FullRotationTime[rrpIdx] = fullRotationTime;
 		RRP_TimeInCurrentRotation[rrpIdx] = rocketMotionValue * fullRotationTime;
-		
+
 		//PrintToServer("rocket %d, rmv=%f    timeincurrent=%f    fulltime=%f", rrpIdx, rocketMotionValue, RRP_TimeInCurrentRotation[rrpIdx], RRP_FullRotationTime[rrpIdx]);
 	}
-	
+
 	// reset the reorientation timer
 	RR_ReorientAt = GetEngineTime();
 }
@@ -2566,7 +2589,7 @@ public float DK_GetAttribute(int weapon, int attribute, float defaultValue)
 	Address addr = TF2Attrib_GetByDefIndex(weapon, attribute);
 	return addr == Address_Null ? defaultValue:TF2Attrib_GetValue(addr);
 }
- 
+
 #define PROVIDE_ON_ACTIVE 128
 #define MELEE_DAMAGE_INCREASE 206
 #define ALL_DAMAGE_INCREASE 412
@@ -2578,17 +2601,17 @@ public float DK_GetCurrentDamageMultiplier(int clientIdx, int damagetype)
 		int weapon = GetPlayerWeaponSlot(clientIdx, pass);
 		if (!IsValidEntity(weapon))
 			continue;
-			
+
 		// handle provide on active
 		if (DK_GetAttribute(weapon, PROVIDE_ON_ACTIVE, 0.0))
 			if (weapon != GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"))
 				continue;
-		
+
 		ret *= DK_GetAttribute(weapon, ALL_DAMAGE_INCREASE, 1.0);
-			
+
 		if (damagetype & DMG_CLUB)
 			ret *= DK_GetAttribute(weapon, MELEE_DAMAGE_INCREASE, 1.0);
-			
+
 		if (damagetype & DMG_BURN)
 		{
 			ret *= DK_GetAttribute(weapon, 60, 1.0);
@@ -2606,7 +2629,7 @@ public float DK_GetCurrentDamageMultiplier(int clientIdx, int damagetype)
 			ret *= DK_GetAttribute(weapon, 66, 1.0);
 			ret *= DK_GetAttribute(weapon, 67, 1.0);
 		}
-		
+
 		// crits are weird. 1/3 of the damage should still remain unaffected
 		if (damagetype & DMG_CRIT)
 		{
@@ -2617,13 +2640,13 @@ public float DK_GetCurrentDamageMultiplier(int clientIdx, int damagetype)
 			ret = normalModifier + critModifier;
 		}
 	}
-	
+
 	return ret;
 }
 
 #define BLAST_TEST_DAMAGE 10.0
-public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(victim))
@@ -2636,7 +2659,7 @@ public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor,
 		return Plugin_Continue;
 	else if (!DK_CanUse[attacker])
 		return Plugin_Continue;
-		
+
 	// ff2 has special handling for spies. they can't receive a designer death if dead ringer is up or they're cloaked.
 	if (TF2_GetPlayerClass(victim) == TFClass_Spy)
 	{
@@ -2646,10 +2669,10 @@ public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor,
 			return Plugin_Continue;
 		}
 	}
-		
+
 	// store base damage for this attack
 	DK_ActualAttackBaseDamage[victim] = damage;
-		
+
 	// set damage to 4, so user gets kill credit but the victim doesn't immediately die
 	if ((damagetype & DMG_BLAST) != 0 && (DK_Flags & DK_FLAG_SMART_BLAST_HANDLING) != 0)
 	{
@@ -2661,14 +2684,14 @@ public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor,
 	else
 	{
 		damage = 4.0;
-		
+
 		// make sure they have enough HP to survive a 8 damage hit with leeway for increased incoming damage attributes
 		// originally I had this set to 1 but when I gave scoutbot 95% damage resist, it nullified the attack. so I set it to 40.
 		// then I realized that it'll interfere with legitimate low damage kills from rages. so now it's 8.
 		if (GetEntProp(victim, Prop_Data, "m_iHealth") < 8)
 			SetEntProp(victim, Prop_Data, "m_iHealth", 8);
 	}
-	
+
 	// should it be a crit? (note, only melee can crit)
 	bool isCritical = GetRandomFloat(0.001, 1.0) <= DK_CritChance[attacker];
 	if (weapon != GetPlayerWeaponSlot(attacker, TFWeaponSlot_Melee))
@@ -2678,10 +2701,10 @@ public Action DK_OnTakeDamage(int victim, int& attacker, int& inflictor,
 		damagetype |= DMG_CRIT;
 		damage *= 0.33;
 	}
-	
+
 	// store the victim's health, so we know if the hit went through (i.e. did a demo shield or uber block it)
 	DK_PreviousHP[victim] = GetEntProp(victim, Prop_Data, "m_iHealth");
-	
+
 	return Plugin_Changed;
 }
 
@@ -2700,9 +2723,9 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 		DK_IgnoreOneAttack[victim] = false;
 		return;
 	}
-	
+
 	//PrintToServer("Damage delivered was %f    damage flags are 0x%x", damage, damagetype);
-	
+
 	// did the victim take damage?
 	int curHP = GetEntProp(victim, Prop_Data, "m_iHealth");
 	bool stillAlive = true;
@@ -2711,12 +2734,12 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 	{
 		// figure out a good actual damage to apply to the victim
 		float realDamage = DK_ActualAttackBaseDamage[victim];
-		
+
 		// smart blast damage handling
 		if ((damagetype & DMG_BLAST) != 0 && (DK_Flags & DK_FLAG_SMART_BLAST_HANDLING) != 0)
 		{
 			realDamage *= damage / BLAST_TEST_DAMAGE;
-			
+
 			if (isCritical)
 				realDamage *= 3.0;
 		}
@@ -2725,23 +2748,23 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 			if (DK_DamageFactorMin[attacker] != DK_DamageFactorMax[attacker])
 				realDamage = GetRandomFloat(fmin(realDamage * DK_DamageFactorMin[attacker], realDamage * DK_DamageFactorMax[attacker]),
 						fmax(realDamage * DK_DamageFactorMin[attacker], realDamage * DK_DamageFactorMax[attacker]));
-		
+
 			// battalion's modifier
 			if (TF2_IsPlayerInCondition(victim, TFCond_DefenseBuffed))
 				realDamage *= DK_BattalionsDamageFactor[attacker];
 			else if (isCritical)
 				realDamage = DK_ActualAttackBaseDamage[victim] * 3.0;
 		}
-			
+
 		// apply weapon attribute modifiers (i.e. to recognize things like KGBs)
 		float damageMult = DK_GetCurrentDamageMultiplier(victim, damagetype);
 		realDamage *= damageMult;
 		//PrintToServer("damage is now %f based on damage mult %f, but don't forget %f already applied (base=%f)", realDamage, damageMult, damage, DK_ActualAttackBaseDamage[victim]);
-		
+
 		// subtract the actual damage
 		realDamage -= damage;
 		int realDamageInt = RoundFloat(realDamage);
-		
+
 		// apply it, or trigger kill for the player
 		if (realDamageInt >= curHP)
 		{
@@ -2750,7 +2773,7 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 				TF2_RemoveCondition(victim, TFCond_OnFire);
 			if (TF2_IsPlayerInCondition(victim, TFCond_Bleeding))
 				TF2_RemoveCondition(victim, TFCond_Bleeding);
-				
+
 			DK_SuicideAt[victim] = GetEngineTime() + DK_FatalityDuration[attacker];
 			TF2_StunPlayer(victim, DK_FatalityDuration[attacker] + 0.1, 0.0, TF_STUNFLAG_BONKSTUCK | TF_STUNFLAG_NOSOUNDOREFFECT, attacker);
 			if (DK_ParticleEntRef[victim] == 0 && !IsEmptyString(DK_ParticleName))
@@ -2760,7 +2783,7 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 					DK_ParticleEntRef[victim] = EntIndexToEntRef(particle);
 			}
 			DK_RemoveParticleAt[victim] = DK_SuicideAt[victim] + 0.1;
-			
+
 			// play the sound
 			TFClassType playerClass = TF2_GetPlayerClass(victim);
 			static char soundName[MAX_SOUND_FILE_LENGTH];
@@ -2775,7 +2798,7 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 			else if (playerClass == TFClass_Spy) soundName = DK_SpyDeathSound;
 			if (strlen(soundName) > 3)
 				PseudoAmbientSound(victim, soundName, 1, 500.0);
-				
+
 			// dead, jim
 			stillAlive = false;
 		}
@@ -2784,7 +2807,7 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 			SetEntProp(victim, Prop_Data, "m_iHealth", curHP - realDamageInt);
 		}
 	}
-	
+
 	// I'm still alive...
 	if (stillAlive)
 	{
@@ -2795,12 +2818,12 @@ public void DK_OnTakeDamagePost(int victim, int attacker, int inflictor, float d
 			if (IsValidEntity(particle))
 				DK_ParticleEntRef[victim] = EntIndexToEntRef(particle);
 		}
-		
+
 		// out here, in case we just need to extend the duration of an existing particle
 		if (DK_ParticleEntRef[victim] != 0)
 			DK_RemoveParticleAt[victim] = GetEngineTime() + DK_NonFatalEffectDuration[attacker];
 	}
-	
+
 	// play crit sound to the victim
 	if (isCritical)
 	{
@@ -2823,10 +2846,10 @@ public void DK_Tick(float curTime)
 				DK_RemoveParticleAt[clientIdx] = FAR_FUTURE;
 			}
 		}
-		
+
 		if (!IsLivingPlayer(clientIdx))
 			continue;
-			
+
 		// manage players who are about to die
 		if (DK_SuicideAt[clientIdx] != FAR_FUTURE)
 		{
@@ -2852,12 +2875,12 @@ public void DK_Tick(float curTime)
 					}
 				}
 			}
-		
+
 			// time to suicide?
 			if (curTime >= DK_SuicideAt[clientIdx])
 			{
 				SetEntProp(clientIdx, Prop_Data, "m_iHealth", 1);
-				
+
 				// remove potentially interfering conditions
 				if (TF2_IsPlayerInCondition(clientIdx, TFCond_Ubercharged))
 					TF2_RemoveCondition(clientIdx, TFCond_Ubercharged);
@@ -2867,33 +2890,33 @@ public void DK_Tick(float curTime)
 					TF2_RemoveCondition(clientIdx, TFCond_DefenseBuffMmmph);
 				if (TF2_IsPlayerInCondition(clientIdx, TFCond_DefenseBuffed))
 					TF2_RemoveCondition(clientIdx, TFCond_DefenseBuffed);
-					
+
 				// apply damage
 				if (DK_Flags & DK_FLAG_EXPLODE)
 					SDKHooks_TakeDamage(clientIdx, 0, 0, 4.0, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE | DMG_ALWAYSGIB, -1);
 				else
 					SDKHooks_TakeDamage(clientIdx, 0, 0, 4.0, DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE, -1);
-					
+
 				DK_SuicideAt[clientIdx] = FAR_FUTURE;
 			}
 		}
 	}
 }
 
-public Action DK_HookPainSounds(int clients[64], int& numClients, char sample[PLATFORM_MAX_PATH], 
-							int& clientIdx, int& channel, float& volume, 
+public Action DK_HookPainSounds(int clients[64], int& numClients, char sample[PLATFORM_MAX_PATH],
+							int& clientIdx, int& channel, float& volume,
 							int& level, int& pitch, int& flags)
 {
 	if (!DK_ActiveThisRound || (DK_Flags & DK_FLAG_CANCEL_PAIN_SOUNDS) == 0)
 		return Plugin_Continue;
-		
+
 	// here we give poorly considered std c methods modern names, so StrContains can actually be numeric and not boolean!
 	// but it's just like learning them again, since yanno, a modern sounding StrContains would be...a boolean...but it's not...
 	// yeah.
 	//PrintToServer("Sound is %s. %d %d", sample, StrContains(sample, "vo/"), StrContains(sample, "_pain"));
 	if (StrContains(sample, "vo/") == 0 && (StrContains(sample, "_pain") != -1 || StrContains(sample, "_Pain") != -1))
 		return Plugin_Stop; // cancel the sound
-	
+
 	return Plugin_Continue;
 }
 
@@ -2904,21 +2927,21 @@ public Action SN_OnDeflect(Event event, const char[] name, bool dontBroadcast)
 {
 	if (event.GetInt("weaponid") != 0)
 		return Plugin_Continue;
-	
+
 	int airblaster = GetClientOfUserId(event.GetInt("userid"));
 	int victim = GetClientOfUserId(event.GetInt("ownerid"));
 	if (!IsLivingPlayer(victim) || !IsLivingPlayer(airblaster))
 		return Plugin_Continue;
-		
+
 	if (SN_CanUse[victim] && SN_IsUsing[victim])
 	{
 		SN_WasDeflected[victim] = true;
 		SN_Airblaster[victim] = airblaster;
 	}
-	
+
 	return Plugin_Continue;
 }
- 
+
 void SN_CreateExplosion(int clientIdx, int airblaster = -1)
 {
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
@@ -2947,7 +2970,7 @@ void SN_CreateExplosion(int clientIdx, int airblaster = -1)
 	AcceptEntityInput(explosion, "kill");
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysamods7] Explosion at %f,%f,%f", position[0], position[1], position[2]);
-		
+
 	// optional graphical effect
 	if (!IsEmptyString(SNA_ExplosionEffect))
 		ParticleEffectAt(position, SNA_ExplosionEffect, 1.0);
@@ -2967,7 +2990,7 @@ public void SN_EndRage(int clientIdx, float curTime)
 	SN_IsUsing[clientIdx] = false;
 	SN_InvincibilityEndsAt[clientIdx] = curTime + SN_ResidualInvincibilityTime[clientIdx];
 	SN_WasDeflected[clientIdx] = false;
-	
+
 	//if (SN_WasDucking[clientIdx])
 	{
 		// credit to FF2 base for this "force ducking" code
@@ -2976,7 +2999,7 @@ public void SN_EndRage(int clientIdx, float curTime)
 		SetEntProp(clientIdx, Prop_Send, "m_bDucked", 1);
 		SetEntityFlags(clientIdx, GetEntityFlags(clientIdx) | FL_DUCKING);
 	}
-	
+
 	if (IsClientInGame(clientIdx))
 	{
 		// remove the overlay
@@ -2985,7 +3008,7 @@ public void SN_EndRage(int clientIdx, float curTime)
 		ClientCommand(clientIdx, "r_screenoverlay \"\"");
 		SetCommandFlags("r_screenoverlay", flags);
 	}
-	
+
 	// destroy the particle trail
 	if (SNA_TrailEntRef[clientIdx] != 0)
 	{
@@ -3007,24 +3030,24 @@ public void SN_EndRage(int clientIdx, float curTime)
 		GetClientEyeAngles(clientIdx, angle);
 		angle[0] = 0.0; // neutralize pitch
 		SetEntityMoveType(clientIdx, MOVETYPE_WALK);
-		
+
 		// added on 2015-10-03, with a better noclip, you also need a better restore
 		SetEntProp(clientIdx, Prop_Send, "m_usSolidFlags", FSOLID_NOT_STANDABLE); // default user solid flags
 		SetEntProp(clientIdx, Prop_Send, "m_nSolidType", SOLID_BBOX); // default user solid type
 		SetEntProp(clientIdx, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_PLAYER);
-	
+
 		TeleportEntity(clientIdx, SN_OriginalPosition[clientIdx], angle, view_as<float>( { 0.0, 0.0, 0.0 } ));
-		
+
 		// restore the original model
 		if (strlen(SNA_OriginalModel) > 3)
 			SN_SwapModel(clientIdx, SNA_OriginalModel);
-			
+
 		// show the player's viewmodel
 		int viewModel = GetEntPropEnt(clientIdx, Prop_Send, "m_hViewModel");
 		if (IsValidEntity(viewModel))
 			SetEntProp(viewModel, Prop_Send, "m_fEffects", GetEntProp(viewModel, Prop_Send, "m_fEffects") & ~EF_NODRAW);
 	}
-	
+
 	// remove the highlights
 	int playerCount = 0;
 	int loneVictim = -1;
@@ -3040,7 +3063,7 @@ public void SN_EndRage(int clientIdx, float curTime)
 			}
 		}
 	}
-	
+
 	// on second thought, FF2 wants this person to glow
 	if (playerCount == 1 && IsLivingPlayer(loneVictim))
 		SetEntProp(loneVictim, Prop_Send, "m_bGlowEnabled", 1);
@@ -3055,7 +3078,7 @@ void SN_EndProjectile(int clientIdx, float curTime, int airblaster = -1, bool is
 		if (strlen(SNA_ExplodeSound) > 3)
 			EmitSoundToAll(SNA_ExplodeSound);
 	}
-	
+
 	SN_ProjectileActive[clientIdx] = false;
 	if (SN_ProjectilesRemaining[clientIdx] <= 0)
 		SN_EndRage(clientIdx, curTime);
@@ -3077,14 +3100,14 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		SN_EndRage(clientIdx, curTime);
 		return;
 	}
-	
+
 	if (curTime >= SN_InvincibilityEndsAt[clientIdx])
 	{
 		SetEntProp(clientIdx, Prop_Data, "m_takedamage", 2);
 		TF2_RemoveCondition(clientIdx, TFCond_Ubercharged);
 		SN_InvincibilityEndsAt[clientIdx] = FAR_FUTURE;
 	}
-	
+
 	if (SN_StartNextFrame[clientIdx])
 	{
 		SN_WasDucking[clientIdx] = (GetEntityFlags(clientIdx) & FL_DUCKING) != 0 || GetEntProp(clientIdx, Prop_Send, "m_bDucked");
@@ -3094,19 +3117,19 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 
 	if (!SN_IsUsing[clientIdx])
 		return;
-		
+
 	// initialize if we have more pending projectiles
 	if (!SN_ProjectileActive[clientIdx] && SN_ProjectilesRemaining[clientIdx] > 0)
 	{
 		SN_ProjectilesRemaining[clientIdx]--;
 		SN_ProjectileActive[clientIdx] = true;
-		
+
 		// teleport (done twice intentionally so players don't see she becomes a pillow)
 		SN_LastLegitPosition[clientIdx][0] = SN_OriginalPosition[clientIdx][0];
 		SN_LastLegitPosition[clientIdx][1] = SN_OriginalPosition[clientIdx][1];
 		SN_LastLegitPosition[clientIdx][2] = SN_OriginalPosition[clientIdx][2] + SN_StartingZOffset[clientIdx];
 		TeleportEntity(clientIdx, SN_LastLegitPosition[clientIdx], view_as<float>( { 89.9, 0.0, 0.0 } ), NULL_VECTOR);
-	
+
 		// all the per-projectile inits...
 		SN_StartedAt[clientIdx] = curTime;
 		SN_EndsAt[clientIdx] = curTime + SN_Duration[clientIdx];
@@ -3122,7 +3145,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		SN_ForceAngleUntil[clientIdx] = curTime + 0.05;
 		SN_WasDeflected[clientIdx] = false;
 	}
-		
+
 	// ensure it wasn't airblasted
 	if (SN_WasDeflected[clientIdx] && (SN_Flags[clientIdx] & SN_FLAG_KILL_ON_AIRBLAST) != 0)
 	{
@@ -3130,7 +3153,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		SN_EndProjectile(clientIdx, curTime, SN_Airblaster[clientIdx]);
 		return;
 	}
-	
+
 	// have we reached the time limit?
 	if (curTime >= SN_EndsAt[clientIdx])
 	{
@@ -3139,13 +3162,13 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		SN_EndProjectile(clientIdx, curTime);
 		return;
 	}
-	
+
 	// fix a bug with initial perspective being shit
 	if (curTime < SN_ForceAngleUntil[clientIdx])
 	{
 		TeleportEntity(clientIdx, NULL_VECTOR, view_as<float>( { 89.9, 0.0, 0.0 } ), NULL_VECTOR);
 	}
-	
+
 	// is the player holding WASD?
 	bool usingWASD = (buttons & (IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT)) != 0;
 	if (usingWASD)
@@ -3157,10 +3180,10 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 			SN_EndProjectile(clientIdx, curTime, -1, true);
 			return;
 		}
-		
+
 		TeleportEntity(clientIdx, SN_LastLegitPosition[clientIdx], NULL_VECTOR, NULL_VECTOR);
 	}
-	
+
 	// has the player armed it?
 	bool armKeyPressed = ((SN_Flags[clientIdx] & SN_FLAG_RELOAD_ARMS) != 0 ? (buttons & IN_RELOAD) : (buttons & IN_ATTACK2)) != 0;
 	if (!SN_IsArming[clientIdx] && armKeyPressed && !SN_DestroyKeyDown[clientIdx])
@@ -3172,7 +3195,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		SN_EndsAt[clientIdx] = curTime + SN_ArmTime[clientIdx];
 	}
 	SN_DestroyKeyDown[clientIdx] = armKeyPressed;
-	
+
 	// is it time to force arming?
 	if (!SN_IsArming[clientIdx] && curTime >= SN_EndsAt[clientIdx] - SN_ArmTime[clientIdx])
 	{
@@ -3181,7 +3204,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		if (strlen(SNA_ArmingSound) > 3)
 			EmitSoundToAll(SNA_ArmingSound);
 	}
-	
+
 	// play control is NOT disabled while the nuke is arming (doesn't go well with player noclip version)
 	if (curTime >= SN_PushAt[clientIdx])
 	{
@@ -3208,13 +3231,13 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		}
 		else
 			TeleportEntity(clientIdx, NULL_VECTOR, angleWasInvalid ? angle : NULL_VECTOR, velocity);
-			
+
 		// store their last legit position
 		GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", SN_LastLegitPosition[clientIdx]);
-		
+
 		SN_PushAt[clientIdx] += SN_PushInterval[clientIdx];
 	}
-	
+
 	// loop sound on rocket?
 	if (curTime >= SNA_LoopAt[clientIdx])
 	{
@@ -3225,13 +3248,13 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 			EmitAmbientSound(SNA_LoopingSound, position, clientIdx);
 			EmitAmbientSound(SNA_LoopingSound, position, clientIdx);
 		}
-		
+
 		if ((SN_Flags[clientIdx] & SN_FLAG_LOOPING_SOUND_ONCE) == 0)
 			SNA_LoopAt[clientIdx] += SNA_LoopInterval;
 		else
 			SNA_LoopAt[clientIdx] = FAR_FUTURE;
 	}
-	
+
 	// loop sound on doppleganger?
 	if (curTime >= SNA_DGLoopAt[clientIdx])
 	{
@@ -3247,10 +3270,10 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 				EmitAmbientSound(SNA_DGLoopingSound, position, doppleganger);
 			}
 		}
-	
+
 		SNA_DGLoopAt[clientIdx] += SNA_DGLoopInterval;
 	}
-	
+
 	// overlay refresh?
 	if (curTime >= SNA_RefreshOverlayAt[clientIdx])
 	{
@@ -3263,7 +3286,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 		}
 		SNA_RefreshOverlayAt[clientIdx] += SNA_OVERLAY_REFRESH_INTERVAL;
 	}
-	
+
 	// if we've gotten here, it means the HUD can still be updated normally
 	if (curTime >= SNA_UpdateHUDAt[clientIdx])
 	{
@@ -3305,7 +3328,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 			}
 		}
 	}
-	
+
 	// add/remove highlights when appropriate
 	if (SN_Flags[clientIdx] & SN_FLAG_HIGHLIGHT_MERCS)
 	{
@@ -3318,7 +3341,7 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 					correctState = 0;
 				else if (TF2_GetPlayerClass(victim) == TFClass_Spy && TF2_IsPlayerInCondition(victim, TFCond_Cloaked))
 					correctState = 0;
-					
+
 				if (GetEntProp(victim, Prop_Send, "m_bGlowEnabled") != correctState)
 					SetEntProp(victim, Prop_Send, "m_bGlowEnabled", correctState);
 			}
@@ -3332,15 +3355,15 @@ public void Rage_SkyNuke(int clientIdx)
 	// if I don't do this then players will be spit out way above the skybox.
 	if (SAC_ActiveThisRound && SAC_CanUse[clientIdx] && SAC_IsActive[clientIdx])
 		SAC_OnDeactivated(clientIdx);
-	
+
 	// remove stuns from player
 	if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed))
 		TF2_RemoveCondition(clientIdx, TFCond_Dazed);
-	
+
 	// player needs to be invincible
 	SetEntProp(clientIdx, Prop_Data, "m_takedamage", 0);
 	TF2_AddCondition(clientIdx, TFCond_Ubercharged, -1.0);
-	
+
 	SN_StartNextFrame[clientIdx] = true;
 }
 
@@ -3348,17 +3371,17 @@ public void SN_StartSkyNuke(int clientIdx)
 {
 	SN_ProjectileActive[clientIdx] = false;
 	SN_ProjectilesRemaining[clientIdx] = SN_ProjectilesPerRage[clientIdx];
-	
+
 	// get the player's original model
 	GetEntPropString(clientIdx, Prop_Data, "m_ModelName", SNA_OriginalModel, MAX_MODEL_FILE_LENGTH);
-	
+
 	// move the player up and give them noclip
 	SetEntityMoveType(clientIdx, MOVETYPE_NOCLIP);
 	// added these three on 2015-10-03 for a better noclip
 	SetEntProp(clientIdx, Prop_Send, "m_usSolidFlags", FSOLID_NOT_SOLID); // not solid
 	SetEntProp(clientIdx, Prop_Send, "m_nSolidType", SOLID_NONE); // not solid
 	SetEntProp(clientIdx, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_DEBRIS);
-	
+
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", SN_OriginalPosition[clientIdx]);
 	float originalAngle[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_angRotation", originalAngle);
@@ -3366,19 +3389,19 @@ public void SN_StartSkyNuke(int clientIdx)
 	SN_LastLegitPosition[clientIdx][1] = SN_OriginalPosition[clientIdx][1];
 	SN_LastLegitPosition[clientIdx][2] = SN_OriginalPosition[clientIdx][2] + SN_StartingZOffset[clientIdx];
 	TeleportEntity(clientIdx, SN_LastLegitPosition[clientIdx], view_as<float>( { 89.9, 0.0, 0.0 } ), NULL_VECTOR);
-	
+
 	// once per rage settings
 	SN_IsUsing[clientIdx] = true;
 	SN_DopplePushAt[clientIdx] = GetEngineTime();
-			
+
 	SN_InvincibilityEndsAt[clientIdx] = FAR_FUTURE;
 	if (SN_Flags[clientIdx] & SN_FLAG_LOOPING_SOUND_ONCE)
 		SNA_LoopAt[clientIdx] = GetEngineTime(); // trigger the sound loop now, since it can't be done in tick with this flag
-	
+
 	// set their model
 	if (strlen(SNA_ModelOverride) > 3)
 		SN_SwapModel(clientIdx, SNA_ModelOverride);
-		
+
 	// create the trail
 	SNA_TrailEntRef[clientIdx] = 0;
 	if (!IsEmptyString(SNA_TrailName))
@@ -3387,7 +3410,7 @@ public void SN_StartSkyNuke(int clientIdx)
 		if (IsValidEntity(particle))
 			SNA_TrailEntRef[clientIdx] = EntIndexToEntRef(particle);
 	}
-	
+
 	// create the doppleganger
 	SNA_DopplegangerEntRef[clientIdx] = 0;
 	if (strlen(SNA_DopplegangerModel) > 3)
@@ -3396,10 +3419,10 @@ public void SN_StartSkyNuke(int clientIdx)
 		if (IsValidEntity(doppleganger))
 		{
 			SetEntProp(doppleganger, Prop_Data, "m_takedamage", 0);
-	
+
 			// tweak the model
 			SetEntityModel(doppleganger, SNA_DopplegangerModel);
-	
+
 			// spawn and move it
 			DispatchSpawn(doppleganger);
 			TeleportEntity(doppleganger, SN_OriginalPosition[clientIdx], originalAngle, NULL_VECTOR);
@@ -3408,14 +3431,14 @@ public void SN_StartSkyNuke(int clientIdx)
 			SetEntProp(doppleganger, Prop_Send, "m_CollisionGroup", COLLISION_GROUP_NONE);
 			SetEntityMoveType(doppleganger, MOVETYPE_NONE);
 			SetEntProp(doppleganger, Prop_Data, "m_takedamage", 0);
-			
+
 			SNA_DopplegangerEntRef[clientIdx] = EntIndexToEntRef(doppleganger);
-			
+
 			if (PRINT_DEBUG_SPAM)
 				PrintToServer("[sarysamods7] Created a doppleganger %s", SNA_DopplegangerModel);
 		}
 	}
-	
+
 	// hide the player's viewmodel
 	int viewModel = GetEntPropEnt(clientIdx, Prop_Send, "m_hViewModel");
 	if (IsValidEntity(viewModel))
@@ -3437,7 +3460,7 @@ public void SAC_DisplayOverlay(int victim, const char[] overlay, bool isFramed)
 		ClientCommand(victim, "r_screenoverlay \"%s.vmt\"", overlay);
 	SetCommandFlags("r_screenoverlay", flags);
 }
- 
+
 public void SAC_DOTTick(int clientIdx)
 {
 	// apply suction to all players not yet stuck
@@ -3453,24 +3476,24 @@ public void SAC_DOTTick(int clientIdx)
 			continue;
 		else if (SACV_IsTrapped[victim])
 			continue;
-			
+
 		// are they in a valid range for suction?
 		static float victimPos[3];
 		GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
 		float distance = GetVectorDistance(bossSuckToPos, victimPos);
 		if (distance >= SAC_MaxSuctionRadius[clientIdx])
 			continue;
-			
+
 		// get angle, but since it's suction we get victim --> boss for once, instead of typical knockback
 		static float angles[3];
 		GetVectorAnglesTwoPoints(victimPos, bossSuckToPos, angles);
-		
+
 		// get velocity adjustment
 		float velMult = (1.0 - (distance / SAC_MaxSuctionRadius[clientIdx])) * SAC_MaxVelocityShiftPerTick[clientIdx];
 		static float velocityAdjust[3];
 		GetAngleVectors(angles, velocityAdjust, NULL_VECTOR, NULL_VECTOR);
 		ScaleVector(velocityAdjust, velMult);
-		
+
 		// adjust velocity, cap it if's above the maximum
 		static float velocity[3];
 		GetEntPropVector(victim, Prop_Data, "m_vecVelocity", velocity);
@@ -3481,7 +3504,7 @@ public void SAC_DOTTick(int clientIdx)
 		float newVelocity = getLinearVelocity(velocity);
 		if (newVelocity > oldVelocity && newVelocity > SAC_MaxVelocity[clientIdx])
 			ScaleVector(velocity, SAC_MaxVelocity[clientIdx] / newVelocity);
-			
+
 		// push!
 		TeleportEntity(victim, NULL_VECTOR, NULL_VECTOR, velocity);
 	}
@@ -3516,7 +3539,7 @@ public void SAC_OnActivated(int clientIdx)
 {
 	SAC_IsActive[clientIdx] = true;
 	SAC_NextLoopAt[clientIdx] = GetEngineTime();
-	
+
 	// set everyone alive to a neutral collision group, including the hale
 	SAC_RestoreCollisionGroupAt = FAR_FUTURE;
 	for (int playerIdx = 1; playerIdx < MAX_PLAYERS; playerIdx++)
@@ -3538,7 +3561,7 @@ public void SAC_OnDeactivated(int clientIdx)
 
 	// schedule fixing of collision group
 	SAC_RestoreCollisionGroupAt = GetEngineTime() + 1.0;
-	
+
 	// spit anyone who is trapped back out
 	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
@@ -3551,17 +3574,17 @@ public void SAC_OnDeactivated(int clientIdx)
 		}
 		else if (SACV_Trapper[victim] != clientIdx)
 			continue;
-			
+
 		// remove overlay
 		SAC_DisplayOverlay(victim, "", false);
-		
+
 		// pit workaround
 		if (SAC_Flags & SAC_FLAG_PIT_WORKAROUND)
 			SACV_ImmuneToEnvironmentUntil[victim] = GetEngineTime() + SAC_PitImmunityDuration;
-			
+
 		// not trapped anymore
 		SACV_IsTrapped[victim] = false;
-			
+
 		// send them flying out first
 		static float playerAngle[3];
 		GetClientEyeAngles(victim, playerAngle);
@@ -3571,12 +3594,12 @@ public void SAC_OnDeactivated(int clientIdx)
 		ScaleVector(velocity, SAC_EscapeVelocity[clientIdx]);
 		velocity[2] = 450.0;
 		TeleportEntity(victim, SAC_LastValidBossPos[clientIdx], NULL_VECTOR, velocity);
-		
+
 		// apply damage
 		if (SACV_AccumulatedDamage[victim] > 0.0)
 		{
 			float actualDamage = fmin(SACV_AccumulatedDamage[victim], SAC_DamageCap[clientIdx]);
-		
+
 			if (SAC_Flags & SAC_FLAG_USE_POINT_HURT)
 			{
 				// took this from war3...I hope it doesn't double damage like I've heard old versions do
@@ -3593,7 +3616,7 @@ public void SAC_OnDeactivated(int clientIdx)
 					DispatchKeyValue(pointHurt, "classname", "point_hurt");
 					DispatchKeyValueFormat(victim, "targetname", "whatisthis%d", victim);
 					RemoveEntityTele(EntIndexToEntRef(pointHurt));
-					
+
 					if (PRINT_DEBUG_SPAM)
 						PrintToServer("Point hurt applied to %d with damage %f", victim, actualDamage);
 				}
@@ -3611,17 +3634,17 @@ public void SAC_HighResTick(float curTime)
 	{
 		if (!SAC_IsActive[clientIdx] || !IsLivingPlayer(clientIdx))
 			continue;
-		
+
 		static float bossPos[3];
 		GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", bossPos);
 		for (int victim = 1; victim < MAX_PLAYERS; victim++)
 		{
 			if (victim == clientIdx || !IsLivingPlayer(victim))
 				continue;
-				
+
 			static float victimPos[3];
 			GetEntPropVector(victim, Prop_Data, "m_vecOrigin", victimPos);
-			
+
 			if (CylinderCollision(bossPos, victimPos, SAC_CollisionRadius[clientIdx], bossPos[2] - 83.0, bossPos[2] + 83.0))
 			{
 				SACV_IsTrapped[victim] = true;
@@ -3630,7 +3653,7 @@ public void SAC_HighResTick(float curTime)
 				TeleportEntity(victim, OFF_THE_MAP, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 			}
 		}
-		
+
 		// looping sound (this must be last, as it corrupts bossPos)
 		bossPos[2] += 41.5; // emit sound from center of boss
 		if (curTime >= SAC_NextLoopAt[clientIdx])
@@ -3640,12 +3663,12 @@ public void SAC_HighResTick(float curTime)
 			SAC_NextLoopAt[clientIdx] = GetEngineTime() + SAC_LoopInterval;
 		}
 	}
-			
+
 	if (curTime >= SAC_RestoreCollisionGroupAt)
 	{
 		if (SAC_Flags & SAC_FLAG_PREVENT_TRAPPING)
 			SAC_StopBlockingTouchesAt = curTime + 0.05;
-			
+
 		for (int playerIdx = 1; playerIdx < MAX_PLAYERS; playerIdx++)
 		{
 			if (IsLivingPlayer(playerIdx))
@@ -3656,17 +3679,17 @@ public void SAC_HighResTick(float curTime)
 		}
 		SAC_RestoreCollisionGroupAt = FAR_FUTURE;
 	}
-	
+
 	if (curTime >= SAC_StopBlockingTouchesAt)
 		SAC_StopBlockingTouchesAt = 0.0;
-	
+
 	// get last valid position, can't have players be tossed out where the hale was ducking
 	for (int clientIdx = 1; clientIdx < MAX_PLAYERS; clientIdx++)
 	{
 		if (IsLivingPlayer(clientIdx) && SAC_CanUse[clientIdx])
 			if ((GetEntityFlags(clientIdx) & FL_DUCKING) == 0)
 				GetEntPropVector(clientIdx, Prop_Data, "m_vecOrigin", SAC_LastValidBossPos[clientIdx]);
-				
+
 		// also check this
 		if (curTime >= SACV_ImmuneToEnvironmentUntil[clientIdx])
 			SACV_ImmuneToEnvironmentUntil[clientIdx] = 0.0;
@@ -3677,26 +3700,26 @@ public bool SAC_OnCollide(int clientIdx, int collisionGroup, int contentsMask, b
 {
 	if (!IsLivingPlayer(clientIdx))
 		return result;
-		
+
 	// prevent same team trapping, which this whole rage seems to be reeking of...
 	if (GetClientTeam(clientIdx) == MercTeam && (contentsMask & CONTENTS_TEAM1) != 0)
 	{
 		result = false;
 		return result;
 	}
-		
+
 	if (SAC_StopBlockingTouchesAt == 0.0)
 		return result;
-		
+
 	if (GetClientTeam(clientIdx) == MercTeam && (contentsMask & CONTENTS_TEAM2) != 0)
 	{
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("Player %d is probably stuck in a BLU. Teleporting them to spawn.", clientIdx);
-			
+
 		result = false;
 		TeleportEntity(clientIdx, SAC_UnstuckCoords, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 	}
-		
+
 	//PrintToServer("player=%d collisionGroup=%d contentsMask=0x%x result=%d", player, collisionGroup, contentsMask, result);
 	return result;
 }
@@ -3707,7 +3730,7 @@ public bool SAC_OnCollide(int clientIdx, int collisionGroup, int contentsMask, b
 //		return Plugin_Handled;
 //	else if (!IsLivingPlayer(toucher) || !IsLivingPlayer(touchee))
 //		return Plugin_Handled;
-//		
+//
 //	if ((GetClientTeam(toucher) == BossTeam && GetClientTeam(touchee) == MercTeam) ||
 //		(GetClientTeam(toucher) == MercTeam && GetClientTeam(touchee) == BossTeam))
 //	{
@@ -3715,44 +3738,44 @@ public bool SAC_OnCollide(int clientIdx, int collisionGroup, int contentsMask, b
 //		TeleportEntity(teleportMe, SAC_UnstuckCoords, NULL_VECTOR, float {0.0,0.0,0.0});
 //		return Plugin_Handled;
 //	}
-//	
+//
 //	return Plugin_Continue;
 //}
 
-public Action SAC_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action SAC_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (IsLivingPlayer(attacker) || !IsLivingPlayer(victim))
 		return Plugin_Continue;
 	else if (SACV_ImmuneToEnvironmentUntil[victim] == 0.0)
 		return Plugin_Continue;
-		
+
 	if (damage > SACV_MAX_ENVIRONMENTAL_DAMAGE)
 	{
 		damage = 0.0;
 		TeleportEntity(victim, SAC_UnstuckCoords, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 		return Plugin_Changed;
 	}
-	
+
 	return Plugin_Continue;
 }
 
 /**
  * Class Nerfs
  */
-public Action CN_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action CN_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(victim) || !CN_CanUse[victim])
 		return Plugin_Continue;
 	else if (!IsLivingPlayer(attacker))
 		return Plugin_Continue;
-		
+
 	TFClassType playerClass = TF2_GetPlayerClass(attacker);
 	int playerClassInt = view_as<int>(playerClass);
-	
+
 	float damageMult = 1.0;
 	if (weapon == GetPlayerWeaponSlot(attacker, TFWeaponSlot_Primary))
 		damageMult = CN_DamageMultipliers[victim][playerClassInt][0];
@@ -3765,44 +3788,44 @@ public Action CN_OnTakeDamage(int victim, int& attacker, int& inflictor,
 	}
 	else if (playerClass == TFClass_Engineer) // must be their sentry
 		damageMult = CN_DamageMultipliers[victim][playerClassInt][3];
-	
+
 	if (damageMult == 1.0)
 		return Plugin_Continue;
 
-	damage *= damageMult;	
+	damage *= damageMult;
 	return Plugin_Changed;
 }
 
 /**
  * Mega Buster
  */
-public Action MB_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action MB_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(victim) || !IsLivingPlayer(attacker))
 		return Plugin_Continue;
 	else if (!MB_CanUse[attacker])
 		return Plugin_Continue;
-		
+
 	// do not allow projectiles to directly damage people
 	// this is a fallback in case other means to prevent this fail
 	for (int i = 0; i < MB_MaxProjectiles[attacker]; i++)
 	{
 		if (MB_ProjectileEntRefs[attacker][i] == 0)
 			continue;
-			
+
 		if (EntRefToEntIndex(MB_ProjectileEntRefs[attacker][i]) == inflictor)
 		{
 			if (PRINT_DEBUG_SPAM)
 				PrintToServer("[sarysamods7] WARNING: Direct projectile damage against %d had to be nullified.", victim);
-		
+
 			damage = 0.0;
 			damagetype |= DMG_PREVENT_PHYSICS_FORCE;
 			return Plugin_Changed;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -3828,7 +3851,7 @@ public void MB_FindProjectileData(const int projectile, int& owner, int& index)
 			}
 		}
 	}
-	
+
 	owner = -1;
 }
 
@@ -3838,7 +3861,7 @@ float MB_CalculateDamageFalloff(int projectile, float damage, int clientIdx, int
 	static float projectilePos[3];
 	GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", projectilePos);
 	float distance = GetVectorDistance(projectilePos, MB_ProjectileSpawnPos[clientIdx][index]);
-	
+
 	// must calculate the bonus here
 	if (isPlayer)
 	{
@@ -3848,10 +3871,10 @@ float MB_CalculateDamageFalloff(int projectile, float damage, int clientIdx, int
 			damage += bonusMax - (bonusMax * (Pow(Pow(MB_MaxDistance[clientIdx], MB_BonusDamageExp[clientIdx]) - Pow(MB_MaxDistance[clientIdx] - distance, MB_BonusDamageExp[clientIdx]), 1 / MB_BonusDamageExp[clientIdx]) / MB_MaxDistance[clientIdx]));
 		}
 	}
-	
+
 	if (MB_DamageFalloffType[clientIdx] == MB_FALLOFF_NONE)
 		return damage;
-		
+
 	float halfMax = MB_MaxDistance[clientIdx] * 0.5;
 	float factor = 1.0;
 	if (MB_DamageFalloffType[clientIdx] == MB_FALLOFF_DECREASE)
@@ -3868,7 +3891,7 @@ float MB_CalculateDamageFalloff(int projectile, float damage, int clientIdx, int
 		else
 			factor = 1.0 - (0.33 - (0.33 * (distance / halfMax)));
 	}
-	
+
 	return damage * factor;
 }
 
@@ -3878,7 +3901,7 @@ public Action MB_OnStartTouch(int projectile, int victim)
 	int clientIdx = -1;
 	int index = 0;
 	MB_FindProjectileData(projectile, clientIdx, index);
-			
+
 	if (clientIdx == -1)
 	{
 		// something went wrong
@@ -3886,7 +3909,7 @@ public Action MB_OnStartTouch(int projectile, int victim)
 		RemoveEntity(projectile);
 		return Plugin_Handled;
 	}
-	
+
 	if (MB_ProjectileMarkedForDeath[clientIdx][index])
 		return Plugin_Handled; // do nothing
 
@@ -3902,14 +3925,14 @@ public Action MB_OnStartTouch(int projectile, int victim)
 				MB_QueueDiscreteDestruction(clientIdx, index);
 				return Plugin_Handled;
 			}
-			
+
 			// valid hit. hit the victim, but it needs to be a point hurt, lest we have invis watch spies be almost impossible to kill
 			FullyHookedDamage(victim, clientIdx, clientIdx, fixDamageForFF2(MB_CalculateDamageFalloff(projectile, MB_ProjectilePlayerDamage[clientIdx][index], clientIdx, index, true)), MB_ProjectileHasCrits[clientIdx][index] ? DMG_CRIT : DMG_GENERIC);
-			
+
 			// destroy the projectile if the victim didn't die, or the projectile has no penetration
 			bool playerKilled = !IsLivingPlayer(victim);
 			bool shouldDestroyProjectile = !MB_ProjectileHasPenetration[clientIdx][index] || !playerKilled;
-				
+
 			// play sound first
 			if (playerKilled && strlen(MBA_DestroySound[clientIdx]) > 3)
 				PseudoAmbientSound(projectile, MBA_DestroySound[clientIdx], 2, 800.0);
@@ -3923,7 +3946,7 @@ public Action MB_OnStartTouch(int projectile, int victim)
 				else if (strlen(MBA_HitSound[clientIdx]) > 3)
 					PseudoAmbientSound(projectile, MBA_HitSound[clientIdx], 1, 800.0);
 			}
-				
+
 			if (shouldDestroyProjectile)
 			{
 				MB_QueueDiscreteDestruction(clientIdx, index);
@@ -3946,7 +3969,7 @@ public Action MB_OnStartTouch(int projectile, int victim)
 		GetEntityClassname(victim, classname, MAX_ENTITY_CLASSNAME_LENGTH);
 		bool isFuncBreakable = strcmp(classname, "func_breakable") == 0;
 		bool buildingHit = (strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0);
-		
+
 		if (isFuncBreakable)
 		{
 			SDKHooks_TakeDamage(victim, clientIdx, clientIdx, MB_ProjectilePlayerDamage[clientIdx][index] * 2, DMG_GENERIC, -1);
@@ -3956,23 +3979,23 @@ public Action MB_OnStartTouch(int projectile, int victim)
 		else if (buildingHit)
 		{
 			SDKHooks_TakeDamage(victim, clientIdx, clientIdx, MB_CalculateDamageFalloff(projectile, MB_ProjectileBuildingDamage[clientIdx][index], clientIdx, index), DMG_GENERIC, -1);
-			
+
 			// destroy the projectile if the building didn't die, or the projectile has no penetration
 			bool buildingDestroyed = GetEntProp(victim, Prop_Send, "m_iHealth") <= 0;
 			bool shouldDestroyProjectile = !buildingDestroyed || !MB_ProjectileHasPenetration[clientIdx][index];
-			
+
 			// play sound first
 			if (buildingDestroyed && strlen(MBA_DestroySound[clientIdx]) > 3)
 				PseudoAmbientSound(projectile, MBA_DestroySound[clientIdx], 2, 800.0);
 			else if (!buildingDestroyed && strlen(MBA_HitSound[clientIdx]) > 3)
 				PseudoAmbientSound(projectile, MBA_HitSound[clientIdx], 1, 800.0);
-				
+
 			// destroy projectile?
 			if (shouldDestroyProjectile)
 			{
 				if (PRINT_DEBUG_SPAM)
 					PrintToServer("[sarysamods7] Projectile %d hit an building of type %s, which now has %d HP. Destroying projectile.", projectile, classname, GetEntProp(victim, Prop_Send, "m_iHealth"));
-		
+
 				MB_QueueDiscreteDestruction(clientIdx, index);
 			}
 			else if (PRINT_DEBUG_SPAM)
@@ -3982,18 +4005,18 @@ public Action MB_OnStartTouch(int projectile, int victim)
 		{
 			if (PRINT_DEBUG_SPAM)
 				PrintToServer("[sarysamods7] Projectile %d hit an object (%s) that may as well be a wall. Destroying.", projectile, classname);
-		
+
 			// hit the equivalent of a wall. destroy the projectile.
 			MB_QueueDiscreteDestruction(clientIdx, index);
 		}
-		
+
 		return Plugin_Handled;
 	}
-	
+
 	// if we're here, it hit a wall. destroy it
 	if (PRINT_DEBUG_SPAM)
 		PrintToServer("[sarysamods7] Projectile %d hit a wall. Destroying.", projectile);
-		
+
 	MB_QueueDiscreteDestruction(clientIdx, index);
 	return Plugin_Handled;
 }
@@ -4002,7 +4025,7 @@ public Action MB_OtherTouches(int projectile, int victim)
 {
 	return Plugin_Handled; // prevent explosion
 }
- 
+
 #define MB_CHARGE_NORMAL 0
 #define MB_CHARGE_HALF 1
 #define MB_CHARGE_FULL 2
@@ -4022,24 +4045,24 @@ public void MB_GetIdealProjectileSpawnPos(int clientIdx, float spawnPos[3])
 		spawnPos[2] += 61.5; // rough offset for spawning projectiles
 	}
 }
- 
+
 // based on asherkin and voogru's code, though this is almost exactly like the code used for Snowdrop's rockets
 public int MB_CreateRocket(int clientIdx, int chargeLevel)
 {
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float damage = 50.0; // damage isn't applied directly, except on airblast back to the hale
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return -1;
 	}
-	
+
 	// need boss origin
 	static float spawnPos[3];
 	MB_GetIdealProjectileSpawnPos(clientIdx, spawnPos);
-	
+
 	// need eye angles for shooting, and derive velocity from that
 	static float eyeAngles[3];
 	GetClientEyeAngles(clientIdx, eyeAngles);
@@ -4051,7 +4074,7 @@ public int MB_CreateRocket(int clientIdx, int chargeLevel)
 		ScaleVector(velocity, MB_HalfChargeSpeed[clientIdx]);
 	else if (chargeLevel == MB_CHARGE_FULL)
 		ScaleVector(velocity, MB_FullChargeSpeed[clientIdx]);
-	
+
 	// deploy!
 	TeleportEntity(rocket, spawnPos, eyeAngles, velocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -4061,13 +4084,13 @@ public int MB_CreateRocket(int clientIdx, int chargeLevel)
 	SetVariantInt(BossTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(BossTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// to get stats from the sentry
 	SetEntPropEnt(rocket, Prop_Send, "m_hOriginalLauncher", GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"));
 	SetEntPropEnt(rocket, Prop_Send, "m_hLauncher", GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon"));
-	
+
 	// reskin after spawn
 	if (chargeLevel == MB_CHARGE_NORMAL && MBA_NormalReskin[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MBA_NormalReskin[clientIdx]);
@@ -4075,7 +4098,7 @@ public int MB_CreateRocket(int clientIdx, int chargeLevel)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MBA_HalfReskin[clientIdx]);
 	else if (chargeLevel == MB_CHARGE_FULL && MBA_FullReskin[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MBA_FullReskin[clientIdx]);
-		
+
 	// hook touches
 	SDKHook(rocket, SDKHook_StartTouch, MB_OnStartTouch);
 	SDKHook(rocket, SDKHook_StartTouchPost, MB_OtherTouches);
@@ -4083,7 +4106,7 @@ public int MB_CreateRocket(int clientIdx, int chargeLevel)
 	SDKHook(rocket, SDKHook_TouchPost, MB_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouch, MB_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouchPost, MB_OtherTouches);
-	
+
 	return rocket;
 }
 
@@ -4093,11 +4116,11 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return;
-		
+
 	// boss position is used multiple times
 	static float bossPos[3];
 	GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossPos);
-		
+
 	// ensure the player's shotgun has been stripped of ammo and clip
 	int dummyWeapon = GetEntPropEnt(clientIdx, Prop_Send, "m_hActiveWeapon");
 	if (dummyWeapon != GetPlayerWeaponSlot(clientIdx, TFWeaponSlot_Melee)) // in the unlikely event the player has melee, don't do this
@@ -4112,12 +4135,12 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 			SetEntProp(dummyWeapon, Prop_Send, "m_iClip2", 0);
 		}
 	}
-	
+
 	// attach the particle effect for the firing attachment now
 	if (curTime >= MBA_AttachParticleAt[clientIdx])
 	{
 		MBA_AttachParticleAt[clientIdx] = FAR_FUTURE;
-		
+
 		if (!IsEmptyString(MBA_AttachmentName[clientIdx]))
 		{
 			int effect = AttachParticleToAttachment(clientIdx, MBA_AttachmentParticle, MBA_AttachmentName[clientIdx]);
@@ -4139,7 +4162,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 				MB_ProjectileEntRefs[clientIdx][i] = 0;
 				continue;
 			}
-			
+
 			// marked for death
 			if (MB_ProjectileMarkedForDeath[clientIdx][i])
 			{
@@ -4147,14 +4170,14 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 				MB_ProjectileEntRefs[clientIdx][i] = 0;
 				continue;
 			}
-			
+
 			// airblasted. it now belongs to a pyro.
 			if ((GetEntPropEnt(rocket, Prop_Send, "m_hOwnerEntity") & 0xff) != clientIdx)
 			{
 				MB_ProjectileEntRefs[clientIdx][i] = 0;
 				continue;
 			}
-			
+
 			// reached distance limit
 			static float rocketPos[3];
 			GetEntPropVector(rocket, Prop_Send, "m_vecOrigin", rocketPos);
@@ -4164,7 +4187,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 				MB_ProjectileEntRefs[clientIdx][i] = 0;
 				continue;
 			}
-			
+
 			// while we're here, lets fix an irritating glitch that causes projectiles to stop dead sometimes after killing a player
 			static float rocketVel[3];
 			GetEntPropVector(rocket, Prop_Data, "m_vecVelocity", rocketVel);
@@ -4172,27 +4195,27 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 			{
 				if (PRINT_DEBUG_INFO)
 					PrintToServer("[sarysamods7] Restarting stopped mega buster projectile. This is rare, but 'normal'...");
-				
+
 				static float rocketAngles[3];
 				GetEntPropVector(rocket, Prop_Data, "m_angRotation", rocketAngles);
 				GetAngleVectors(rocketAngles, rocketVel, NULL_VECTOR, NULL_VECTOR);
 				ScaleVector(rocketVel, MB_ProjectileSpeed[clientIdx][i]);
 				TeleportEntity(rocket, NULL_VECTOR, rocketAngles, rocketVel);
 			}
-		
+
 			projectileCount++;
 		}
 	}
-	
+
 	// key states and charge states are ignored if this isn't the active weapon
 	if (MB_IsDisabled[clientIdx])
 		return;
-	
+
 	// regardless of the above, keep track of key states
 	bool fireDown = (buttons & IN_ATTACK) != 0;
 	if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed) || TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 		fireDown = false;
-		
+
 	if (fireDown && !MB_FireDown[clientIdx])
 	{
 		MB_FireDownSince[clientIdx] = curTime;
@@ -4208,9 +4231,9 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 				chargeLevel = MB_CHARGE_FULL;
 			else if (curTime - MB_FireDownSince[clientIdx] >= MB_HalfChargeTime[clientIdx])
 				chargeLevel = MB_CHARGE_HALF;
-				
+
 			int projectile = MB_CreateRocket(clientIdx, chargeLevel);
-			
+
 			if (IsValidEntity(projectile))
 			{
 				for (int i = 0; i < MB_MaxProjectiles[clientIdx]; i++)
@@ -4249,7 +4272,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 							if (strlen(MBA_FullChargeFiringSound[clientIdx]) > 3)
 								PseudoAmbientSound(clientIdx, MBA_FullChargeFiringSound[clientIdx], 1, 800.0);
 						}
-						
+
 						GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", MB_ProjectileSpawnPos[clientIdx][i]);
 
 						break;
@@ -4270,7 +4293,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 		}
 	}
 	MB_FireDown[clientIdx] = fireDown;
-	
+
 	// play sounds if queued up, only if fire is actively held
 	bool shouldCancelRecolor = true;
 	if (MB_FireDown[clientIdx])
@@ -4294,27 +4317,27 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 			}
 			MB_PlayChargeSoundTwoAt[clientIdx] = curTime + MBA_ChargeSoundLoopInterval[clientIdx];
 		}
-		
+
 		// is it time to recolor?
 		int deltaTimeMS = RoundFloat(((curTime - MB_FireDownSince[clientIdx]) - MBA_ChargeSoundOneDelay[clientIdx]) * 1000.0);
 		if (deltaTimeMS > 0)
 		{
 			shouldCancelRecolor = false;
-			
+
 			int slowChargeDuration = RoundFloat((MB_FullChargeTime[clientIdx] - MB_HalfChargeTime[clientIdx]) * 1000.0);
 			if (deltaTimeMS > slowChargeDuration)
 				deltaTimeMS = (deltaTimeMS - slowChargeDuration) + (slowChargeDuration / 3);
 			else
 				deltaTimeMS /= 3;
-				
+
 			deltaTimeMS %= RAINBOW_LOOP_MS;
-				
+
 			if (deltaTimeMS > 0)
 			{
 				int red = 0;
 				int green = 0;
 				int blue = 0;
-				
+
 				// red
 				if (deltaTimeMS < RAINBOW_LOOP_MS / 3)
 					red = 255;
@@ -4322,7 +4345,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 					red = 255 * ((RAINBOW_LOOP_MS / 2) - deltaTimeMS) / RAINBOW_LOOP_SEGMENT;
 				else if (deltaTimeMS > RAINBOW_LOOP_MS * 5 / 6)
 					red = 255 * (RAINBOW_LOOP_MS - deltaTimeMS) / RAINBOW_LOOP_SEGMENT;
-					
+
 				// green
 				if (deltaTimeMS > RAINBOW_LOOP_MS / 6 && deltaTimeMS < RAINBOW_LOOP_MS / 3)
 					green = 255 * (deltaTimeMS - (RAINBOW_LOOP_MS / 6)) / RAINBOW_LOOP_SEGMENT;
@@ -4330,7 +4353,7 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 					green = 255;
 				else if (deltaTimeMS > RAINBOW_LOOP_MS * 2 / 3 && deltaTimeMS < RAINBOW_LOOP_MS * 5 / 6)
 					green = 255 * ((RAINBOW_LOOP_MS * 5 / 6) - deltaTimeMS) / RAINBOW_LOOP_SEGMENT;
-					
+
 				// blue
 				if (deltaTimeMS > RAINBOW_LOOP_MS / 2 && deltaTimeMS < RAINBOW_LOOP_MS * 2 / 3)
 					blue = 255 * (deltaTimeMS - (RAINBOW_LOOP_MS / 2)) / RAINBOW_LOOP_SEGMENT;
@@ -4338,14 +4361,14 @@ public void MB_Tick(int clientIdx, int buttons, float curTime)
 					blue = 255;
 				else if (deltaTimeMS < RAINBOW_LOOP_MS / 6)
 					blue = 255 * ((RAINBOW_LOOP_MS / 6) - deltaTimeMS) / RAINBOW_LOOP_SEGMENT;
-					
+
 				// recolor!
 				SetEntityRenderMode(clientIdx, RENDER_TRANSCOLOR);
 				SetEntityRenderColor(clientIdx, red, green, blue, 255);
 			}
 		}
 	}
-	
+
 	// cancel recolor for charge
 	if (shouldCancelRecolor)
 	{
@@ -4412,7 +4435,7 @@ public bool MA_AmIActive(int clientIdx, const char[] ability_name)
 {
 	if (!MB_IsDisabled[clientIdx] || MA_SelectedIndex[clientIdx] == -1)
 		return false;
-		
+
 	return strcmp(ability_name, MAD_AbilityId[MA_SelectedIndex[clientIdx]]) == 0;
 }
 
@@ -4429,7 +4452,7 @@ public bool MA_ConsumeEnergy(int clientIdx) // this can only be called by the cu
 		MA_PlayDepletedSound(clientIdx);
 		return false;
 	}
-	
+
 	MA_EnergyPercent[clientIdx] -= cost;
 	return true;
 }
@@ -4453,7 +4476,7 @@ public float MA_ClassDamageModifier(float damage, int clientIdx, int victim, con
 			break;
 		}
 	}
-	
+
 	if (abilityIdx == -1)
 	{
 		PrintToServer("[sarysamods7] ERROR: Invalid ability for damage modifier %s, ignoring.", abilityId);
@@ -4487,14 +4510,14 @@ public void MA_InitSubAbility(int clientIdx, int bossIdx, const char[] ability_n
 			break;
 		}
 	}
-	
+
 	// this should never happen, but...
 	if (slot == -1)
 	{
 		PrintToServer("[sarysamods7] ERROR: Somehow exceeded the generous mega-ability limit of %d. Cannot init %s", MA_MAX_ABILITIES, ability_name);
 		return;
 	}
-	
+
 	// add it to the list, if it's a int ability
 	if (!MAD_AbilityExists[slot])
 	{
@@ -4516,7 +4539,7 @@ public void MA_InitSubAbility(int clientIdx, int bossIdx, const char[] ability_n
 				MAD_ClassModifiers[slot][i] = 1.0;
 		}
 	}
-	
+
 	// assign it to the specific player
 	MA_HasAbility[clientIdx][slot] = true;
 	if (MA_SelectedIndex[clientIdx] == -1)
@@ -4530,7 +4553,7 @@ public Action MA_MedicCommand(int clientIdx, const char[] command, int argc)
 	{
 		char unparsedArgs[4];
 		GetCmdArgString(unparsedArgs, 4);
-		
+
 		if (!strcmp(unparsedArgs, "0 0"))
 		{
 			// since disabled is the opposite of being active, this works
@@ -4542,14 +4565,14 @@ public Action MA_MedicCommand(int clientIdx, const char[] command, int argc)
 }
 
 // added 2015-02-10, cannot hook slot commands since they're hardcoded NOT to go to the server.
-// instead, these are secret 
+// instead, these are secret
 public Action MA_MegaCommand(int clientIdx, int args)
 {
 	if (MA_ActiveThisRound && MA_CanUse[clientIdx] && IsLivingPlayer(clientIdx) && !MA_SwitchBlocked[clientIdx])
 	{
 		static char command[6];
 		GetCmdArg(0, command, sizeof(command));
-		
+
 		// zero will need this
 		if (MA_Flags[clientIdx] & MA_FLAG_IGNORE_SLOT_COMMANDS)
 			return;
@@ -4591,7 +4614,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return;
-		
+
 	// determine player max health if not yet done
 	if (MA_MaxHealth[clientIdx] == 0)
 	{
@@ -4602,10 +4625,10 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			MA_MaxHealth[clientIdx] = 100;
 		}
 	}
-	
+
 	// just do this always. heh. also those lowercase f's bother the hell out of me.
 	FF2Player(clientIdx).SetPropAny("bHideHUD", true);
-	
+
 	// constantly deplete the FF2 rage meter. we're managing it ourselves and don't want
 	// pressing E to screw things up
 	int bossIdx = FF2_GetBossIndex(clientIdx);
@@ -4615,10 +4638,10 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 		MA_EnergyPercent[clientIdx] += charge;
 		if (MA_EnergyPercent[clientIdx] > 100.0)
 			MA_EnergyPercent[clientIdx] = 100.0;
-			
+
 		FF2_SetBossCharge(bossIdx, 0, 0.0);
 	}
-	
+
 	// key presses
 	if (MA_SelectedIndex[clientIdx] != -1)
 	{
@@ -4643,7 +4666,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			}
 		}
 		MA_ReloadDown[clientIdx] = reloadDown;
-		
+
 		// secret use key function selects backwards
 		bool useDown = (buttons & IN_USE) != 0;
 		if (!MA_UseDown[clientIdx] && useDown && !MA_SwitchBlocked[clientIdx])
@@ -4674,7 +4697,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			SetEntityRenderColor(clientIdx, (color>>16) & 0xff, (color>>8) & 0xff, color & 0xff, 255);
 		}
 	}
-	
+
 	// update the HUDs
 	if (curTime >= MA_UpdateHUDsAt[clientIdx])
 	{
@@ -4714,7 +4737,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			SetHudTextParams(MA_HP_HUD_X, MA_HP_HUD_Y, MA_HUD_INTERVAL + messageDisplayExtra, defaultRed, defaultGreen, defaultBlue, alpha);
 			ShowHudText(clientIdx, -1, hpStr);
 		}
-	
+
 		// energy meter
 		if ((MA_Flags[clientIdx] & MA_FLAG_HIDE_ENERGY_HUD) == 0)
 		{
@@ -4729,7 +4752,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			SetHudTextParams(MA_ENERGY_HUD_X, MA_ENERGY_HUD_Y, MA_HUD_INTERVAL + messageDisplayExtra, abilityRed, abilityGreen, abilityBlue, alpha);
 			ShowHudText(clientIdx, -1, energyStr);
 		}
-		
+
 		// mobility variables
 		float mobilityCooldown = DD_GetMobilityCooldown(clientIdx);
 		float chargePercent = DD_GetChargePercent(clientIdx);
@@ -4739,7 +4762,7 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			mobilityCooldown = (bossCharge < 0.0) ? -bossCharge : 0.0;
 			chargePercent = (bossCharge < 0.0) ? 0.0 : bossCharge;
 		}
-		
+
 		// charge HUD replacement
 		static char chargeHUD[MAX_CENTER_TEXT_LENGTH];
 		if (mobilityCooldown > 0.0)
@@ -4754,21 +4777,21 @@ public void MA_Tick(int clientIdx, int buttons, float curTime)
 			//ShowHudText(clientIdx, -1, MA_ChargeHUDMessage, RoundFloat(FF2_GetBossCharge(bossIdx, 1)));
 			Format(chargeHUD, MAX_CENTER_TEXT_LENGTH, MA_ChargeHUDMessage, RoundFloat(chargePercent));
 		}
-		
+
 		// selected weapon
 		if (abilityIdx != -1)
 		{
 			SetHudTextParams(-1.0, MA_ABILITY_HUD_Y, MA_HUD_INTERVAL + messageDisplayExtra, abilityRed, abilityGreen, abilityBlue, alpha);
 			ShowHudText(clientIdx, -1, MA_SecondaryWeaponMessage, MAD_AbilityName[abilityIdx], chargeHUD);
 		}
-		
+
 		// normal HUD
 		SetHudTextParams(-1.0, MA_TUTORIAL_HUD_Y, MA_HUD_INTERVAL + messageDisplayExtra, red, green, blue, alpha);
 		if (!MB_IsDisabled[clientIdx] || abilityIdx == -1)
 			ShowHudText(clientIdx, -1, MA_HUDMessage, MA_DefaultWeaponName[clientIdx], MA_DefaultWeaponDesc[clientIdx]);
 		else
 			ShowHudText(clientIdx, -1, MA_HUDMessage, MAD_AbilityName[abilityIdx], MAD_AbilityDescription[abilityIdx]);
-	
+
 		MA_UpdateHUDsAt[clientIdx] = curTime + MA_HUD_INTERVAL;
 	}
 }
@@ -4777,7 +4800,7 @@ public void OnEntityCreated(int entity, const char[] classname)
 {
 	if (!MA_ActiveThisRound)
 		return;
-	
+
 	// hook sentries to the various OnTakeDamage methods
 	if (!strcmp(classname, "obj_sentrygun") || !strcmp(classname, "obj_dispenser") || !strcmp(classname, "obj_teleporter"))
 	{
@@ -4816,10 +4839,10 @@ public Action MR_OnStartTouch(int clientIdx, int victim)
 		isBuilding = (strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0);
 		isValidTarget = isBuilding || isFuncBreakable;
 	}
-	
+
 	if (!isValidTarget)
 		return Plugin_Continue;
-	
+
 	// do damage, finish rage, and bounce
 	if (isFuncBreakable)
 	{
@@ -4843,7 +4866,7 @@ public Action MR_OnStartTouch(int clientIdx, int victim)
 			MA_PlayHitSound(clientIdx, victim);
 	}
 	MR_Finish(clientIdx, true);
-	
+
 	return Plugin_Handled;
 }
 
@@ -4856,7 +4879,7 @@ public void MR_Finish(int clientIdx, bool bounce)
 	MR_ForceFinishAt[clientIdx] = FAR_FUTURE;
 	TF2_RemoveCondition(clientIdx, TFCond_MegaHeal);
 	TF2_RemoveCondition(clientIdx, TFCond_HalloweenKartDash);
-	
+
 	if (bounce)
 		MR_BouncePending[clientIdx] = true;
 }
@@ -4868,7 +4891,7 @@ public void MR_Tick(int clientIdx, int buttons, float curTime)
 	MR_AttackDown[clientIdx] = attackDown;
 	if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed) || TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 		shouldFire = false;
-	
+
 	if (curTime >= MR_ForceFinishAt[clientIdx])
 		MR_Finish(clientIdx, false);
 	else if (curTime >= MR_VerifyRageAt[clientIdx])
@@ -4899,16 +4922,16 @@ public void MR_Tick(int clientIdx, int buttons, float curTime)
 			PrintToServer("[sarysamods7] Bouncing player %f,%f,%f", velocity[0], velocity[1], velocity[2]);
 		TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
 		MR_BouncePending[clientIdx] = false;
-		
+
 		shouldFire = false; // would be a bit weird otherwise
 	}
 
 	if (!MA_AmIActive(clientIdx, MR_STRING))
 		return;
-		
+
 	if (MR_HasToxicTouch[clientIdx])
 		shouldFire = false; // already active
-	
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		// do the velocity push, similar to Button Mash's charge
@@ -4920,21 +4943,21 @@ public void MR_Tick(int clientIdx, int buttons, float curTime)
 		if ((GetEntityFlags(clientIdx) & FL_ONGROUND) != 0 && velocity[2] < MR_MinZLift[clientIdx])
 			velocity[2] = MR_MinZLift[clientIdx];
 		TeleportEntity(clientIdx, NULL_VECTOR, NULL_VECTOR, velocity);
-	
+
 		// temporarily listen to touches for the hale
 		SDKHook(clientIdx, SDKHook_StartTouch, MR_OnStartTouch);
-		
+
 		// configure
 		MA_SetSwitchBlocked(clientIdx, true);
 		MR_HasToxicTouch[clientIdx] = true;
 		MR_VerifyRageAt[clientIdx] = curTime + MR_VALIDATION_INTERVAL;
 		MR_ForceFinishAt[clientIdx] = curTime + MR_ChargeDuration[clientIdx];
 		MR_PushYaw[clientIdx] = angles[1];
-		
+
 		// knockback immune
 		TF2_AddCondition(clientIdx, TFCond_MegaHeal, -1.0);
 		TF2_AddCondition(clientIdx, TFCond_HalloweenKartDash, -1.0);
-		
+
 		// play the sound
 		if (strlen(MR_UseSound) > 3)
 			PseudoAmbientSound(clientIdx, MR_UseSound, 1, 800.0);
@@ -4949,19 +4972,19 @@ public int MG_CreateRocket(int clientIdx, float spawnPos[3], float angles[3]) //
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float damage = fixDamageForFF2(MG_Damage[clientIdx]);
 	float speed = MG_Speed[clientIdx];
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return -1;
 	}
-	
+
 	// get spawn position, angles, velocity
 	static float velocity[3];
 	GetAngleVectors(angles, velocity, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(velocity, speed);
-	
+
 	// deploy!
 	TeleportEntity(rocket, spawnPos, angles, velocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -4971,9 +4994,9 @@ public int MG_CreateRocket(int clientIdx, float spawnPos[3], float angles[3]) //
 	SetVariantInt(BossTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(BossTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// reskin after spawn
 	if (MG_Model[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MG_Model[clientIdx]);
@@ -4985,7 +5008,7 @@ public int MG_CreateRocket(int clientIdx, float spawnPos[3], float angles[3]) //
 	SDKHook(rocket, SDKHook_TouchPost, MG_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouch, MG_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouchPost, MG_OtherTouches);
-	
+
 	return rocket;
 }
 
@@ -4995,12 +5018,12 @@ public void MG_FindProjectileOwner(int projectile, int& returnClientIdx, int& in
 	{
 		if (!MG_CanUse[clientIdx])
 			continue;
-	
+
 		for (int i = 0; i < MG_MaxProjectiles[clientIdx]; i++)
 		{
 			if (MG_EntRefs[clientIdx][i] == 0)
 				continue;
-			
+
 			if (projectile == EntRefToEntIndex(MG_EntRefs[clientIdx][i]))
 			{
 				returnClientIdx = clientIdx;
@@ -5025,14 +5048,14 @@ public Action MG_OnStartTouch(int projectile, int victim)
 		isValidTarget = (strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0);
 		isBuilding = isValidTarget;
 	}
-	
+
 	if (!isValidTarget)
 	{
 		// mark for death
 		MG_QueueDestruction(projectile);
 		return Plugin_Handled;
 	}
-	
+
 	int clientIdx = -1;
 	int index = 0;
 	MG_FindProjectileOwner(projectile, clientIdx, index);
@@ -5041,11 +5064,11 @@ public Action MG_OnStartTouch(int projectile, int victim)
 		PrintToServer("[sarysamods7] WARNING (Gem Seeker): Cannot find projectile owner. It'll detonate normally.");
 		return Plugin_Continue;
 	}
-	
+
 	// maybe this is the source of my woes?
 	if (MG_MarkedForDeath[clientIdx][index])
 		return Plugin_Handled;
-	
+
 	// do damage, mark projectile for destruction
 	if (isBuilding)
 	{
@@ -5064,7 +5087,7 @@ public Action MG_OnStartTouch(int projectile, int victim)
 			MA_PlayHitSound(clientIdx, victim);
 	}
 	MG_QueueDestruction(projectile);
-	
+
 	return Plugin_Handled;
 }
 
@@ -5080,7 +5103,7 @@ public void MG_QueueDestruction(int rocket)
 	MG_FindProjectileOwner(rocket, clientIdx, index);
 	MG_MarkedForDeath[clientIdx][index] = true;
 }
- 
+
 public void MG_DestroyRocketDiscretely(int rocket)
 {
 	TeleportEntity(rocket, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR);
@@ -5092,10 +5115,10 @@ public void MG_EndImmunity(int clientIdx)
 	// allow ability switching
 	MA_SetSwitchBlocked(clientIdx, false);
 	MG_IsImmune[clientIdx] = false;
-	
+
 	// remove ubercharge
 	TF2_RemoveCondition(clientIdx, TFCond_Ubercharged);
-	
+
 	// projectile spawn position
 	static float spawnPos[3];
 	MA_GetIdealProjectileSpawnPos(clientIdx, spawnPos);
@@ -5109,7 +5132,7 @@ public void MG_EndImmunity(int clientIdx)
 		validEntities[i] = 0;
 		isTeleporter[i] = false;
 	}
-	
+
 	// players first
 	for (int victim = 1; victim < MAX_PLAYERS; victim++)
 	{
@@ -5117,14 +5140,14 @@ public void MG_EndImmunity(int clientIdx)
 			continue;
 		else if (validEntityCount == 40)
 			break;
-			
+
 		if (CheckLineOfSight(spawnPos, victim, 41.5))
 		{
 			validEntities[validEntityCount] = victim;
 			validEntityCount++;
 		}
 	}
-	
+
 	// then buildings
 	for (int pass = 0; pass < 3; pass++)
 	{
@@ -5138,7 +5161,7 @@ public void MG_EndImmunity(int clientIdx)
 		{
 			if (validEntityCount == 40)
 				break;
-				
+
 			if (CheckLineOfSight(spawnPos, building, pass == 2 ? 3.0 : 41.5))
 			{
 				validEntities[validEntityCount] = building;
@@ -5147,7 +5170,7 @@ public void MG_EndImmunity(int clientIdx)
 			}
 		}
 	}
-	
+
 	// now spawn the rockets!
 	for (int derp = 0; derp < 5; derp++)
 	{
@@ -5168,9 +5191,9 @@ public void MG_EndImmunity(int clientIdx)
 			GetVectorAnglesTwoPoints(spawnPos, victimPos, angles);
 		}
 		int rocket = MG_CreateRocket(clientIdx, spawnPos, angles);
-		
+
 		spawnPos[2] += 1.0;
-		
+
 		for (int i = 0; i < MG_MaxProjectiles[clientIdx]; i++)
 		{
 			if (MG_EntRefs[clientIdx][i] == 0)
@@ -5191,7 +5214,7 @@ public void MG_EndImmunity(int clientIdx)
 		SetEntityRenderColor(rocket, red, green, blue, 255);
 	}
 }
- 
+
 public void MG_Tick(int clientIdx, int buttons, float curTime)
 {
 	bool attackDown = (buttons & IN_ATTACK) != 0;
@@ -5208,28 +5231,28 @@ public void MG_Tick(int clientIdx, int buttons, float curTime)
 	{
 		if (MG_EntRefs[clientIdx][i] == 0)
 			continue;
-		
+
 		int projectile = EntRefToEntIndex(MG_EntRefs[clientIdx][i]);
 		if (!IsValidEntity(projectile))
 		{
 			MG_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		// airblasted. it now belongs to a pyro.
 		if ((GetEntPropEnt(projectile, Prop_Send, "m_hOwnerEntity") & 0xff) != clientIdx)
 		{
 			MG_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		if (MG_MarkedForDeath[clientIdx][i])
 		{
 			MG_DestroyRocketDiscretely(projectile);
 			MG_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		float projectilePos[3];
 		GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", projectilePos);
 		if (GetVectorDistance(MG_SpawnPos[clientIdx][i], projectilePos, true) > rangeLimitCheck)
@@ -5238,15 +5261,15 @@ public void MG_Tick(int clientIdx, int buttons, float curTime)
 			MG_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		projectileCount++;
 	}
-	
+
 	if (shouldRelease && MG_IsImmune[clientIdx])
 		MG_EndImmunity(clientIdx);
 	else if (MG_IsImmune[clientIdx] && curTime >= MG_ForceEndImmunityAt[clientIdx])
 		MG_EndImmunity(clientIdx);
-		
+
 	// check toxicity
 	if (MG_IsImmune[clientIdx])
 	{
@@ -5259,14 +5282,14 @@ public void MG_Tick(int clientIdx, int buttons, float curTime)
 				continue;
 			else if (MG_ImmuneUntil[clientIdx][victim] > curTime)
 				continue;
-				
+
 			// do a range check
 			static float victimPos[3];
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
 			if (GetVectorDistance(victimPos, bossPos, true) < toxicRangeCheck)
 			{
 				MG_ImmuneUntil[clientIdx][victim] = curTime + MG_ToxicImmunityPeriod[clientIdx];
-				
+
 				// apply damage
 				FullyHookedDamage(victim, clientIdx, clientIdx, fixDamageForFF2(MA_ClassDamageModifier(MG_ToxicDamagePerTick[clientIdx], clientIdx, victim, MG_STRING)), DMG_GENERIC, -1);
 				if (!IsLivingPlayer(victim))
@@ -5279,20 +5302,20 @@ public void MG_Tick(int clientIdx, int buttons, float curTime)
 
 	if (!MA_AmIActive(clientIdx, MG_STRING))
 		return;
-		
+
 	if (projectileCount + 5 > MG_MaxProjectiles[clientIdx])
 		shouldFire = false;
-	
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		MG_IsImmune[clientIdx] = true;
 		MA_SetSwitchBlocked(clientIdx, true); // this is very, very necessary
 		MG_ForceEndImmunityAt[clientIdx] = curTime + MG_ToxicImmunityDuration[clientIdx];
-		
+
 		// ubercharged, but NOT m_takedamage 0. can still be backstabbed, but it'd unlikely.
 		// more importantly, it allows knockback to still be received.
 		TF2_AddCondition(clientIdx, TFCond_Ubercharged, -1.0);
-				
+
 		// play the sound
 		if (strlen(MG_FireSound) > 3)
 			PseudoAmbientSound(clientIdx, MG_FireSound, 1, 800.0);
@@ -5314,19 +5337,19 @@ public void MS_Tick(int clientIdx, int buttons, float curTime)
 				MS_VictimSlowUntil[victim] = 0.0;
 				continue;
 			}
-			
+
 			float maxSpeed = GetEntPropFloat(victim, Prop_Send, "m_flMaxspeed");
 			if (curTime >= MS_VictimSlowUntil[victim])
 			{
 				MS_VictimSlowUntil[victim] = 0.0;
-				
+
 				// restore speed if necessary
 				if (maxSpeed == MS_VictimExpectedSpeed[victim] && MS_VictimSpeedFactor[victim] > 0.0)
 					SetEntPropFloat(victim, Prop_Send, "m_flMaxspeed", maxSpeed / MS_VictimSpeedFactor[victim]);
-					
+
 				continue;
 			}
-			
+
 			// nerf their speed if it's not what's expected, it means they performed some speed-altering action
 			if (maxSpeed != MS_VictimExpectedSpeed[victim])
 			{
@@ -5344,12 +5367,12 @@ public void MS_Tick(int clientIdx, int buttons, float curTime)
 
 	if (!MA_AmIActive(clientIdx, MS_STRING))
 		return;
-	
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		if (PRINT_DEBUG_SPAM)
 			PrintToServer("Executing THE STARE. Will do %f damage to players in a radius.", MS_Damage[clientIdx]);
-	
+
 		float rangeCheck = MS_Radius[clientIdx] * MS_Radius[clientIdx];
 		static float bossOrigin[3];
 		GetEntPropVector(clientIdx, Prop_Send, "m_vecOrigin", bossOrigin);
@@ -5357,22 +5380,22 @@ public void MS_Tick(int clientIdx, int buttons, float curTime)
 		{
 			if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
 				continue;
-				
+
 			// ensure distance check
 			static float victimOrigin[3];
 			GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimOrigin);
 			if (GetVectorDistance(bossOrigin, victimOrigin, true) > rangeCheck)
 				continue;
-				
+
 			// apply damage via point hurt
 			FullyHookedDamage(victim, clientIdx, clientIdx, fixDamageForFF2(MA_ClassDamageModifier(MS_Damage[clientIdx], clientIdx, victim, MS_STRING)), DMG_GENERIC | DMG_PREVENT_PHYSICS_FORCE);
-			
+
 			// play the proper sound
 			if (!IsLivingPlayer(victim))
 				MA_PlayKillSound(clientIdx, victim);
 			else
 				MA_PlayHitSound(clientIdx, victim);
-				
+
 			// apply slow, but only to non-invincible players. optionally apply velocity cancel.
 			if (!PlayerIsInvincible(victim))
 			{
@@ -5380,12 +5403,12 @@ public void MS_Tick(int clientIdx, int buttons, float curTime)
 				if (MS_VictimSlowUntil[victim] == 0.0) // sarysa 2015-02-10, need this to prevent stacking
 					MS_VictimExpectedSpeed[victim] = 0.0; // this'll force it to reset
 				MS_VictimSlowUntil[victim] = curTime + MS_SlowDuration[clientIdx];
-				
+
 				if (MS_HaltMotion[clientIdx])
 					TeleportEntity(victim, NULL_VECTOR, NULL_VECTOR, view_as<float>( { 0.0, 0.0, 0.0 } ));
 			}
 		}
-		
+
 		// play the sound
 		if (strlen(MS_UseSound) > 3)
 			PseudoAmbientSound(clientIdx, MS_UseSound, 1, MS_Radius[clientIdx] * 2.0);
@@ -5400,14 +5423,14 @@ public int MM_CreateRocket(int clientIdx, bool isChild, float zOffset)
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float damage = fixDamageForFF2(MM_Damage[clientIdx]);
 	float speed = MM_Speed[clientIdx];
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return -1;
 	}
-	
+
 	// get spawn position, angles, velocity
 	static float spawnPos[3];
 	MA_GetIdealProjectileSpawnPos(clientIdx, spawnPos);
@@ -5430,7 +5453,7 @@ public int MM_CreateRocket(int clientIdx, bool isChild, float zOffset)
 	static float velocity[3];
 	GetAngleVectors(angles, velocity, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(velocity, speed);
-	
+
 	// deploy!
 	TeleportEntity(rocket, spawnPos, angles, velocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -5440,13 +5463,13 @@ public int MM_CreateRocket(int clientIdx, bool isChild, float zOffset)
 	SetVariantInt(BossTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(BossTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// reskin after spawn
 	if (MM_Model[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MM_Model[clientIdx]);
-		
+
 	// play the firing sound
 	if (strlen(MM_FireSound) > 3)
 		PseudoAmbientSound(clientIdx, MM_FireSound, 1, 800.0);
@@ -5460,7 +5483,7 @@ public int MM_CreateRocket(int clientIdx, bool isChild, float zOffset)
 	SDKHook(rocket, SDKHook_TouchPost, MM_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouch, MM_OtherTouches);
 	SDKHook(rocket, SDKHook_EndTouchPost, MM_OtherTouches);
-	
+
 	return rocket;
 }
 
@@ -5470,12 +5493,12 @@ public void MM_FindProjectileOwner(int projectile, int& returnClientIdx, int& in
 	{
 		if (!MM_CanUse[clientIdx])
 			continue;
-	
+
 		for (int i = 0; i < MM_MaxProjectiles[clientIdx]; i++)
 		{
 			if (MM_EntRefs[clientIdx][i] == 0)
 				continue;
-			
+
 			if (projectile == EntRefToEntIndex(MM_EntRefs[clientIdx][i]))
 			{
 				returnClientIdx = clientIdx;
@@ -5502,14 +5525,14 @@ public Action MM_OnStartTouch(int projectile, int victim)
 		isBuilding = (strcmp(classname, "obj_sentrygun") == 0) || (strcmp(classname, "obj_dispenser") == 0) || (strcmp(classname, "obj_teleporter") == 0);
 		isValidTarget = isBuilding || isFuncBreakable;
 	}
-	
+
 	if (!isValidTarget)
 	{
 		// mark for death
 		MM_QueueDestruction(projectile);
 		return Plugin_Handled;
 	}
-	
+
 	int clientIdx = -1;
 	int index = 0;
 	MM_FindProjectileOwner(projectile, clientIdx, index);
@@ -5518,11 +5541,11 @@ public Action MM_OnStartTouch(int projectile, int victim)
 		PrintToServer("WARNING (Magic Wave): Cannot find projectile owner. It'll detonate normally.");
 		return Plugin_Continue;
 	}
-	
+
 	// maybe this is the source of my woes?
 	if (MM_MarkedForDeath[clientIdx][index])
 		return Plugin_Handled;
-	
+
 	// do damage, mark projectile for destruction
 	if (isFuncBreakable)
 	{
@@ -5546,7 +5569,7 @@ public Action MM_OnStartTouch(int projectile, int victim)
 			MA_PlayHitSound(clientIdx, victim);
 	}
 	MM_QueueDestruction(projectile);
-	
+
 	return Plugin_Handled;
 }
 
@@ -5562,7 +5585,7 @@ public void MM_QueueDestruction(int rocket)
 	MM_FindProjectileOwner(rocket, clientIdx, index);
 	MM_MarkedForDeath[clientIdx][index] = true;
 }
- 
+
 public void MM_DestroyRocketDiscretely(int rocket)
 {
 	TeleportEntity(rocket, OFF_THE_MAP, NULL_VECTOR, NULL_VECTOR);
@@ -5576,7 +5599,7 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 	MM_AttackDown[clientIdx] = attackDown;
 	if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed) || TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 		shouldFire = false;
-	
+
 	// verify the validity of existing projectiles, and count them
 	int projectileCount = 0;
 	float rangeLimitCheck = MM_DistanceLimit[clientIdx] * MM_DistanceLimit[clientIdx];
@@ -5584,28 +5607,28 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 	{
 		if (MM_EntRefs[clientIdx][i] == 0)
 			continue;
-		
+
 		int projectile = EntRefToEntIndex(MM_EntRefs[clientIdx][i]);
 		if (!IsValidEntity(projectile))
 		{
 			MM_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		// airblasted. it now belongs to a pyro.
 		if ((GetEntPropEnt(projectile, Prop_Send, "m_hOwnerEntity") & 0xff) != clientIdx)
 		{
 			MM_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		if (MM_MarkedForDeath[clientIdx][i])
 		{
 			MM_DestroyRocketDiscretely(projectile);
 			MM_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		float projectilePos[3];
 		GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", projectilePos);
 		if (GetVectorDistance(MM_SpawnPos[clientIdx][i], projectilePos, true) > rangeLimitCheck)
@@ -5614,10 +5637,10 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 			MM_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		projectileCount++;
 	}
-	
+
 	if (curTime >= MM_ReangleAt[clientIdx])
 	{
 		if (projectileCount > 0)
@@ -5626,14 +5649,14 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 			{
 				if (MM_ParentEntRef[clientIdx][i] == 0 || MM_EntRefs[clientIdx][i] == 0)
 					continue;
-					
+
 				int parent = EntRefToEntIndex(MM_ParentEntRef[clientIdx][i]);
 				if (!IsValidEntity(parent))
 				{
 					MM_ParentEntRef[clientIdx][i] = 0;
 					continue;
 				}
-				
+
 				int projectile = EntRefToEntIndex(MM_EntRefs[clientIdx][i]);
 				if (!IsValidEntity(projectile))
 				{
@@ -5646,7 +5669,7 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 				GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", projectilePos);
 				float parentPos[3];
 				GetEntPropVector(parent, Prop_Send, "m_vecOrigin", parentPos);
-				
+
 				float distance = GetVectorDistance(parentPos, projectilePos);
 				if (distance > MM_AttractionDistance[clientIdx] && distance < 10.0 * MM_AttractionDistance[clientIdx]) // sanity
 				{
@@ -5660,32 +5683,32 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 					float velocity[3];
 					GetAngleVectors(newAngle, velocity, NULL_VECTOR, NULL_VECTOR);
 					ScaleVector(velocity, MM_Speed[clientIdx] + (distance * MM_AttractionFactor[clientIdx]));
-					
+
 					// throw out absurd velocities. clearly the parent is marked for death
 					TeleportEntity(projectile, NULL_VECTOR, newAngle, velocity);
 				}
 			}
 		}
-		
+
 		MM_ReangleAt[clientIdx] = curTime + MM_REANGLE_INTERVAL;
 	}
 
 	if (!MA_AmIActive(clientIdx, MM_STRING))
 		return;
-		
+
 	if (projectileCount + 2 >= MM_MaxProjectiles[clientIdx])
 		shouldFire = false;
-	
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		int parent = MM_CreateRocket(clientIdx, false, 0.0);
 		int child1 = MM_CreateRocket(clientIdx, true, 0.1);
 		int child2 = MM_CreateRocket(clientIdx, true, 0.2);
-		
+
 		for (int pass = 0; pass < 3; pass++)
 		{
 			int projectile = (pass == 0 ? parent : (pass == 1 ? child1 : child2));
-			
+
 			// create parent-child relationships
 			for (int i = 0; i < MM_MaxProjectiles[clientIdx]; i++)
 			{
@@ -5698,7 +5721,7 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 					break;
 				}
 			}
-			
+
 			// create particle effects
 			if (!IsEmptyString(MM_Particle))
 				AttachParticle(projectile, MM_Particle);
@@ -5709,18 +5732,18 @@ public void MM_Tick(int clientIdx, int buttons, float curTime)
 /**
  * Party Cannon
  */
-public Action MP_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action MP_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(attacker) || !MP_CanUse[attacker])
 		return Plugin_Continue;
-	
+
 	for (int i = 0; i < MP_MaxProjectiles[attacker]; i++)
 	{
 		if (MP_EntRefs[attacker][i] == 0)
 			continue;
-	
+
 		if (inflictor == EntRefToEntIndex(MP_EntRefs[attacker][i]))
 		{
 			damage = MA_ClassDamageModifier(damage, attacker, victim, MP_STRING);
@@ -5733,7 +5756,7 @@ public Action MP_OnTakeDamage(int victim, int& attacker, int& inflictor,
 			return Plugin_Changed;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -5765,14 +5788,14 @@ public int MP_CreateRocket(int clientIdx)
 	// create our rocket. no matter what, it's going to spawn, even if it ends up being out of map
 	float damage = fixDamageForFF2(MP_Damage[clientIdx]);
 	float speed = MP_Speed[clientIdx];
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (!IsValidEntity(rocket))
 	{
 		PrintToServer("[sarysamods7] Error: Invalid entity \"tf_projectile_rocket\". Won't spawn rocket. This is sarysa's fault.");
 		return -1;
 	}
-	
+
 	// get spawn position, angles, velocity
 	static float spawnPos[3];
 	MA_GetIdealProjectileSpawnPos(clientIdx, spawnPos);
@@ -5781,7 +5804,7 @@ public int MP_CreateRocket(int clientIdx)
 	static float velocity[3];
 	GetAngleVectors(angles, velocity, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(velocity, speed);
-	
+
 	// deploy!
 	TeleportEntity(rocket, spawnPos, angles, velocity);
 	SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
@@ -5791,19 +5814,19 @@ public int MP_CreateRocket(int clientIdx)
 	SetVariantInt(BossTeam);
 	AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 	SetVariantInt(BossTeam);
-	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+	AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 	DispatchSpawn(rocket);
-	
+
 	// reskin after spawn
 	if (MP_Model[clientIdx] != -1)
 		SetEntProp(rocket, Prop_Send, "m_nModelIndex", MP_Model[clientIdx]);
-		
+
 	// play the firing sound
 	if (strlen(MP_FireSound) > 3)
 		PseudoAmbientSound(clientIdx, MP_FireSound, 1, 800.0);
 	else
 		MA_PlayFireSound(clientIdx);
-	
+
 	return rocket;
 }
 
@@ -5811,10 +5834,10 @@ public void MP_DetonateRocket(int clientIdx, float rocketPos[3])
 {
 	// the only way to detonate the rocket in midair is to spawn another rocket that'll clip with it
 	// causing both to explode
-	
+
 	int rocket = CreateEntityByName("tf_projectile_rocket");
 	if (IsValidEntity(rocket))
-	{	
+	{
 		TeleportEntity(rocket, rocketPos, NULL_VECTOR, NULL_VECTOR);
 		SetEntProp(rocket, Prop_Send, "m_bCritical", false); // no random crits
 		SetEntDataFloat(rocket, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, 0.0, true); // credit to voogru
@@ -5823,7 +5846,7 @@ public void MP_DetonateRocket(int clientIdx, float rocketPos[3])
 		SetVariantInt(BossTeam);
 		AcceptEntityInput(rocket, "TeamNum", -1, -1, 0);
 		SetVariantInt(BossTeam);
-		AcceptEntityInput(rocket, "SetTeam", -1, -1, 0); 
+		AcceptEntityInput(rocket, "SetTeam", -1, -1, 0);
 		DispatchSpawn(rocket);
 		CreateTimer(0.05, Timer_RemoveEntityTele, EntIndexToEntRef(rocket), TIMER_FLAG_NO_MAPCHANGE); // timers...UNCLEAN!!! though admittedly useful in this one hack fix.
 	}
@@ -5847,14 +5870,14 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 	{
 		if (MP_EntRefs[clientIdx][i] == 0)
 			continue;
-		
+
 		int projectile = EntRefToEntIndex(MP_EntRefs[clientIdx][i]);
 		if (!IsValidEntity(projectile))
 		{
 			MP_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		// airblasted. it now belongs to a pyro.
 		if ((GetEntPropEnt(projectile, Prop_Send, "m_hOwnerEntity") & 0xff) != clientIdx)
 		{
@@ -5870,10 +5893,10 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 			GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", rocketPos);
 			MP_DetonateRocket(clientIdx, rocketPos);
 		}
-		
+
 		projectileCount++;
 	}
-	
+
 	// check auto-detonation
 	if (curTime >= MP_CheckAutoDetonationAt[clientIdx])
 	{
@@ -5890,7 +5913,7 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 				int projectile = EntRefToEntIndex(MP_EntRefs[clientIdx][i]);
 				if (!IsValidEntity(projectile))
 					continue;
-			
+
 				bool isDead = false;
 				static float projectilePos[3];
 				GetEntPropVector(projectile, Prop_Send, "m_vecOrigin", projectilePos);
@@ -5898,7 +5921,7 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 				{
 					if (!IsLivingPlayer(victim) || GetClientTeam(victim) == BossTeam)
 						continue;
-					
+
 					static float victimPos[3];
 					GetEntPropVector(victim, Prop_Send, "m_vecOrigin", victimPos);
 					if (GetVectorDistance(victimPos, projectilePos, true) <= rangeCheck) // kablooie!
@@ -5908,18 +5931,18 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 						break;
 					}
 				}
-				
+
 				// now we need to check for buildings
 				for (int pass = 0; pass < 3; pass++)
 				{
 					if (isDead)
 						break;
-					
+
 					static char classname[MAX_ENTITY_CLASSNAME_LENGTH];
 					if (pass == 0) classname = "obj_sentrygun";
 					else if (pass == 1) classname = "obj_dispenser";
 					else if (pass == 2) classname = "obj_teleporter";
-					
+
 					int building = -1;
 					while ((building = FindEntityByClassname(building, classname)) != -1)
 					{
@@ -5935,21 +5958,21 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 				}
 			}
 		}
-		
+
 		MP_CheckAutoDetonationAt[clientIdx] = curTime + MP_AUTO_DETONATION_INTERVAL;
 	}
-	
+
 	if (shouldRelease && projectileCount > 0)
 	{
 		for (int i = 0; i < MP_MaxProjectiles[clientIdx]; i++)
 		{
 			if (MP_EntRefs[clientIdx][i] == 0 || !MP_PendingRelease[clientIdx][i])
 				continue;
-			
+
 			int projectile = EntRefToEntIndex(MP_EntRefs[clientIdx][i]);
 			if (!IsValidEntity(projectile))
 				continue;
-				
+
 			MP_PendingRelease[clientIdx][i] = false;
 			static float angles[3] = {-89.9,0.0,0.0};
 			static float velocity[3];
@@ -5961,14 +5984,14 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 
 	if (!MA_AmIActive(clientIdx, MP_STRING))
 		return;
-	
+
 	if (projectileCount >= MP_MaxProjectiles[clientIdx])
 		shouldFire = false;
-		
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		int projectile = MP_CreateRocket(clientIdx);
-		
+
 		for (int i = 0; i < MP_MaxProjectiles[clientIdx]; i++)
 		{
 			if (MP_EntRefs[clientIdx][i] == 0)
@@ -5985,13 +6008,13 @@ public void MP_Tick(int clientIdx, int buttons, float curTime)
 /**
  * Apple Bucker
  */
-public Action MAB_OnTakeDamage(int victim, int& attacker, int& inflictor, 
-							float& damage, int& damagetype, int& weapon, 
+public Action MAB_OnTakeDamage(int victim, int& attacker, int& inflictor,
+							float& damage, int& damagetype, int& weapon,
 							float damageForce[3], float damagePosition[3], int damagecustom)
 {
 	if (!IsLivingPlayer(attacker) || !MAB_CanUse[attacker])
 		return Plugin_Continue;
-		
+
 	for (int i = 0; i < MAB_MaxProjectiles[attacker]; i++)
 	{
 		if (MAB_EntRefs[attacker][i] == 0)
@@ -6009,7 +6032,7 @@ public Action MAB_OnTakeDamage(int victim, int& attacker, int& inflictor,
 			return Plugin_Changed;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -6041,24 +6064,24 @@ public int MAB_CreateApple(int clientIdx)
 	float speed = MAB_Speed[clientIdx];
 	float damage = fixDamageForFF2(MAB_Damage[clientIdx]);
 	char entname[MAX_ENTITY_CLASSNAME_LENGTH] = "tf_projectile_pipe";
-	
+
 	int projectileEntity = CreateEntityByName(entname);
-	
+
 	if (!IsValidEntity(projectileEntity))
 	{
 		PrintToServer("[projectile_turret] Error: Invalid entity %s. Won't spawn projectile.", entname);
 		return -1;
 	}
-	
+
 	static float angles[3];
 	GetClientEyeAngles(clientIdx, angles);
 	static float velocity[3];
 	GetAngleVectors(angles, velocity, NULL_VECTOR, NULL_VECTOR);
 	ScaleVector(velocity, speed);
-	
+
 	// give grenades an extra 75, cause without this they'll hit nothing...
 	velocity[2] += 75.0;
-	
+
 	// grenades have to be moved AFTER they spawn into the world, here's why.
 	// CPhysicsCannister::CannisterActivate in the TF2 code
 	// properties of all physics cannisters (i.e. grenade, loose cannon, etc) are determined after spawn
@@ -6067,38 +6090,38 @@ public int MAB_CreateApple(int clientIdx)
 	// the projectile's velocity defaults to 0.
 	if (MAB_IsLooseCannon[clientIdx])
 		SetEntProp(projectileEntity, Prop_Send, "m_iType", 3); // type 0 is grenade, type 3 is loose cannon. 1 is probably sticky and 2 is probably scottish resistance.
-	
+
 	//PrintToServer("spawning projectile. pos=%f,%f,%f  angles=%f,%f,%f  velocity=%f,%f,%f", vPosition[0], vPosition[1], vPosition[2], vAngles[0], vAngles[1], vAngles[2], vVelocity[0], vVelocity[1], vVelocity[2]);
-	
+
 	SetEntProp(projectileEntity, Prop_Send, "m_bCritical", false); // I have no idea if this overrides random crits. I hope it does. (later note: it appears to)
 
 	// luckily, grenades have a simple convenient netprop to set for damage...unlike rockets and arrows...
 	SetEntPropFloat(projectileEntity, Prop_Send, "m_flDamage", damage);
-	
+
 	SetEntProp(projectileEntity, Prop_Send, "m_nSkin", 1); // set skin to blue team's
 	SetEntPropEnt(projectileEntity, Prop_Send, "m_hOwnerEntity", clientIdx);
 	SetVariantInt(BossTeam);
 	AcceptEntityInput(projectileEntity, "TeamNum", -1, -1, 0);
 	SetVariantInt(BossTeam);
-	AcceptEntityInput(projectileEntity, "SetTeam", -1, -1, 0); 
-	
+	AcceptEntityInput(projectileEntity, "SetTeam", -1, -1, 0);
+
 	DispatchSpawn(projectileEntity);
-	
+
 	// must reskin after spawn
 	if (MAB_Model[clientIdx] != -1)
 		SetEntProp(projectileEntity, Prop_Send, "m_nModelIndex", MAB_Model[clientIdx]);
-	
+
 	// grenade must be moved after it spawns
 	static float spawnPos[3];
 	MA_GetIdealProjectileSpawnPos(clientIdx, spawnPos);
 	TeleportEntity(projectileEntity, spawnPos, angles, velocity);
-	
+
 	// play the firing sound
 	MA_PlayFireSound(clientIdx);
-	
+
 	return projectileEntity;
 }
- 
+
 public void MAB_Tick(int clientIdx, int buttons, float curTime)
 {
 	bool attackDown = (buttons & IN_ATTACK) != 0;
@@ -6106,37 +6129,37 @@ public void MAB_Tick(int clientIdx, int buttons, float curTime)
 	MAB_AttackDown[clientIdx] = attackDown;
 	if (TF2_IsPlayerInCondition(clientIdx, TFCond_Dazed) || TF2_IsPlayerInCondition(clientIdx, TFCond_Taunting))
 		shouldFire = false;
-	
+
 	// verify the validity of existing projectiles, and count them
 	int projectileCount = 0;
 	for (int i = 0; i < MAB_MaxProjectiles[clientIdx]; i++)
 	{
 		if (MAB_EntRefs[clientIdx][i] == 0)
 			continue;
-		
+
 		int projectile = EntRefToEntIndex(MAB_EntRefs[clientIdx][i]);
 		if (!IsValidEntity(projectile))
 		{
 			MAB_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		// airblasted. it now belongs to a pyro.
 		if ((GetEntPropEnt(projectile, Prop_Send, "m_hOwnerEntity") & 0xff) != clientIdx)
 		{
 			MAB_EntRefs[clientIdx][i] = 0;
 			continue;
 		}
-		
+
 		projectileCount++;
 	}
 
 	if (!MA_AmIActive(clientIdx, MAB_STRING))
 		return;
-	
+
 	if (projectileCount >= MAB_MaxProjectiles[clientIdx])
 		shouldFire = false;
-	
+
 	if (shouldFire && MA_ConsumeEnergy(clientIdx))
 	{
 		int projectile = MAB_CreateApple(clientIdx);
@@ -6162,14 +6185,14 @@ public void OnGameFrame()
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return;
-		
+
 	float curTime = GetEngineTime();
 
 	if (DE_ActiveThisRound)
 	{
 		DE_Tick(curTime);
 	}
-	
+
 	if (RR_ActiveThisRound)
 	{
 		RR_Tick(curTime);
@@ -6179,26 +6202,26 @@ public void OnGameFrame()
 	{
 		DK_Tick(curTime);
 	}
-	
+
 	if (SAC_ActiveThisRound)
 	{
 		SAC_HighResTick(curTime);
 	}
 }
- 
-public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse, 
-							float vel[3], float angles[3], int &weapon, 
+
+public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse,
+							float vel[3], float angles[3], int &weapon,
 							int &subtype, int &cmdnum, int &tickcount, int &seed, int mouse[2])
 {
 	if (!PluginActiveThisRound || !RoundInProgress)
 		return Plugin_Continue;
 	else if (!IsLivingPlayer(clientIdx))
 		return Plugin_Continue;
-		
+
 	if (DE_ActiveThisRound && DE_CanUse[clientIdx])
 	{
 		float curTime = GetEngineTime();
-	
+
 		// update the hud
 		if (curTime >= DE_NextHUDAt[clientIdx])
 		{
@@ -6207,7 +6230,7 @@ public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse,
 			DE_NextHUDAt[clientIdx] = curTime + DE_HUD_REFRESH_INTERVAL;
 		}
 	}
-	
+
 	if (SN_ActiveThisRound && SN_CanUse[clientIdx])
 	{
 		SN_Tick(clientIdx, buttons, GetEngineTime());
@@ -6252,7 +6275,7 @@ public Action OnPlayerRunCmd(int clientIdx, int &buttons, int &impulse,
 			MAB_Tick(clientIdx, buttons, GetEngineTime());
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -6273,7 +6296,7 @@ stock int ParticleEffectAt(float position[3], char[] effectName, float duration 
 {
 	if (IsEmptyString(effectName))
 		return -1; // nothing to display
-		
+
 	int particle = CreateEntityByName("info_particle_system");
 	if (particle != -1)
 	{
@@ -6292,7 +6315,7 @@ stock int ParticleEffectAt(float position[3], char[] effectName, float duration 
 stock int AttachParticle(int entity, const char[] particleType, float offset=0.0, bool attach=true)
 {
 	int particle = CreateEntityByName("info_particle_system");
-	
+
 	if (!IsValidEntity(particle))
 		return -1;
 
@@ -6324,7 +6347,7 @@ stock int AttachParticle(int entity, const char[] particleType, float offset=0.0
 stock int AttachParticleToAttachment(int entity, const char[] particleType, const char[] attachmentPoint) // m_vecAbsOrigin. you're welcome.
 {
 	int particle = CreateEntityByName("info_particle_system");
-	
+
 	if (!IsValidEntity(particle))
 		return -1;
 
@@ -6343,7 +6366,7 @@ stock int AttachParticleToAttachment(int entity, const char[] particleType, cons
 	SetVariantString(targetName);
 	AcceptEntityInput(particle, "SetParent", particle, particle, 0);
 	SetEntPropEnt(particle, Prop_Send, "m_hOwnerEntity", entity);
-	
+
 	SetVariantString(attachmentPoint);
 	AcceptEntityInput(particle, "SetParentAttachment");
 
@@ -6373,7 +6396,7 @@ stock bool IsLivingPlayer(int clientIdx)
 {
 	if (clientIdx <= 0 || clientIdx >= MAX_PLAYERS)
 		return false;
-		
+
 	return IsClientInGame(clientIdx) && IsPlayerAlive(clientIdx);
 }
 
@@ -6381,14 +6404,14 @@ stock bool IsValidBoss(int clientIdx)
 {
 	if (!IsLivingPlayer(clientIdx))
 		return false;
-		
+
 	return GetClientTeam(clientIdx) == BossTeam;
 }
 
 stock bool IsPlayerInRange(int player, float position[3], float maxDistance)
 {
 	maxDistance *= maxDistance;
-	
+
 	static float playerPos[3];
 	GetEntPropVector(player, Prop_Data, "m_vecOrigin", playerPos);
 	return GetVectorDistance(position, playerPos, true) <= maxDistance;
@@ -6404,7 +6427,7 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 	{
 		if (!IsLivingPlayer(clientIdx))
 			continue;
-			
+
 		if (maxDistance > 0.0 && !IsPlayerInRange(clientIdx, position, maxDistance))
 			continue;
 
@@ -6426,7 +6449,7 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 
 		if (maxDistance > 0.0 && !IsPlayerInRange(clientIdx, position, maxDistance))
 			continue;
-			
+
 		if ((isBossTeam && GetClientTeam(clientIdx) == BossTeam) || (!isBossTeam && GetClientTeam(clientIdx) != BossTeam) || anyTeam)
 		{
 			if (playerCount == rand) // needed if rand is 0
@@ -6442,7 +6465,7 @@ stock int FindRandomPlayer(bool isBossTeam, float position[3] = NULL_VECTOR, flo
 			}
 		}
 	}
-	
+
 	return player;
 }
 
@@ -6453,12 +6476,12 @@ stock bool CheckLineOfSight(float position[3], int targetEntity, float zOffset)
 	targetPos[2] += zOffset;
 	static float angles[3];
 	GetVectorAnglesTwoPoints(position, targetPos, angles);
-	
+
 	Handle trace = TR_TraceRayFilterEx(position, angles, (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE), RayType_Infinite, TraceWallsOnly);
 	static float endPos[3];
 	TR_GetEndPosition(endPos, trace);
 	CloseHandle(trace);
-	
+
 	return GetVectorDistance(position, targetPos, true) <= GetVectorDistance(position, endPos, true);
 }
 
@@ -6503,7 +6526,7 @@ stock float fixAngle(float angle)
 		angle = angle + 360.0;
 	while (angle > 180.0 && (sanity++) <= 10)
 		angle = angle - 360.0;
-		
+
 	return angle;
 }
 
@@ -6567,7 +6590,7 @@ stock void PseudoAmbientSound(int clientIdx, char[] soundPath, int count=1, floa
 			continue;
 		else if (skipDead && !IsLivingPlayer(listener))
 			continue;
-			
+
 		// knowing virtually nothing about sound engineering, I'm kind of BSing this here...
 		// but I'm pretty sure decibal dropoff is best done logarithmically.
 		// so I'm doing that here.
@@ -6575,11 +6598,11 @@ stock void PseudoAmbientSound(int clientIdx, char[] soundPath, int count=1, floa
 		float distance = GetVectorDistance(emitterPos, listenerPos);
 		if (distance >= radius)
 			continue;
-		
+
 		float logMe = (radius - distance) / (radius / 10.0);
 		if (logMe <= 0.0) // just a precaution, since EVERYTHING tosses an exception in this game
 			continue;
-			
+
 		float volume = Logarithm(logMe) * volumeFactor;
 		if (volume <= 0.0)
 			continue;
@@ -6588,7 +6611,7 @@ stock void PseudoAmbientSound(int clientIdx, char[] soundPath, int count=1, floa
 			PrintToServer("[sarysamods7] How the hell is volume greater than 1.0?");
 			volume = 1.0;
 		}
-		
+
 		for (int i = 0; i < count; i++)
 			EmitSoundToClient(listener, soundPath, SOUND_FROM_PLAYER, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, volume);
 	}
@@ -6622,7 +6645,7 @@ stock int ReadHexOrDecInt(char[] hexOrDecString)
 		for (int i = 2; i < 10 && hexOrDecString[i] != 0; i++)
 		{
 			result = result<<4;
-				
+
 			if (hexOrDecString[i] >= '0' && hexOrDecString[i] <= '9')
 				result += hexOrDecString[i] - '0';
 			else if (hexOrDecString[i] >= 'a' && hexOrDecString[i] <= 'f')
@@ -6630,7 +6653,7 @@ stock int ReadHexOrDecInt(char[] hexOrDecString)
 			else if (hexOrDecString[i] >= 'A' && hexOrDecString[i] <= 'F')
 				result += hexOrDecString[i] - 'A' + 10;
 		}
-		
+
 		return result;
 	}
 	else
@@ -6682,7 +6705,7 @@ stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], f
 	tmpVec2[0] = colliderOrigin[0];
 	tmpVec2[1] = colliderOrigin[1];
 	tmpVec2[2] = 0.0;
-	
+
 	return GetVectorDistance(tmpVec1, tmpVec2, true) <= maxDistance * maxDistance;
 }
 
@@ -6698,7 +6721,7 @@ stock void DispatchKeyValueFormat(int entity, const char[] keyName, const char[]
 	VFormat(value, sizeof(value), format, 4);
 
 	DispatchKeyValue(entity, keyName, value);
-} 
+}
 
 stock bool PlayerIsInvincible(int clientIdx)
 {
@@ -6716,7 +6739,7 @@ stock bool PlayerIsInvincible(int clientIdx)
 stock void ColorizePlayer(int client, const int iColor[4])
 {
 	SetEntityColor(client, iColor);
-	
+
 	for(int i=0; i<3; i++)
 	{
 		int iWeapon = GetPlayerWeaponSlot(client, i);
@@ -6725,18 +6748,18 @@ stock void ColorizePlayer(int client, const int iColor[4])
 			SetEntityColor(iWeapon, iColor);
 		}
 	}
-	
+
 	static char strClass[64];
 	int next = MaxClients + 1;
-	
+
 	while((next = FindEntityByClassname(next, "tf_wearable*")) != -1 || (next = FindEntityByClassname(next, "tf_powerup*")) != -1) {
 		GetEntityClassname(next, strClass, sizeof(strClass));
 		if(!strncmp(strClass, "tf_powerup", 10) && GetEntPropEnt(next, Prop_Send, "m_hOwnerEntity") != client)
 			continue;
 		SetEntityColor(next, iColor);
 	}
-	//01Pollux : why would you even loop through all server entities just to check their classname then color them... 
-	
+	//01Pollux : why would you even loop through all server entities just to check their classname then color them...
+
 	int iWeapon = GetEntPropEnt(client, Prop_Send, "m_hDisguiseWeapon");
 	if(iWeapon > MaxClients && IsValidEntity(iWeapon))
 	{

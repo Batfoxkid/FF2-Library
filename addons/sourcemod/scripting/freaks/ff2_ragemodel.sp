@@ -5,6 +5,7 @@
 #include <tf2_stocks>
 #include <freak_fortress_2>
 //#include <freak_fortress_2_subplugin>
+#include <vsh2>
 
 public Plugin:myinfo = {
 	name = "Freak Fortress 2: Rage Model",
@@ -38,6 +39,27 @@ new g_BossThreshold5 = -1;
 
 new Handle:g_HealthModelTimer;
 
+public OnLibraryAdded(const String:name[])
+{
+	if (StrEqual(name, "VSH2")) {
+		VSH2_Hook(OnBossModelTimer, FF2_OnBossModelTimer);
+	}
+}
+
+public OnLibraryRemoved(const String:name[])
+{
+	if (StrEqual(name, "VSH2")) {
+		VSH2_Unhook(OnBossModelTimer, FF2_OnBossModelTimer);
+	}
+}
+
+public Action:FF2_OnBossModelTimer(const VSH2Player:player)
+{
+	if (g_ModelChanged)
+		return Plugin_Handled;
+
+	return Plugin_Continue;
+}
 
 public OnPluginStart2()
 {
