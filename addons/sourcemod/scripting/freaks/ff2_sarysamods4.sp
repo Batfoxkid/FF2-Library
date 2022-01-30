@@ -1,4 +1,4 @@
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -586,19 +586,19 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	}
 }
 
-public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RR_STRING))
-		Rage_RollingRocks(bossPlayer.userid);
+		Rage_RollingRocks(bossPlayer);
 	else if (!strcmp(ability_name, GLIDE_STRING))
-		Rage_Glide(bossPlayer.userid);
+		Rage_Glide(bossPlayer);
 	else if (!strcmp(ability_name, IS_STRING))
-		Rage_ImprovedStun(bossPlayer.userid);
+		Rage_ImprovedStun(bossPlayer);
 	else if (!strcmp(ability_name, MS_STRING))
-		Rage_MeteorShower(bossPlayer.userid);
+		Rage_MeteorShower(bossPlayer);
 		
 	return Plugin_Continue;		
 }
@@ -1301,7 +1301,7 @@ public Action RR_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float
 public void Rage_RollingRocks(int bossIdx)
 {
 	// classic parameters for rage_clone_attack
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = bossIdx;
 	char modelName[MAX_MODEL_FILE_LENGTH];
 	FF2_GetAbilityArgumentString(bossIdx, this_plugin_name, RR_STRING, 1, modelName, MAX_MODEL_FILE_LENGTH);
 	TFClassType classIdx = view_as<TFClassType>(FF2_GetAbilityArgument(bossIdx, this_plugin_name, RR_STRING, 2));
@@ -1589,10 +1589,8 @@ public Action GLIDE_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, fl
 
 public void Rage_Glide(int bossIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
-	if (GLIDE_RageOnly[clientIdx])
-		GLIDE_UsableUntil[clientIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GLIDE_STRING, 2);
+	if (GLIDE_RageOnly[bossIdx])
+		GLIDE_UsableUntil[bossIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, GLIDE_STRING, 2);
 }
 
 /**
@@ -1638,7 +1636,7 @@ public void IS_Tick(int clientIdx, float curTime)
 
 public void Rage_ImprovedStun(int bossIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = bossIdx;
 	
 	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 1);
 	float radius = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, IS_STRING, 2);
@@ -2278,12 +2276,10 @@ public Action MS_OnPlayerRunCmd(int clientIdx, int& buttons, int& impulse, float
 	return Plugin_Continue;
 }
 
-public void Rage_MeteorShower(int bossIdx)
+public void Rage_MeteorShower(int clientIdx)
 {
 	// all this method does is trigger the beginning of the meteor shower
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
-	float duration = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 1);
+	float duration = FF2_GetAbilityArgumentFloat(clientIdx, this_plugin_name, MS_STRING, 1);
 	MS_SpawnMeteorsUntil[clientIdx] = GetEngineTime() + duration;
 	MS_IsUsing[clientIdx] = true;
 	MS_SpawnCount[clientIdx] = 0;

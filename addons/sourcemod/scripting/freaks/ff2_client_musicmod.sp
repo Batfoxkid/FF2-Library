@@ -1,5 +1,4 @@
 #pragma semicolon 1
-#define FF2_USING_AUTO_PLUGIN
 
 #include <tf2items>
 #include <tf2_stocks>
@@ -7,6 +6,7 @@
 
 #pragma newdecls required
 
+#define this_plugin_name "ff2_client_musicmod"
 #define ABILITY_INFO this_plugin_name, "special_changebgm_onclientmatch"
 
 //	"steam ids"		"... ; ... ; ..."
@@ -73,16 +73,6 @@ public void OnLibraryRemoved(const char[] name)
 	}
 }
 
-public void OnPluginStart2()
-{
-	
-}
-
-public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t action) 
-{
-    // nothing to see here
-}
-
 public void _OnRoundStart(const VSH2Player[] bosses, const int boss_count, const VSH2Player[] red_players, const int red_count)
 {
 	static char steamID[64], wantedIDs[1024];
@@ -122,35 +112,46 @@ public void _OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 	delete music_list;
 }
 
-public Action FF2_OnMusic(const FF2Player player, char[] upcoming_song, float &time)
+public Action FF2_OnMusic(int boss_idx, char[] upcoming_song, float& time)
 {
-	if(!music_list)
+	if (!music_list)
 		return Plugin_Continue;
 	
+	FF2Player player = FF2Player(boss_idx);
 	static Music_Info_t infos;
-	if(!music_list.FindPlayer(player, infos))
+	if (!music_list.FindPlayer(player, infos))
 		return Plugin_Continue;
 	
-	StringMap cache = player.SoundCache;
-	ArrayList sound_list;
-	if(cache && cache.GetValue(infos.redirect, sound_list) && sound_list)
+	StringMap map = player.SoundMap;
+	ConfigMap sound_list;
+	if (map && map.GetValue(infos.redirect, sound_list) && sound_list)
 	{
-		int size = sound_list.Length;
-		if(!size)
-			return Plugin_Continue;
-			
-		FF2SoundIdentity id;
-			
-		int pos = GetRandomInt(0, size - 1);
-		sound_list.GetArray(pos, id, sizeof(FF2SoundIdentity));
-			
-		strcopy(upcoming_song, sizeof(FF2SoundIdentity::path), id.path);
-		time = id.time;
-		
-		FPrintToChatAll("Now Playing: {blue}%s{default} - {orange}%s{default}", 
-						!id.name ? "Unknown Song":id.name, 
-						!id.artist ? "Unknown Artist":id.artist);
-		return Plugin_Handled;
+		int size = sound_list.Size;
+		if (size)
+		{
+			int pos = GetRandomInt(0, size - 1);
+			ConfigMap rand_sec = sound_list.GetIntSection(pos);
+
+			rand_sec.Get("path", upcoming_song, PLATFORM_MAX_PATH);
+			rand_sec.GetFloat("time", time);
+
+			char artist[32], song_name[64];
+			if (!rand_sec.Get("name", song_name, sizeof(song_name)))
+				song_name = "Unknown song";
+			if (!rand_sec.Get("artist", song_name, sizeof(song_name)))
+				song_name = "Unknown artist";
+
+			FPrintToChatAll(
+				"Now Playing: {blue}%s{default} - {orange}%s{default}", 
+				song_name, 
+				artist
+			);
+
+			FF2Player.ReleaseSoundMap(map);
+			return Plugin_Handled;
+		}
 	}
+
+	FF2Player.ReleaseSoundMap(map);
 	return Plugin_Continue;
 }

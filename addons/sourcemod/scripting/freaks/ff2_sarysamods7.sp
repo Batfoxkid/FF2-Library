@@ -1,6 +1,6 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -1518,31 +1518,31 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 		
 	if (!strcmp(ability_name, RR_STRING))
 	{
-		Rage_RocketRing(player.userid);
+		Rage_RocketRing(bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Rocket Ring");
 	}
 	else if (!strcmp(ability_name, SN_STRING))
 	{
-		Rage_SkyNuke(player.userid);
+		Rage_SkyNuke(bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods7] Initiating Sky Nuke");
 	}
 	else if (!strcmp(ability_name, MA_STRING))
 	{
-		int clientIdx = player.index;
-		PrintToServer("[sarysamods7] Super rare edge case of rage executing with %s, this code isn't useless! Yay.", MA_STRING);
+		if (PRINT_DEBUG_INFO)
+			PrintToServer("[sarysamods7] Super rare edge case of rage executing with %s, this code isn't useless! Yay.", MA_STRING);
 		
-		MA_EnergyPercent[clientIdx] = 100.0;
+		MA_EnergyPercent[bossPlayer] = 100.0;
 	}
 		
 	return Plugin_Continue;
@@ -2496,10 +2496,8 @@ public void RR_Tick(float curTime)
 		RR_ReorientAt = curTime + RR_RocketReangleInterval;
 }
 
-public void Rage_RocketRing(int bossIdx)
+public void Rage_RocketRing(int clientIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
 	// find the first free
 	int startAt = 0;
 	for (startAt = 0; startAt < RRP_MAX_PROJECTILES; startAt++)
@@ -3328,10 +3326,8 @@ public void SN_Tick(int clientIdx, int buttons, float curTime)
 	}
 }
 
-public void Rage_SkyNuke(int bossIdx)
+public void Rage_SkyNuke(int clientIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
 	// freak circumstance, but very very possible...and problematic.
 	// if I don't do this then players will be spit out way above the skybox.
 	if (SAC_ActiveThisRound && SAC_CanUse[clientIdx] && SAC_IsActive[clientIdx])

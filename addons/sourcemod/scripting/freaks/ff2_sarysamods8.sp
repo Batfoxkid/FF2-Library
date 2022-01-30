@@ -1,6 +1,6 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -1652,35 +1652,35 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	PluginActiveThisRound = false;
 }
 
-public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t calltype)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return;
 	
 	if (!strcmp(ability_name, EM_STRING))
-		Rage_EarthquakeMachine(player.userid);
+		Rage_EarthquakeMachine(bossPlayer);
 	else if (!strcmp(ability_name, MM_STRING))
-		Rage_MedicMinion(player.userid);
+		Rage_MedicMinion(bossPlayer);
 	else if (!strcmp(ability_name, SR_STRING))
-		Rage_SafeResize(player.userid);
+		Rage_SafeResize(bossPlayer);
 	else if (!strcmp(ability_name, HA_STRING))
-		Rage_HeadAnnihilation(player.index);
+		Rage_HeadAnnihilation(bossPlayer);
 	else if (!strcmp(ability_name, FNAP_STRING))
-		Rage_FNAPRages(player.index);
+		Rage_FNAPRages(bossPlayer);
 	else if (!strcmp(ability_name, PB_STRING))
-		Rage_PropBuff(player.index);
+		Rage_PropBuff(bossPlayer);
 	else if (!strcmp(ability_name, PT_STRING))
-		Rage_PickupTrap(player.index);
+		Rage_PickupTrap(bossPlayer);
 	else if (!strcmp(ability_name, SBV_STRING))
-		Rage_SpeedByViews(player.index);
+		Rage_SpeedByViews(bossPlayer);
 	else if (!strcmp(ability_name, TA_STRING))
-		Rage_TwistedAttraction(player.index);
+		Rage_TwistedAttraction(bossPlayer);
 	else if (!strcmp(ability_name, IT_STRING))
-		Rage_InstantTeleports(player.index);
+		Rage_InstantTeleports(bossPlayer);
 	else if (!strcmp(ability_name, CS_STRING))
-		Rage_CrippleStacks(player.index);
+		Rage_CrippleStacks(bossPlayer);
 	else if (!strcmp(ability_name, FNAP2_STRING))
-		Rage_FNAPSentryStun(player.index);
+		Rage_FNAPSentryStun(bossPlayer);
 }
 
 /**
@@ -1816,8 +1816,9 @@ Action OnDOTAbilityTick(int clientIdx, int tickCount)
  */
 public Action EM_RestoreRage(Handle timer, any bossIdx)
 {
-	if (RoundInProgress)
-		FF2_SetBossCharge(bossIdx, 0, 100.0);
+	int client = GetClientOfUserId(bossIdx);
+	if (client && RoundInProgress)
+		FF2_SetBossCharge(client, 0, 100.0);
 }
 
 // original credit to Phatrages, I only really tweaked it slightly.
@@ -2245,13 +2246,11 @@ public void EM_CreateLandedMachine(int clientIdx, float pos[3], float yaw)
 	EM_DespawnAt[clientIdx] = GetEngineTime() + EM_Duration[clientIdx];
 }
  
-public bool Rage_EarthquakeMachine(int bossIdx)
+public bool Rage_EarthquakeMachine(int clientIdx)
 {
 	if (!EM_ActiveThisRound)
 		return true; // in case the rage is invalid
 
-	int clientIdx = GetClientOfUserId(bossIdx);
-	
 	if (EM_Flags[clientIdx] & EM_FLAG_PREVENT_RESUMMON)
 	{
 		if (EM_MachineEntRef[clientIdx] != INVALID_ENTREF)
@@ -2260,7 +2259,7 @@ public bool Rage_EarthquakeMachine(int bossIdx)
 			PrintToChat(clientIdx, EMA_RageSpamMessage);
 			
 			// heresy...I'm creating a timer. though for once it's safe.
-			CreateTimer(0.1, EM_RestoreRage, bossIdx, TIMER_FLAG_NO_MAPCHANGE);
+			CreateTimer(0.1, EM_RestoreRage, clientIdx, TIMER_FLAG_NO_MAPCHANGE);
 			
 			return false;
 		}
@@ -2588,7 +2587,7 @@ public bool MM_ValidPotentialMinion(int minion)
 // another derived method from the stock summon rage
 public void Rage_MedicMinion(int bossIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = bossIdx;
 
 	// bring in minion args
 	static char modelName[MAX_MODEL_FILE_LENGTH];
@@ -3504,9 +3503,8 @@ public bool IsSpotSafe(int clientIdx, float x, float y, float z, float sizeMulti
 /**
  * Safe Resize
  */
-public void Rage_SafeResize(int bossIdx)
+public void Rage_SafeResize(int clientIdx)
 {
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
 	float radius = SR_Radius[clientIdx] * SR_Radius[clientIdx];
 
 	static float bossOrigin[3];
@@ -4406,7 +4404,7 @@ public void HA_Tick(int clientIdx, float curTime)
 							if (HA_Flags[clientIdx] & HA_FLAG_FIX_BONK_BLEED)
 							{
 								SetEntProp(victim, Prop_Data, "m_takedamage", 0);
-								CreateTimer(1.0, HA_FixBonkBleed, victim, TIMER_FLAG_NO_MAPCHANGE); // unclean! heathen!
+								CreateTimer(1.0, HA_FixBonkBleed, GetClientUserId(victim), TIMER_FLAG_NO_MAPCHANGE); // unclean! heathen!
 							}
 						}
 						
@@ -4475,9 +4473,10 @@ public void HA_Tick(int clientIdx, float curTime)
 }
 
 // that awkward moment when a timer ends up being safe and way easier to execute.
-public Action HA_FixBonkBleed(Handle hTimer, any victim)
+public Action HA_FixBonkBleed(Handle hTimer, int victim_uid)
 {
-	if (IsLivingPlayer(victim))
+	int victim = GetClientOfUserId(victim_uid);
+	if (victim && IsLivingPlayer(victim))
 	{
 		if (TF2_IsPlayerInCondition(victim, TFCond_Bleeding))
 			TF2_RemoveCondition(victim, TFCond_Bleeding);

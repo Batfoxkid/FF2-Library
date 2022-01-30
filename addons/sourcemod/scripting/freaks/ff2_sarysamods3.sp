@@ -1,4 +1,4 @@
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -605,23 +605,23 @@ Action OnDOTAbilityTick(int clientIdx, int tickCount)
 /**
  * METHODS USED BY NORMAL RAGES
  */
-public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RS_STRING))
-		Rage_RegenerationShockwave(bossPlayer.userid);
+		Rage_RegenerationShockwave(bossPlayer);
 	else if (!strcmp(ability_name, CS_STRING))
-		Rage_CharacterScramble(bossPlayer.userid);
+		Rage_CharacterScramble(bossPlayer);
 	else if (!strcmp(ability_name, MS_STRING))
-		Rage_MeterScramble(bossPlayer.userid);
+		Rage_MeterScramble(bossPlayer);
 	else if (!strcmp(ability_name, SD_STRING))
-		Rage_SentryDelevel(bossPlayer.userid);
+		Rage_SentryDelevel(bossPlayer);
 	else if (!strcmp(ability_name, FD_STRING))
-		Rage_FlamingDebris(bossPlayer.userid);
+		Rage_FlamingDebris(bossPlayer);
 	else if (!strcmp(ability_name, TARDIS_STRING))
-		Rage_Tardis(bossPlayer.userid);
+		Rage_Tardis(bossPlayer);
 
 	return Plugin_Continue;
 }
@@ -959,7 +959,7 @@ public void RS_Tick(int clientIdx, float curTime)
 public void Rage_RegenerationShockwave(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, RS_STRING, 1);
-	int clientIdx = GetBossClientId(bossIdx);
+	int clientIdx = bossIdx;
 	
 	if (RS_FrameTotal[clientIdx] <= 1)
 	{
@@ -1130,12 +1130,11 @@ public void Rage_CharacterScramble(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, CS_STRING, 1);
 	bool cancelVelocity = FF2_GetAbilityArgument(bossIdx, this_plugin_name, CS_STRING, 2) == 1;
-	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoCharacterScramble(NULL_STRING, cancelVelocity);
 	else
-		CS_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
+		CS_ExecuteRageAt[bossIdx] = GetEngineTime() + delay;
 }
 
 /**
@@ -1202,12 +1201,11 @@ public void Rage_MeterScramble(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, MS_STRING, 1);
 	int flags = FF2_GetAbilityArgument(bossIdx, this_plugin_name, MS_STRING, 2);
-	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoMeterScramble(flags);
 	else
-		MS_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
+		MS_ExecuteRageAt[bossIdx] = GetEngineTime() + delay;
 }
 
 /**
@@ -1374,7 +1372,6 @@ public void SD_Tick(int clientIdx, float curTime)
 public void Rage_SentryDelevel(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, SD_STRING, 1);
-	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 	{
@@ -1383,7 +1380,7 @@ public void Rage_SentryDelevel(int bossIdx)
 		DoSentryDelevel(particleName);
 	}
 	else
-		SD_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
+		SD_ExecuteRageAt[bossIdx] = GetEngineTime() + delay;
 }
 
 /**
@@ -1489,12 +1486,11 @@ public void FD_Tick(int clientIdx, float curTime)
 public void Rage_FlamingDebris(int bossIdx)
 {
 	float delay = FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, FD_STRING, 1);
-	int clientIdx = GetBossClientId(bossIdx);
 	
 	if (delay == 0.0)
 		DoFlamingDebris(bossIdx);
 	else
-		FD_ExecuteRageAt[clientIdx] = GetEngineTime() + delay;
+		FD_ExecuteRageAt[bossIdx] = GetEngineTime() + delay;
 }
 
 /**
@@ -1694,7 +1690,7 @@ public void TARDIS_Tick(int clientIdx, float curTime)
 
 public void Rage_Tardis(int bossIdx)
 {
-	int clientIdx = GetBossClientId(bossIdx);
+	int clientIdx = bossIdx;
 
 	// a couple strings...
 	char modelName[MAX_MODEL_FILE_LENGTH];

@@ -1,7 +1,7 @@
 /**
  * sarysa's Public Pack #1
  */
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <sdkhooks>
 #include <freak_fortress_2>
@@ -607,13 +607,13 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	}
 }
 
-public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t callType)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if(RoundInProgress)
 		return Plugin_Continue;
 
 	if(!strcmp(ability_name, RW_STRING))
-		Rage_ROTTWeapons(player);
+		Rage_ROTTWeapons(bossPlayer);
 		
 	return Plugin_Continue;
 }
@@ -678,10 +678,9 @@ public void ROTT_UpdateHUD(int clientIdx)
 /**
  * ROTT Weapons
  */
-public void Rage_ROTTWeapons(FF2Player bossPlayer)
+public void Rage_ROTTWeapons(int bossIdx)
 {
-	int bossIdx = bossPlayer.userid;
-	int clientIdx = bossPlayer.index;
+	int clientIdx = bossIdx;
 	
 	// pick a random weapon
 	int randomInt = GetRandomInt(1, 100);

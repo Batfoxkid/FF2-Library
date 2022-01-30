@@ -1,6 +1,6 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -1059,37 +1059,35 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	UC_ActiveThisRound = false;
 }
 
-public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 		
-	int clientIdx = bossPlayer.index;
-
 	if (!strcmp(ability_name, RHS_STRING))
 	{
-		HS_StartHaywire(clientIdx, GetEngineTime() + FF2_GetAbilityArgumentFloat(bossPlayer.userid, this_plugin_name, ability_name, 1));
+		HS_StartHaywire(bossPlayer, GetEngineTime() + FF2_GetAbilityArgumentFloat(bossPlayer, this_plugin_name, ability_name, 1));
 		
 		if (PRINT_DEBUG_INFO)
-			PrintToServer("[sarysamods6] Initiating haywire sentries. Expires at %f", HS_DeactivateAt[clientIdx]);
+			PrintToServer("[sarysamods6] Initiating haywire sentries. Expires at %f", HS_DeactivateAt[bossPlayer]);
 	}
 	else if (!strcmp(ability_name, RB_STRING))
 	{
-		Rage_RocketBarrage(ability_name, bossPlayer.userid);
+		Rage_RocketBarrage(ability_name, bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Rocket Barrage rage.");
 	}
 	else if (!strcmp(ability_name, MC_STRING))
 	{
-		Rage_MercConditions(ability_name, bossPlayer.userid);
+		Rage_MercConditions(ability_name, bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Merc Conditions rage.");
 	}
 	else if (!strcmp(ability_name, TA_STRING))
 	{
-		Rage_TorpedoAttack(ability_name, bossPlayer.userid);
+		Rage_TorpedoAttack(ability_name, bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods6] Executed the Torpedo Attack rage.");
@@ -1766,7 +1764,7 @@ public void RB_Tick(int clientIdx, float curTime)
 public void Rage_RocketBarrage(const char[] ability_name, int bossIdx)
 {
 	// need the client index
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
+	int clientIdx = bossIdx;
 
 	// freak situation. should only occur in testing.
 	if (!RB_ActiveThisRound)
@@ -2158,11 +2156,8 @@ public void MC_Tick(int clientIdx, float curTime)
 
 public void Rage_MercConditions(const char[] ability_name, int bossIdx)
 {
-	// need the client index
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
-	MC_RageEndsAt[clientIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
-	MC_NextRadiusCheckAt[clientIdx] = GetEngineTime();
+	MC_RageEndsAt[bossIdx] = GetEngineTime() + FF2_GetAbilityArgumentFloat(bossIdx, this_plugin_name, ability_name, 1);
+	MC_NextRadiusCheckAt[bossIdx] = GetEngineTime();
 	MC_NextOverlayFixAt = GetEngineTime();
 }
 
@@ -2386,11 +2381,8 @@ public void TA_Tick(int clientIdx, float curTime, int buttons)
 
 public void Rage_TorpedoAttack(const char[] ability_name, int bossIdx)
 {
-	// need the client index
-	int clientIdx = GetClientOfUserId(FF2_GetBossUserId(bossIdx));
-	
 	// just setting the uses remaining is enough to trigger the rage
-	TA_UsesRemaining[clientIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 1);
+	TA_UsesRemaining[bossIdx] = FF2_GetAbilityArgument(bossIdx, this_plugin_name, ability_name, 1);
 }
 
 /**

@@ -1,6 +1,6 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -544,14 +544,14 @@ public void Saxton_Cleanup()
 	}
 }
 
-public void FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return;
 		
 	if (!strcmp(ability_name, SB_STRING))
 	{
-		Rage_SaxtonBerserk(player.index);
+		Rage_SaxtonBerserk(bossPlayer);
 		
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[improved_saxton] Initiating Saxton Berserk");

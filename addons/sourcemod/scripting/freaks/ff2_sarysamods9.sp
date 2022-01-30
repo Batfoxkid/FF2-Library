@@ -1,6 +1,6 @@
 // no warranty blah blah don't sue blah blah doing this for fun blah blah...
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <ff2_ams2>
 #include <tf2_stocks>
@@ -1532,7 +1532,7 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	
 }
 
-public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF2CallType_t status)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
@@ -1542,28 +1542,28 @@ public Action FF2_OnAbility2(FF2Player bossPlayer, const char[] ability_name, FF
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Love Curse");
 
-		Rage_LoveCurse(bossPlayer.index);
+		Rage_LoveCurse(bossPlayer);
 	}
 	else if (!strcmp(ability_name, BH_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Blink Hadouken (FF2 caught it rather than this mod)");
 
-		Rage_BlinkHadouken(bossPlayer.index);
+		Rage_BlinkHadouken(bossPlayer);
 	}
 	else if (!strcmp(ability_name, RE_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Equalize");
 
-		Rage_Equalize(bossPlayer.index);
+		Rage_Equalize(bossPlayer);
 	}
 	else if (!strcmp(ability_name, WS_STRING))
 	{
 		if (PRINT_DEBUG_INFO)
 			PrintToServer("[sarysamods9] Initiating Weapon Selector");
 
-		Rage_WeaponSelector(bossPlayer.index);
+		Rage_WeaponSelector(bossPlayer);
 	}
 
 	return Plugin_Continue;

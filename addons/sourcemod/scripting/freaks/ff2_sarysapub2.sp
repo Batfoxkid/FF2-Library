@@ -22,7 +22,7 @@
  * Basically, just give me credit if you reuse my code elsewhere. :P I didn't read through the above link either.
  */
 
-#define FF2_USING_AUTO_PLUGIN
+#define FF2_USING_AUTO_PLUGIN__OLD
 
 #include <tf2_stocks>
 #include <sdkhooks>
@@ -581,13 +581,13 @@ public Action Event_RoundEnd(Handle event, const char[] name, bool dontBroadcast
 	US_ActiveThisRound = false;
 }
 
-public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2CallType_t callType)
+public Action FF2_OnAbility2(int bossPlayer, const char[] plugin_name, const char[] ability_name, int status)
 {
 	if (!RoundInProgress) // don't execute these rages with 0 players alive
 		return Plugin_Continue;
 
 	if (!strcmp(ability_name, RP_STRING))
-		Rage_Parasite(player);
+		Rage_Parasite(bossPlayer);
 		
 	return Plugin_Continue;
 }
@@ -600,10 +600,9 @@ public Action FF2_OnAbility2(FF2Player player, const char[] ability_name, FF2Cal
 #define SPAWN_TYPE_RAY_TRACE 1
 #define SPAWN_TYPE_NEAREST_ENEMY 2
 #define SPAWN_TYPE_RANDOM_ENEMY 3
-public void Rage_Parasite(FF2Player bossPlayer)
+public void Rage_Parasite(int bossIdx)
 {
-	int bossIdx = bossPlayer.userid;
-	int clientIdx = bossPlayer.index;
+	int clientIdx = bossIdx;
 	
 	// variables only needed at spawn time
 	char modelName[MAX_MODEL_NAME_LENGTH];
