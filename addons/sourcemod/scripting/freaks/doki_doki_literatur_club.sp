@@ -117,9 +117,9 @@ public void OnPluginStart2()
 {
 	HookEvent("arena_round_start", event_round_start, EventHookMode_PostNoCopy);
 	HookEvent("arena_win_panel", event_round_end, EventHookMode_PostNoCopy);
-	
+
 	HookEvent("player_death", event_player_death);
-	
+
 	fov_offset = FindSendPropInfo("CBasePlayer", "m_iFOV");
 	zoom_offset = FindSendPropInfo("CBasePlayer", "m_iDefaultFOV");
 }
@@ -129,7 +129,7 @@ public void OnMapStart()
 	gLaser1 = PrecacheModel("materials/sprites/laser.vmt");
 	gHalo1 = PrecacheModel("materials/sprites/halo01.vmt");
 	PrecacheSound("ambient/halloween/mysterious_perc_01.wav",true);
-	
+
 	// Class Voice Reaction Lines
 	for (int i = 0; i < sizeof(ScoutReact); i++)
 	{
@@ -182,7 +182,7 @@ public void PrepareAbilities()
 		{
 			NewSpeedData[client]=NewSpeedCorruption[client]=0.0;
 			NewSpeedDurationData[client]=NewSpeedDurationCorruption[client]=INACTIVE;
-			
+
 			CorruptionUnscramble=INACTIVE;
 			Corruptionscramble[client]=false;
 		}
@@ -191,18 +191,18 @@ public void PrepareAbilities()
 
 public void FF2AMS_PreRoundStart(int client)
 {
-	int boss = FF2_GetBossIndex(boss);
+	int boss = FF2_GetBossIndex(client);
 	if(FF2_HasAbility(boss, this_plugin_name, STUNOVERLAY))
 	{
-		ThereYouAre_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, STUNOVERLAY, STUNOVERLAYALIAS);
+		ThereYouAre_TriggerAMS[boss] = FF2AMS_PushToAMS(client, this_plugin_name, STUNOVERLAY, STUNOVERLAYALIAS);
 	}
 	if(FF2_HasAbility(boss, this_plugin_name, DATAMINING))
 	{
-		DataMining_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, DATAMINING, DATAMININGALIAS);
+		DataMining_TriggerAMS[boss] = FF2AMS_PushToAMS(client, this_plugin_name, DATAMINING, DATAMININGALIAS);
 	}
 	if(FF2_HasAbility(boss, this_plugin_name, CORRUPTION))
 	{
-		Corruption_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, CORRUPTION, CORRUPTIONALIAS);
+		Corruption_TriggerAMS[boss] = FF2AMS_PushToAMS(client, this_plugin_name, CORRUPTION, CORRUPTIONALIAS);
 	}
 }
 
@@ -223,13 +223,13 @@ public Action event_round_end(Handle event, const char[] name, bool dontBroadcas
 			ThereYouAre_TriggerAMS[client]=false;
 			DataMining_TriggerAMS[client]=false;
 			Corruption_TriggerAMS[client]=false;
-			
+
 			NewSpeedData[client]=NewSpeedCorruption[client]=0.0;
 			NewSpeedDurationData[client]=NewSpeedDurationCorruption[client]=INACTIVE;
-			
+
 			CorruptionUnscramble=INACTIVE;
 			Corruptionscramble[client]=false;
-			
+
 			SDKUnhook(client, SDKHook_PreThink, DataMining_Prethink);
 			SDKUnhook(client, SDKHook_PreThink, Corruption_Prethink);
 			SDKUnhook(client, SDKHook_PreThink, Corruption2_Prethink);
@@ -247,11 +247,11 @@ public Action event_player_death(Event event, const char[] name, bool dontBroadc
 	{
 		char overlay[PLATFORM_MAX_PATH];
 		char buffer[PLATFORM_MAX_PATH];
-	
+
 		int number=FF2_GetAbilityArgument(boss, this_plugin_name, MULTIKILLOVERLAY, 1);
 		int random=2*GetRandomInt(1, number); // Only even numbers
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, MULTIKILLOVERLAY, random , buffer, sizeof(buffer));
-	
+
 		Format(overlay, sizeof(overlay), "r_screenoverlay \"%s\"", buffer);
 		SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 		if(IsValidClient(client) && GetClientTeam(client)!=FF2_GetBossTeam())
@@ -283,7 +283,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 {
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue; // Because some FF2 forks still allow RAGE to be activated when the round is over....
-	
+
 	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,STUNOVERLAY))	// Defenses
 	{
@@ -291,7 +291,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 		{
 			ThereYouAre_TriggerAMS[client]=false;
 		}
-		
+
 		if(!ThereYouAre_TriggerAMS[client])
 			TYA_Invoke(client, -1);
 	}
@@ -301,7 +301,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 		{
 			DataMining_TriggerAMS[client]=false;
 		}
-		
+
 		if(!DataMining_TriggerAMS[client])
 			DAMI_Invoke(client, -1);
 	}
@@ -311,11 +311,11 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 		{
 			Corruption_TriggerAMS[client]=false;
 		}
-		
+
 		if(!Corruption_TriggerAMS[client])
 			DACO_Invoke(client, -1);
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -331,7 +331,7 @@ public void TYA_Invoke(int client, int index)
 	float bossPosition[3], targetPosition[3], sentryPosition[3];
 	char TYA_overlay[PLATFORM_MAX_PATH];
 	char TYA_buffer[PLATFORM_MAX_PATH];
-	
+
 	float TYA_Stunduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 1, 5.0);
 	float TYA_Stundistance=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 2, FF2_GetRageDist(boss, this_plugin_name, STUNOVERLAY));
 	float TYA_Sentryduration=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 3, 7.0);
@@ -340,7 +340,7 @@ public void TYA_Invoke(int client, int index)
 	bool TeleportAtSide = FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 6) != 0;
 	float SelfStunDuration = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, 7);
 	int numberofoverlays=FF2_GetAbilityArgument(boss, this_plugin_name, STUNOVERLAY, 8, -1);
-	
+
 	if(ThereYouAre_TriggerAMS[client])
 	{
 		char snd[PLATFORM_MAX_PATH];
@@ -348,14 +348,14 @@ public void TYA_Invoke(int client, int index)
 		{
 			EmitSoundToAll(snd, client);
 			EmitSoundToAll(snd, client);
-		}		
+		}
 	}
-	
+
 	DD_PerformTeleport(client, SelfStunDuration, TeleportOnTop, TeleportAtSide, false, false);
-	
+
 	int random=2*GetRandomInt(1, numberofoverlays); // Only even numbers
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, STUNOVERLAY, random, TYA_buffer, sizeof(TYA_buffer));
-	
+
 	Format(TYA_overlay, sizeof(TYA_overlay), "r_screenoverlay \"%s\"", TYA_buffer);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & ~FCVAR_CHEAT);
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
@@ -374,7 +374,7 @@ public void TYA_Invoke(int client, int index)
 	}
 	CreateTimer(FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STUNOVERLAY, random+1, 6.0), timer_no_monika, _, TIMER_FLAG_NO_MAPCHANGE);
 	SetCommandFlags("r_screenoverlay", GetCommandFlags("r_screenoverlay") & FCVAR_CHEAT);
-	
+
 	int sentry;
 	while((sentry=FindEntityByClassname(sentry, "obj_sentrygun"))!=-1)
 	{
@@ -411,12 +411,12 @@ public AMSResult DAMI_CanInvoke(int client, int index)
 public void DAMI_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
-	
+
 	static char MiningSpeed[10], MiningDuration[10]; // Foolproof way so that args always return floats instead of ints
-	
+
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 1, MiningSpeed, sizeof(MiningSpeed));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 2, MiningDuration, sizeof(MiningDuration));
-	
+
 	if(DataMining_TriggerAMS[client])
 	{
 		char snd[PLATFORM_MAX_PATH];
@@ -424,14 +424,14 @@ public void DAMI_Invoke(int client, int index)
 		{
 			EmitSoundToAll(snd, client);
 			EmitSoundToAll(snd, client);
-		}		
+		}
 	}
-	
+
 	if(IsValidClient(client, true))
 	{
 		TF2_DisguisePlayer(client, (FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? (TFTeam_Red) : (TFTeam_Blue), view_as<TFClassType>(GetRandomInt(1,9)));
 	}
-	
+
 	if(MiningSpeed[0]!='\0' || MiningDuration[0]!='\0')
 	{
 		if(MiningSpeed[0]!='\0')
@@ -444,7 +444,7 @@ public void DAMI_Invoke(int client, int index)
 		}
 		SDKHook(client, SDKHook_PreThink, DataMining_Prethink);
 	}
-	
+
 	float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, DATAMINING, 3);
 	if(dist2)
 	{
@@ -452,17 +452,17 @@ public void DAMI_Invoke(int client, int index)
 		{
 			dist2=FF2_GetRageDist(boss, this_plugin_name, DATAMINING);
 		}
-		
+
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 4, MiningSpeed, sizeof(MiningSpeed));
 		FF2_GetAbilityArgumentString(boss, this_plugin_name, DATAMINING, 5, MiningDuration, sizeof(MiningDuration));
-		
+
 		float pos[3], pos2[3], dist;
 		GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
 		for(int target=1;target<=MaxClients;target++)
 		{
 			if(!IsValidClient(target))
 				continue;
-		
+
 			GetEntPropVector(target, Prop_Send, "m_vecOrigin", pos2);
 			dist=GetVectorDistance( pos, pos2 );
 			if (dist<dist2 && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
@@ -496,7 +496,7 @@ public void Datamining(int client, float gameTime)
 				EmitSoundToAll(snd, client);
 			}
 		}
-	
+
 		NewSpeedData[client]=0.0;
 		NewSpeedDurationData[client]=INACTIVE;
 		SDKUnhook(client, SDKHook_PreThink, DataMining_Prethink);
@@ -512,13 +512,13 @@ public AMSResult DACO_CanInvoke(int client, int index)
 public void DACO_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
-	
+
 	static char CorruptionSpeed[10], CorruptionDuration[10]; // Foolproof way so that args always return floats instead of ints
-	
+
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CORRUPTION, 1, CorruptionSpeed, sizeof(CorruptionSpeed));
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, CORRUPTION, 2, CorruptionDuration, sizeof(CorruptionDuration));
 	bool reactionvoicelines = FF2_GetAbilityArgument(boss, this_plugin_name, CORRUPTION, 5) != 0;
-	
+
 	if(CorruptionSpeed[0]!='\0' || CorruptionDuration[0]!='\0')
 	{
 		if(CorruptionSpeed[0]!='\0')
@@ -531,7 +531,7 @@ public void DACO_Invoke(int client, int index)
 		}
 		SDKHook(client, SDKHook_PreThink, Corruption_Prethink);
 	}
-	
+
 	float pos[3], pos2[3], dist;
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", pos);
 	float dist2=FF2_GetAbilityArgumentFloat(boss, this_plugin_name, CORRUPTION, 3);
@@ -541,15 +541,15 @@ public void DACO_Invoke(int client, int index)
 		{
 			dist2=FF2_GetRageDist(boss, this_plugin_name, CORRUPTION);
 		}
-		
+
 		for(int target=1;target<=MaxClients;target++)
 		{
 			if(!IsValidClient(target))
 				continue;
-				
+
 			if(reactionvoicelines)
 				Responses(target);
-		
+
 			GetEntPropVector(target, Prop_Send, "m_vecOrigin", pos2);
 			dist=GetVectorDistance( pos, pos2 );
 			if (dist<dist2 && IsPlayerAlive(target) && GetClientTeam(target)!=FF2_GetBossTeam())
@@ -563,11 +563,11 @@ public void DACO_Invoke(int client, int index)
 			}
 		}
 	}
-		
+
 	float vec[3];
 	GetClientAbsOrigin(client, vec);
 	vec[2] += 10;
-			
+
 	TE_SetupBeamRingPoint(vec, 10.0, dist2/2, gLaser1, gHalo1, 0, 15, 0.5, 10.0, 0.0, { 128, 128, 128, 255 }, 10, 0);
 	TE_SendToAll();
 	TE_SetupBeamRingPoint(vec, 10.0, dist2/2, gLaser1, gHalo1, 0, 10, 0.6, 20.0, 0.5, { 75, 75, 255, 255 }, 10, 0);
@@ -580,7 +580,7 @@ public void DACO_Invoke(int client, int index)
 	TE_SendToAll();
 	TE_SetupBeamRingPoint(vec, 0.0, dist2, gLaser1, gHalo1, 0, 0, 6.0, 100.0, 5.0, {16, 16, 32, 255}, 0, 0);
 	TE_SendToAll();
-	
+
 	if(DataMining_TriggerAMS[client])
 	{
 		char snd[PLATFORM_MAX_PATH];
@@ -589,7 +589,7 @@ public void DACO_Invoke(int client, int index)
 			EmitSoundToAll(snd, client);
 			EmitSoundToAll(snd, client);
 		}
-		
+
 		if(FF2_RandomSound("sound_data_corruption_voice", snd, PLATFORM_MAX_PATH, boss))
 		{
 			EmitSoundToAll(snd, client, _, _, _, _, _, client, pos);
@@ -607,8 +607,8 @@ public void DACO_Invoke(int client, int index)
 	}
 }
 
-public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, 
-							float vel[3], float angles[3], int& weapon, 
+public Action OnPlayerRunCmd(int client, int& buttons, int& impulse,
+							float vel[3], float angles[3], int& weapon,
 							int &subtype, int& cmdnum, int& tickcount, int& seed, int mouse[2])
 {
 	int boss=FF2_GetBossIndex(client);
@@ -617,7 +617,7 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse,
 		return Plugin_Continue;
 	}
 
-	// Keyboard scramble 
+	// Keyboard scramble
 	if(IsValidClient(client, true) && Corruptionscramble[client]) // Only affect raged players...
 	{
 		switch(GetRandomInt(1,27)) // Fake lag
@@ -645,7 +645,7 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse,
 			case 21: GetRandomInt(1,2)==1 ? (buttons &= IN_WEAPON1) : (buttons &= ~IN_WEAPON1);
 			case 22: GetRandomInt(1,2)==1 ? (buttons &= IN_WEAPON2) : (buttons &= ~IN_WEAPON2);
 			case 23: GetRandomInt(1,2)==1 ? (buttons &= IN_BULLRUSH) : (buttons &= ~IN_BULLRUSH);
-			case 24: GetRandomInt(1,2)==1 ? (buttons &= IN_GRENADE1) : (buttons &= ~IN_GRENADE1);	
+			case 24: GetRandomInt(1,2)==1 ? (buttons &= IN_GRENADE1) : (buttons &= ~IN_GRENADE1);
 			case 25: GetRandomInt(1,2)==1 ? (buttons &= IN_GRENADE2) : (buttons &= ~IN_GRENADE2);
 			case 26: return Plugin_Handled;
 			case 27: return Plugin_Continue;
@@ -681,7 +681,7 @@ public void DataCorruption(int client, float gameTime)
 				EmitSoundToAll(snd, client);
 			}
 		}
-	
+
 		NewSpeedCorruption[client]=0.0;
 		NewSpeedDurationCorruption[client]=INACTIVE;
 		SDKUnhook(client, SDKHook_PreThink, Corruption_Prethink);
@@ -721,32 +721,32 @@ public Action EndCorruption(Handle timer)
 	return Plugin_Stop;
 }
 
-/* 
+/*
 * Create colorfull drug on client
 */
 stock void Corruption_Create(int client)
 {
-	specialDrugTimers[ client ] = CreateTimer(0.1, Corruption_Timer, GetClientSerial(client), TIMER_REPEAT);	
+	specialDrugTimers[ client ] = CreateTimer(0.1, Corruption_Timer, GetClientSerial(client), TIMER_REPEAT);
 }
 
-/* 
+/*
 * Kill drug on selected client
 */
 stock void Corruption_Kill(int client)
 {
 	if ( IsClientInGame( client ) && IsClientConnected( client ) )
 	{
-		specialDrugTimers[ client ] = INVALID_HANDLE;	
-		
+		specialDrugTimers[ client ] = INVALID_HANDLE;
+
 		float angs[3];
 		GetClientEyeAngles(client, angs);
-			
+
 		angs[2] = 0.0;
-			
-		TeleportEntity(client, NULL_VECTOR, angs, NULL_VECTOR);	
-		
+
+		TeleportEntity(client, NULL_VECTOR, angs, NULL_VECTOR);
+
 		ClientCommand(client, "r_screenoverlay 0");
-		
+
 		SetEntData(client, fov_offset, 90, 4, true);
 		SetEntData(client, zoom_offset, 90, 4, true);
 	}
@@ -764,22 +764,22 @@ public Action Corruption_Timer(Handle timer, int serial)
 		Corruption_Kill( client );
 		return Plugin_Stop;
 	}
-	
+
 	if ( !IsPlayerAlive( client ) )
 	{
 		Corruption_Kill( client );
 		return Plugin_Stop;
 	}
-	
+
 	if( specialDrugTimers[ client ] == INVALID_HANDLE )
 	{
 		Corruption_Kill( client );
 		return Plugin_Stop;
 	}
-	
+
 	SetVariantInt(0);
 	AcceptEntityInput(client, "SetForcedTauntCam");
-	
+
 	float angs[3];
 	GetClientEyeAngles(client, angs);
 
@@ -788,25 +788,25 @@ public Action Corruption_Timer(Handle timer, int serial)
 	angs[0] = g_DrugAngles[(Repeat+21) % 56];
 
 	TeleportEntity(client, NULL_VECTOR, angs, NULL_VECTOR);
-	
+
 	SetEntData(client, fov_offset, 160, 4, true);
 	SetEntData(client, zoom_offset, 160, 4, true);
-	
+
 	if (Repeat == 0) {
 		EmitSoundToClient(client, "ambient/halloween/mysterious_perc_01.wav");
 	} else if ((Repeat%15) == 0) {
 		EmitSoundToClient(client, "ambient/halloween/mysterious_perc_01.wav");
 	}
-	
+
 	ClientCommand(client, "r_screenoverlay effects/tp_eyefx/tpeye.vmt"); // rainbow flashes
-	
+
 	Repeat++;
-	
+
 	int clients[2];
-	clients[0] = client;	
-	
+	clients[0] = client;
+
 	sendfademsg(client, 255, 255, FFADE_OUT, GetRandomInt(0,255), GetRandomInt(0,255), GetRandomInt(0,255), 150);
-	
+
 	return Plugin_Handled;
 
 }
@@ -857,12 +857,12 @@ public Action Timer_EnableSentry(Handle timer, any sentryid)
 stock void sendfademsg(int client, int duration, int holdtime, int fadeflag, int r, int g, int b, int a)
 {
 	Handle fademsg;
-	
+
 	if (client == 0)
 		fademsg = StartMessageAll("Fade");
 	else
 		fademsg = StartMessageOne("Fade", client);
-	
+
 	BfWriteShort(fademsg, duration);
 	BfWriteShort(fademsg, holdtime);
 	BfWriteShort(fademsg, fadeflag);
@@ -903,7 +903,7 @@ stock void Responses(int client) // Simple Class responses
 			case TFClass_Engineer: // Engineer
 			{
 				strcopy(Reaction, PLATFORM_MAX_PATH, EngyReact[GetRandomInt(0, sizeof(EngyReact)-1)]);
-			}	
+			}
 			case TFClass_Medic: // Medic
 			{
 				strcopy(Reaction, PLATFORM_MAX_PATH, MedicReact[GetRandomInt(0, sizeof(MedicReact)-1)]);

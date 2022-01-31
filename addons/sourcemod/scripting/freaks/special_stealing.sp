@@ -39,14 +39,14 @@ public Action Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 		}
 	}
 }
-			
+
 
 public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
 	//Make sure that RAGE is only allowed to be used when a FF2 round is active
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
-		
+
 	int client=GetClientOfUserId(FF2_GetBossUserId(boss));
 	if(!strcmp(ability_name,STEALING))	// Defenses
 	{
@@ -54,7 +54,7 @@ public Action FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ab
 		{
 			Stealing_TriggerAMS[client]=false;
 		}
-		
+
 		if(!Stealing_TriggerAMS[client])
 			STEA_Invoke(client, -1);
 	}
@@ -70,7 +70,7 @@ public void STEA_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
 	float bossPosition[3], targetPosition[3], sentryPosition[3], dispenserPosition[3], teleporterPosition[3];
-	
+
 	if(Stealing_TriggerAMS[client])
 	{
 		static char snd[PLATFORM_MAX_PATH];
@@ -78,23 +78,23 @@ public void STEA_Invoke(int client, int index)
 		{
 			EmitSoundToAll(snd, client);
 			EmitSoundToAll(snd, client);
-		}		
+		}
 	}
-	
+
 	float changetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 1);
 	float rangetostealprimary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 2);
 	float changetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 3);
 	float rangetostealsecondary = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 4);
 	float changetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 5);
 	float rangetostealmelee = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 6);
-	
+
 	float changetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 7);
 	float rangetostealsentry = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 8);
 	float changetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 9);
 	float rangetostealdispenser = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 10);
 	float changetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 11);
 	float rangetostealteleporters = FF2_GetAbilityArgumentFloat(boss, this_plugin_name, STEALING, 12);
-	
+
 	GetEntPropVector(client, Prop_Send, "m_vecOrigin", bossPosition);
 	for(int target=1; target<=MaxClients; target++)
 	{
@@ -113,7 +113,7 @@ public void STEA_Invoke(int client, int index)
 			{
 				TF2_RemoveWeaponSlot(target, TFWeaponSlot_Melee);
 			}
-			
+
 			// Set's the players active weapon if the weapon they were using was removed
 			if (GetPlayerWeaponSlot(target, 0) == -1 && GetPlayerWeaponSlot(target, 1) == -1)
 				SwitchtoSlot(target, TFWeaponSlot_Melee);
@@ -123,7 +123,7 @@ public void STEA_Invoke(int client, int index)
 				SwitchtoSlot(target, TFWeaponSlot_Secondary);
 		}
 	}
-	
+
 	int sentry = FindEntityByClassname(sentry, "obj_sentrygun");
 	if(IsValidEntity(sentry))
 	{
@@ -136,7 +136,7 @@ public void STEA_Invoke(int client, int index)
 			}
 		}
 	}
-	
+
 	int dispenser = FindEntityByClassname(dispenser, "obj_dispenser");
 	if(IsValidEntity(dispenser))
 	{
@@ -149,7 +149,7 @@ public void STEA_Invoke(int client, int index)
 			}
 		}
 	}
-	
+
 	int teleporters = FindEntityByClassname(teleporters, "obj_teleporter");
 	if(IsValidEntity(teleporters))
 	{
