@@ -1,6 +1,6 @@
 /*
 	Expose FF2FLAG_ALLOW_AMMO_PICKUPS and FF2FLAG_ALLOW_HEALTH_PICKUPS flags from other versions of FF2
-
+	
 	FF2Player.bNoHealthPacks
 	FF2Player.bNoAmmoPacks
 */
@@ -13,7 +13,7 @@
 
 FF2GameMode ff2_gm;
 
-public Plugin myinfo =
+public Plugin myinfo = 
 {
 	name		= "[FF2] Disallow ammo and healthpack pickup",
 	author		= "01Pollux",
@@ -29,7 +29,7 @@ public void OnLibraryAdded(const char[] name)
 {
 	if( !strcmp(name, "VSH2") ) {
 		VSH2_Hook(OnRoundStart, _OnRoundStart);
-
+		
 		if( ff2_gm.RoundState == StateRunning ) {
 			VSH2Player[] pl2 = new VSH2Player[MaxClients];
 			int pl = FF2GameMode.GetBosses(pl2);
@@ -49,8 +49,8 @@ public void OnEntityCreated(int entity, const char[] clsname)
 {
 	if( !ff2_gm.FF2IsOn )
 		return;
-	if( StrContains(clsname, "item_healthkit") != -1 ||
-	    StrContains(clsname, "item_ammopack") != -1 ||
+	if( StrContains(clsname, "item_healthkit") != -1 || 
+	    StrContains(clsname, "item_ammopack") != -1 || 
 	    !strcmp(clsname, "tf_ammo_pack") )
 	    SDKHook(entity, SDKHook_Spawn, _OnItemSpawned);
 }
@@ -66,7 +66,7 @@ public Action _OnItemPickup(int entity, int client)
 	if( 0 < client <= MaxClients && IsClientInGame(client) )
 	{
 		FF2Player player = FF2Player(client);
-
+		
 		static char classname[64];
 		GetEntityClassname(entity, classname, sizeof(classname));
 		if( !StrContains(classname, "item_healthkit") && player.GetPropAny("bNoHealthPacks") )
@@ -108,6 +108,6 @@ void _NextFrame_ResetPlayer(int client)
 
 void ResetPlayer(const FF2Player player)
 {
-	player.SetPropAny("bNoHealthPacks", true);
-	player.SetPropAny("bNoAmmoPacks", true);
+	player.SetPropAny("bNoHealthPacks", false);
+	player.SetPropAny("bNoAmmoPacks", false);
 }
