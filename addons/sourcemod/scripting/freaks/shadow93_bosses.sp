@@ -1,16 +1,16 @@
 /*
 	SHADoW93 Boss Abilities Pack:
-	
+
 	By SHADoW NiNE TR3S
-	
+
 	With some code snippets from:
 	-Otokiru
 	-Friagram
 	-WliU
 	-EP
-	
+
 	usage:
-	
+
 		"name"			"boss_config"
 			arg0		ability slot
 			arg1		boss ability
@@ -18,7 +18,7 @@
 		"plugin_name"	"shadow93_bosses"
 
 	Abilities pack for:
-	
+
 	Reimu Hakurei (arg1 = 1)
 		arg2 = Invun duration
 		arg3 = Allow clone?
@@ -27,7 +27,7 @@
 	Human Sentry Buster (arg1 = 2)
 		arg2 = Range
 		arg3 = Damage
-		
+
 	Handsome Jack (arg1 = 4)
 		arg2 = machina ammo
 		arg3 = SMG clip
@@ -40,7 +40,7 @@
 		arg10 = fire resistance duration
 		arg11 = uber duration
 		arg12 = # of clones
-		
+
 	FemHeavy (arg1 = 6)
 		arg2 = minigun ammo
 		arg3 = shotgun ammo
@@ -50,7 +50,7 @@
 	Eirin Yagokoro (arg1 = 8)
 		arg2 = primary cooldown
 		arg3 = additional cooldown after 1st cooldown
-	
+
 */
 
 #define FF2_USING_AUTO_PLUGIN__OLD
@@ -98,11 +98,11 @@ float CheckBabifyAt[MAXPLAYERS+1];
 #define INACTIVE 100000000.0
 
 // Ints
-int bDmg, SummonerIndex[MAXPLAYERS+1], addtime[MAXPLAYERS+1], timeleft[MAXPLAYERS+1], liveplayers, livebosses;
-	
+int bDmg, SummonerIndex[MAXPLAYERS+1], addtime[MAXPLAYERS+1], timeleft[MAXPLAYERS+1],  liveplayers/*, livebosses */;
+
 // floats
 float bRange;
-	
+
 // Handles
 Handle cooldownHUD, statusHUD, DelayElixir[MAXPLAYERS+1];
 
@@ -138,7 +138,7 @@ void OnPluginStart2()
 	{
 		SetFailState("This subplugin (shadow93_bosses.ff2) depends on at least FF2 v1.10.4!");
 	}
-	
+
 	if(FF2_GetRoundState()==1)
 	{
 		HookAbilities();
@@ -152,13 +152,13 @@ void OnPluginStart2()
 // A B I L I T I E S
 public void FF2_OnAbility2(int boss, const char[] plugin_name, const char[] ability_name, int action)
 {
-	if(FF2_GetRoundState()==1 && livebosses)
+	if(FF2_GetRoundState()==1/* &&  livebosses > 0 */)
 	{
 		int client = GetClientOfUserId(FF2_GetBossUserId(boss));
 		if(!strcmp(ability_name, BOSSRAGE))
 		{
-			int Rage = FF2_GetAbilityArgument(boss,this_plugin_name,ability_name, 1); // mode
-			Boss_Abilities(ability_name, boss, Rage, client);	 // RAGE & Death EffectS			
+			int Rage = FF2_GetAbilityArgument(boss, this_plugin_name, ability_name, 1); // mode
+			Boss_Abilities(ability_name, boss, Rage, client);	 // RAGE & Death EffectS
 		}
 	}
 }
@@ -172,10 +172,10 @@ public Action Event_RoundStart(Event event, const char[] name, bool dontBroadcas
 public void HookAbilities()
 {
 	for(int client=1;client<=MaxClients;client++)
-	{	
+	{
 		if(!IsValidClient(client))
 			continue;
-		LostLife[client] = false;		
+		LostLife[client] = false;
 		addtime[client] = 0;
 		DenyElixir[client] = false;
 		SummonerIndex[client] = -1;
@@ -198,7 +198,7 @@ public void FF2AMS_PreRoundStart(int client)
 
 // Minion Spawn
 static const TFCond nIgnoreConds[] = {
-	TFCond_Ubercharged, TFCond_StealthedUserBuffFade, 
+	TFCond_Ubercharged, TFCond_StealthedUserBuffFade,
 	TFCond_UberBulletResist, TFCond_UberBlastResist, TFCond_UberFireResist,
 	TFCond_BulletImmune, TFCond_BlastImmune, TFCond_FireImmune
 };
@@ -234,7 +234,7 @@ public void JRB_Invoke(int client, int index)
 	{
 		case 1: EmitSoundToAll(JACK_BULLET, client), TF2_AddCondition(client, TFCond_UberBulletResist, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,1,10.0)), TF2_AddCondition(client, TFCond_BulletImmune, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,2,10.0));
 		case 2:	EmitSoundToAll(JACK_BLAST, client), TF2_AddCondition(client, TFCond_UberBlastResist, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,2,10.0)), TF2_AddCondition(client, TFCond_BlastImmune, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,3,10.0));
-		case 3: EmitSoundToAll(JACK_FIRE, client), TF2_AddCondition(client, TFCond_UberFireResist, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,3,10.0)), TF2_AddCondition(client, TFCond_FireImmune, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,4,10.0)); 
+		case 3: EmitSoundToAll(JACK_FIRE, client), TF2_AddCondition(client, TFCond_UberFireResist, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,3,10.0)), TF2_AddCondition(client, TFCond_FireImmune, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,4,10.0));
 		case 4: EmitSoundToAll(JACK_FIRE, client), TF2_AddCondition(client, TFCond_Ubercharged, FF2_GetAbilityArgumentFloat(boss,this_plugin_name,JACK_RANDOM_BUFF,4,10.0));
 	}
 }
@@ -285,14 +285,14 @@ public void Babify_Counter(int client, float gTime)
 			EndBabifyAt[client]+=0.1;
 			return;
 		}
-		
+
 		TF2_RemoveWeaponSlot(client, TFWeaponSlot_Melee);
 		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", SpawnWeapon(client, "tf_weapon_fists", 5, 103, 5, "2 ; 3.1 ; 68 ; 2 ; 205 ; 0.7 ; 206 ; 1.5 ; 275 ; 1 ; 2025 ; 2 ; 2014 ; 1"));
 		EndBabifyAt[client]=INACTIVE;
 		DSM_SetOverrideSpeed(client, -1.0);
 		SDKUnhook(client, SDKHook_PreThink, Babify_PreThink);
 	}
-	
+
 	if(gTime>=CheckBabifyAt[client])
 	{
 		float curpos[3];
@@ -329,7 +329,7 @@ void Boss_Abilities(const char[] ability_name, int boss, int rType, int bClient)
 					Multiplier_Rage(ability_name, boss, rType);
 				else
 					PrintHintText(bClient, "%t", "reimu_clone_disable");
-			}		
+			}
 			Teleport_Me(bClient);
 		}
 		case 2: // Human Sentry Buster
@@ -360,7 +360,7 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 	}
 	if(rType==4)
 	{
-		if(liveplayers < minions|| !minions) 
+		if(liveplayers < minions|| !minions)
 			minions=liveplayers;
 	}
 	FF2Player rand;
@@ -437,9 +437,9 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 								else
 									spawnhealth=((FF2_GetBossHealth(boss))/4);
 							}
-							default:	
+							default:
 								spawnhealth=(FF2_GetBossHealth(boss))/FF2_GetBossLives(boss);
-							
+
 						}
 					}
 				}
@@ -472,7 +472,7 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 								case 2:
 									SetEntPropEnt(clone, Prop_Send, "m_hActiveWeapon", SpawnWeapon(clone, "tf_weapon_stickbomb", 307, 102, 5, "259 ; 1 ; 15 ; 1 ; 68 ; -1 ; 288 ; 1 ; 408 ; 1 ; 414 ; 1 ; 2025 ; 2 ; 2014 ; 1"));
 								case 3:
-									SetEntPropEnt(clone, Prop_Send, "m_hActiveWeapon", SpawnWeapon(clone, "tf_weapon_shovel", 154, 102, 5, " 259 ; 1 ; 15 ; 1 ; 68 ; -1 ; 288 ; 1 ; 341 ; 1 ; 2025 ; 2 ; 2014 ; 1"));	
+									SetEntPropEnt(clone, Prop_Send, "m_hActiveWeapon", SpawnWeapon(clone, "tf_weapon_shovel", 154, 102, 5, " 259 ; 1 ; 15 ; 1 ; 68 ; -1 ; 288 ; 1 ; 341 ; 1 ; 2025 ; 2 ; 2014 ; 1"));
 							}
 						}
 						case TFClass_Sniper:
@@ -509,7 +509,7 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 					SetVariantString("models/freak_fortress_2/handsome_jack/jack.mdl");
 					AcceptEntityInput(clone, "SetCustomModel");
 					SetEntProp(clone, Prop_Send, "m_bUseClassAnimations", 1);
-				}	
+				}
 			}
 			SetEntProp(clone, Prop_Data, "m_iMaxHealth", spawnhealth);
 			SetEntProp(clone, Prop_Data, "m_iHealth", spawnhealth);
@@ -531,7 +531,7 @@ void Multiplier_Rage(const char[] ability_name, int boss, int rType)
 public void FF2_OnAlivePlayersChanged(int players, int bosses)
 {
 	liveplayers = players;
-	livebosses =  bosses;
+	//livebosses =  bosses;
 }
 
 // Modified from Eggman's Skeleton King reincarnation code.
@@ -588,11 +588,11 @@ public Action BlockDamage(int client, int &attacker, int &inflictor, float &dama
 			FF2_GetBossSpecial(bClient,spcl,64,0);
 			SetHudTextParams(-1.0, 0.45, 4.0, 255, 255, 255, 255);
 			ShowSyncHudText(attacker, statusHUD, "%t","time_to_kaboom",spcl);
-		}	
+		}
 		return Plugin_Stop;
 	}
 	return Plugin_Continue;
-}	
+}
 
 void Teleport_Me(int client)
 {
@@ -614,7 +614,7 @@ void Teleport_Me(int client)
 			return;
 	}
 	while (AlivePlayers && (!IsValidEdict(target) || (target==client) || !IsPlayerAlive(target)));
-	
+
 	if (IsValidEntity(target))
 	{
 		GetEntPropVector(target, Prop_Data, "m_vecOrigin", pos_2);
@@ -769,10 +769,10 @@ stock bool AttachParticle(int Ent, char[] particleType, bool cache=false) // fro
 public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
 	for(int client=1;client<=MaxClients;client++)
-	{	
+	{
 		if(!IsValidClient(client))
 			continue;
-		LostLife[client] = false;		
+		LostLife[client] = false;
 		addtime[client] = 0;
 		DenyElixir[client] = false;
 		SummonerIndex[client] = -1;
@@ -789,7 +789,7 @@ public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	int b0ss = FF2_GetBossIndex(attacker);
 	int boss = FF2_GetBossIndex(client);
-	
+
 	if(IsValidMinion(client) && !(event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
 		if(disableclone)
@@ -799,7 +799,7 @@ public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 		SummonerIndex[client] = -1;
 		ChangeClientTeam(client, (FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? (view_as<int>(TFTeam_Red)) : (view_as<int>(TFTeam_Blue)));
 	}
-	
+
 	if(b0ss != -1 && FF2_HasAbility(b0ss, this_plugin_name, BOSSRAGE))
 	{
 		switch(FF2_GetAbilityArgument(b0ss,this_plugin_name,BOSSRAGE, 1))
@@ -822,7 +822,7 @@ public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-	
+
 	if(boss!=-1 && !(event.GetInt("death_flags") & TF_DEATHFLAG_DEADRINGER))
 	{
 		switch(FF2_GetAbilityArgument(b0ss,this_plugin_name,BOSSRAGE, 1))
@@ -840,7 +840,7 @@ public Action OnPlayerDeath(Event event, const char[] name, bool dontBroadcast)
 			}
 		}
 	}
-}	
+}
 
 public Action OnUberDeploy(Event event, const char[] name, bool dontBroadcast)
 {
@@ -857,8 +857,8 @@ public Action OnUberDeploy(Event event, const char[] name, bool dontBroadcast)
 		}
 	}
 }
-	
-		
+
+
 // T I M E R S
 
 public Action PreventTaunt(Handle timer,any userid)
@@ -889,16 +889,16 @@ public Action GainLife(Handle timer, any boss)
 	if (FF2_GetRoundState()!=1)
 	{
 		delete DelayElixir[boss];
-		DelayElixir[boss]= null;	
+		DelayElixir[boss]= null;
 	}
 	else if (timeleft[boss]<=0)
-	{	
+	{
 		PrintHintText(bClient, "%t", "regenerated_life");
 		FF2_SetBossLives(boss,2);
 		FF2_SetBossHealth(boss,FF2_GetBossHealth(boss)+FF2_GetBossMaxHealth(boss));
 		DenyElixir[boss] = false;
 		delete DelayElixir[boss];
-		DelayElixir[boss] = null;	
+		DelayElixir[boss] = null;
 	}
 	else
 	{
@@ -936,7 +936,7 @@ public Action SentryBusting(Handle timer, any bClient)
 	}
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !IsPlayerAlive(i)) 
+		if (!IsValidClient(i) || !IsPlayerAlive(i))
 			continue;
 		float zPos[3];
 		GetClientAbsOrigin(i, zPos);
@@ -967,6 +967,7 @@ public Action SentryBusting(Handle timer, any bClient)
 	if(TF2_IsPlayerInCondition(bClient, TFCond_Taunting))
 		TF2_RemoveCondition(bClient,TFCond_Taunting);
 	SetEntityMoveType(bClient, MOVETYPE_WALK);
+	PrintToServer("Now Explode.");
 	return Plugin_Continue;
 }
 
@@ -984,7 +985,7 @@ public Action DeleteParticle(Handle timer, int ref)
  *
  * Making it public now since I really hate the bugs with Otokiru teleport.
  */
- 
+
 #define MAX_ENTITY_CLASSNAME_LENGTH 48
 #define MAX_PLAYERS_ARRAY 36
 #define MAX_PLAYERS (MAX_PLAYERS_ARRAY < (MaxClients + 1) ? MAX_PLAYERS_ARRAY : (MaxClients + 1))
@@ -1055,7 +1056,7 @@ bool Resize_OneTrace(const float startPos[3], const float endPos[3])
 			PrintToServer("[sarysamods8] Could not resize player. Hit a wall. Offsets: %f, %f, %f", startPos[0] - endPos[0], startPos[1] - endPos[1], startPos[2] - endPos[2]);
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -1070,26 +1071,26 @@ bool Resize_TestResizeOffset(const float bossOrigin[3], float xOffset, float yOf
 	targetOrigin[0] = bossOrigin[0] + xOffset;
 	targetOrigin[1] = bossOrigin[1] + yOffset;
 	targetOrigin[2] = bossOrigin[2];
-	
+
 	if (!(xOffset == 0.0 && yOffset == 0.0))
 		if (!Resize_OneTrace(tmpOrigin, targetOrigin))
 			return false;
-		
+
 	tmpOrigin[0] = targetOrigin[0];
 	tmpOrigin[1] = targetOrigin[1];
 	tmpOrigin[2] = targetOrigin[2] + zOffset;
 
 	if (!Resize_OneTrace(targetOrigin, tmpOrigin))
 		return false;
-		
+
 	targetOrigin[0] = bossOrigin[0];
 	targetOrigin[1] = bossOrigin[1];
 	targetOrigin[2] = bossOrigin[2] + zOffset;
-		
+
 	if (!(xOffset == 0.0 && yOffset == 0.0))
 		if (!Resize_OneTrace(tmpOrigin, targetOrigin))
 			return false;
-		
+
 	return true;
 }
 
@@ -1164,7 +1165,7 @@ bool Resize_TestSquare(const float bossOrigin[3], float xmin, float xmax, float 
 				return false;
 		}
 	}
-		
+
 	return true;
 }
 
@@ -1207,6 +1208,6 @@ public bool IsSpotSafe(int clientIdx, float playerPos[3], float sizeMultiplier)
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.75, maxs[0] * 0.75, mins[1] * 0.75, maxs[1] * 0.75, maxs[2])) return false;
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.5, maxs[0] * 0.5, mins[1] * 0.5, maxs[1] * 0.5, maxs[2])) return false;
 	if (!Resize_TestSquare(playerPos, mins[0] * 0.25, maxs[0] * 0.25, mins[1] * 0.25, maxs[1] * 0.25, maxs[2])) return false;
-	
+
 	return true;
 }
