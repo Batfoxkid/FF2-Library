@@ -14,6 +14,7 @@
 #include <sdkhooks>
 #include <tf2_stocks>
 #include <tf2items>
+#include <ff2_ams2>
 #undef REQUIRE_PLUGIN
 #tryinclude <ff2_dynamic_defaults>
 #define REQUIRE_PLUGIN
@@ -108,6 +109,8 @@ int g_LightningSprite;					// Internal
 float HeffeStunDuration;				// 2
 float HeffeRange;						// 1
 
+bool Heffe_TriggerAMS[MAXPLAYERS+1];
+
 Handle heffeHUD = INVALID_HANDLE;
 
 /* DOT_Heffe_Jump */
@@ -174,17 +177,17 @@ public void OnPluginStart2()
 
 	LoadTranslations("freak_fortress_2.phrases");
 	LoadTranslations("ff2_1st_set.phrases");
-	
+
 	heffeHUD = CreateHudSynchronizer();
 	jumpHUD = CreateHudSynchronizer();
 	chargeHUD = CreateHudSynchronizer();
 	witchdoctorHUD = CreateHudSynchronizer();
-	
+
 	PrecacheModel(MODEL_TRIGGER, true);
 	g_Laser = PrecacheModel("materials/sprites/laserbeam.vmt");
 	g_Smoke = PrecacheModel("materials/effects/fire_cloud1.vmt");
 	g_Glow = PrecacheModel("sprites/yellowglow1.vmt", true);
-	
+
 	PrecacheSound(SOUND_THUNDER, true);
 	g_SmokeSprite = PrecacheModel("sprites/steam1.vmt");
 	g_LightningSprite = PrecacheModel("sprites/lgtning.vmt");
@@ -209,7 +212,23 @@ public void FF2_OnAbility2(int iBoss, const char[] pluginName, const char[] abil
 		Rage_MLG(iBoss, abilityName);
 }
 
+//////////////////
+//	AMS stuff  //
+/////////////////
 
+public void FF2AMS_PreRoundStart(int client)
+{
+	int boss = FF2_GetBossIndex(client);
+	if (FF2_HasAbility(boss, this_plugin_name, "rage_heffe"))
+	{
+		Heffe_TriggerAMS[client] = FF2AMS_PushToAMS(client, this_plugin_name, "rage_heffe", "HEFFE");
+	}
+}
+
+public AMSResult HEFFE_CanInvoke(int client, int index)
+{
+	return AMS_Accept;
+}
 
 /////////////////////////////////////
 //	Events start below this point  //
@@ -219,7 +238,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 {
 	BossTeam = FF2_GetBossTeam();
 	MercTeam = (FF2_GetBossTeam()==view_as<int>(TFTeam_Blue)) ? view_as<int>(TFTeam_Red) : view_as<int>(TFTeam_Blue);
-	
+
 	for(int iIndex, iBoss=GetClientOfUserId(FF2_GetBossUserId(iIndex)); iIndex < MaxClients; iIndex++)
 	{
 		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_wanker"))
@@ -228,7 +247,7 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			WankerAmmo[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_wanker", 2, 3);
 			WankerPissDuration[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "rage_wanker", 3, 10.0);		// Duration of bleed
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "heffe_reincarn_rapture"))
 		{
 			RaptureIteration = FF2_GetAbilityArgument(iIndex, this_plugin_name, "heffe_reincarn_rapture", 1, 15);			// Number of beams
@@ -241,48 +260,48 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			RaptureDuration = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "heffe_reincarn_rapture", 8, 8.0);		// Duration of stun and beams
 			RaptureBlindTime = FF2_GetAbilityArgument(iIndex, this_plugin_name, "heffe_reincarn_rapture", 9, 10);			// Duration of visual screen effect
 			RaptureSlayRatio = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "heffe_reincarn_rapture", 10, 0.95);	// How far they must be upwards before they are slayed outright
-			
+
 			g_Boss = iBoss;
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_heffe"))
 		{
 			HeffeRange = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "rage_heffe", 1);
 			HeffeStunDuration = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "rage_heffe", 2, 10.0);	// Stun duration; Recommended to keep this value since it works perfectly with the sound file
 			g_iButtonType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "rage_heffe", 4, 2);				// Button type to use the ability; 1 = Secondary Fire, 2 = Reload, 3 = Special Attack
-			
+
 			SDKHook(iBoss, SDKHook_PreThink, Heffe_HUD);
 			g_iSmiteNumber = 0;
 			g_Boss = iBoss;
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "dot_heffe_jump"))
 		{
 			FlapDrain = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "dot_heffe_jump", 1, 5.0);						// Amount of rage drained per second
 			FlapForce = FF2_GetAbilityArgument(iIndex, this_plugin_name, "dot_heffe_jump", 2, 75);								// Force multiplier of the jump
 //			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "dot_heffe_jump", 3, 1.5);		// Time between flaps
 			FF2_GetAbilityArgumentString(iIndex, this_plugin_name, "dot_heffe_jump", 4, FlapSound, PLATFORM_MAX_PATH);			// Sound played on flap
-			
+
 			if(!IsEmptyString(FlapSound))
 				PrecacheSound(FlapSound);
-			
+
 			CreateTimer(0.1, Timer_HeffeTick, iBoss, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 			SDKHook(iBoss, SDKHook_PreThink, Heffe_HUD);
 			HeffeUpdateHUD[iBoss] = GetEngineTime() + 0.2;
 			g_bButtonPressed = false;
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_therock"))
 		{
 			Rockduration[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "rage_therock", 1, 20.0);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "rage_mine"))
 		{
 			FruitRageRange[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "rage_mine", 1, 325.0);
 			FruitCanRemoveSentry[iBoss] = FF2_GetAbilityArgumentBool(iIndex, this_plugin_name, "rage_mine", 2);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "charge_projectile"))
 		{
 			RocketCharge[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_projectile", 1, 5.0);
@@ -293,75 +312,75 @@ public void Event_RoundStart(Event hEvent, const char[] strName, bool bDontBroad
 			RocketDamage[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_projectile", 6, 40.0);
 			RocketStunTime[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_projectile", 7, 3.0);
 			RocketRequiredRage[iBoss] = FF2_GetAbilityArgument(iIndex, this_plugin_name, "charge_projectile", 8, 10);
-			
+
 			for (int i=1; i<=MaxClients; i++) if(IsValidClient(i))
 				SDKHook(i, SDKHook_OnTakeDamage, OnTakeRocketDamage);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_pocketmedic"))
 		{
 			MedicJumpWeaponPreference[iBoss] = FF2_GetAbilityArgumentBool(iIndex, this_plugin_name, "special_pocketmedic", 1);	// 0 = use melee, else use medigun
 			MedicTeleWeaponPreference[iBoss] = FF2_GetAbilityArgumentBool(iIndex, this_plugin_name, "special_pocketmedic", 2);	// 0 = use medigun, else use melee
-			
+
 			SDKHook(iBoss, SDKHook_WeaponCanSwitchToPost, WeaponSwitch);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_jumpmanager"))
 		{
 			JM_ButtonType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "special_jumpmanager", 1);	// Button for switching, 1 = reload, 2 = special attack, 3 = secondary attack
 			MJT_ButtonType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "special_jumpmanager", 2); // Button for activation, 1 = secondary attack, 2 = reload, 3 = special attack
-			
+
 			MJ_ChargeTime[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 3);		// Time it takes to charge
 			MJ_Cooldown[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 4);		// Time it takes to refresh
 			MJ_OnCooldownUntil[iBoss] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 5);	// Time before first use
-			
+
 			MT_ChargeTime[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 6);		// Time it takes to charge
 			MT_Cooldown[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 7);		// Time it takes to refresh
 			MT_OnCooldownUntil[iBoss] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_jumpmanager", 8);	// Time before first use
-			
+
 			SpawnWeapon(iBoss, "tf_weapon_spellbook", 1069, 0, 0, "", true, false);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "charge_magicjump"))
 		{
 			MJ_ChargeTime[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magicjump", 1);		// Time it takes to charge
 			MJ_Cooldown[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magicjump", 2);		// Time it takes to refresh
 			MJ_OnCooldownUntil[iBoss] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magicjump", 3);	// Time before first use
 			MJT_ButtonType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "charge_magicjump", 4);	// Button for activation, 1 = secondary attack, 2 = reload, 3 = special attack
-			
+
 			SpawnWeapon(iBoss, "tf_weapon_spellbook", 1069, 0, 0, "", true, false);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "charge_magictele"))
 		{
 			MT_ChargeTime[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magictele", 1);		// Time it takes to charge
 			MT_Cooldown[iBoss] = FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magictele", 2);		// Time it takes to refresh
 			MT_OnCooldownUntil[iBoss] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "charge_magictele", 3);	// Time before first use
 			MJT_ButtonType = FF2_GetAbilityArgument(iIndex, this_plugin_name, "charge_magictele", 4);	// Button for activation, 1 = secondary attack, 2 = reload, 3 = special attack
-			
+
 			SpawnWeapon(iBoss, "tf_weapon_spellbook", 1069, 0, 0, "", true, false);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_spellattack"))
 		{
 			SS_CoolDown[iBoss] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iIndex, this_plugin_name, "special_spellattack", 1);
-			
+
 			for(int i=1; i<=MaxClients; i++)
 				SDKHook(i, SDKHook_OnTakeDamage, OnTakeDamage);
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_mlgsounds") || FF2_HasAbility(iIndex, this_plugin_name, "rage_mlg"))
 		{
 			SDKHook(iBoss, SDKHook_TraceAttack, TraceAttack);
 			HookEvent("player_hurt", Event_PlayerHurt, EventHookMode_Pre);
 			MLG[iBoss] = true;
 		}
-		
+
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_norage"))
 			SDKHook(iBoss, SDKHook_PreThink, NoRage_Think);
 		if(FF2_HasAbility(iIndex, this_plugin_name, "special_noknockback"))
 			SDKHook(iBoss, SDKHook_OnTakeDamage, NKBOnTakeDamage);
-		
+
 		SDKHook(iBoss, SDKHook_OnTakeDamage, CheckEnvironmentalDamage);
 	}
 }
@@ -372,12 +391,12 @@ public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadca
 	{
 		MJ_CrouchOrAltFireDownSince[iClient] = -1.0;
 		MJ_EmergencyReady[iClient] = false;
-		
+
 		MT_CrouchOrAltFireDownSince[iClient] = -1.0;
 		MT_EmergencyReady[iClient] = false;
-		
+
 		JM_AbilitySwitched[iClient] = false;
-		
+
 		SDKUnhook(iClient, SDKHook_StartTouch, OnRockTouch);
 		SDKUnhook(iClient, SDKHook_OnTakeDamage, OnTakeDamage);
 		SDKUnhook(iClient, SDKHook_OnTakeDamage, CheckEnvironmentalDamage);
@@ -385,14 +404,14 @@ public void Event_RoundEnd(Event hEvent, const char[] strName, bool bDontBroadca
 		SDKUnhook(iClient, SDKHook_OnTakeDamage, NKBOnTakeDamage);
 		SDKUnhook(iClient, SDKHook_PreThink, NoRage_Think);
 		SDKUnhook(iClient, SDKHook_TraceAttack, TraceAttack);
-		
+
 		if(MLG[iClient])
 		{
 			UnhookEvent("player_hurt", Event_PlayerHurt);
 			MLG[iClient] = false;
 		}
 	}
-	
+
 	g_Boss = -1;
 	g_bButtonPressed = false;
 }
@@ -415,7 +434,7 @@ public Action Event_PlayerDeath(Event hEvent, const char[] strName, bool bDontBr
 		if (GetClientTeam(iVictim)==BossTeam)
 			SDKUnhook(iVictim, SDKHook_StartTouch, OnRockTouch);
 	}
-	
+
 	if(MLG[iAttacker])
 	{
 		int iCustom = hEvent.GetInt("customkill");
@@ -424,12 +443,12 @@ public Action Event_PlayerDeath(Event hEvent, const char[] strName, bool bDontBr
 			hEvent.SetInt("customkill", TF_CUSTOM_HEADSHOT);
 			iCustom = TF_CUSTOM_HEADSHOT;
 		}
-		
+
 		if(iCustom == TF_CUSTOM_HEADSHOT)
 		{
 			float position[3];
 			GetEntPropVector(iAttacker, Prop_Data, "m_vecOrigin", position);
-			
+
 			char sound[PLATFORM_MAX_PATH];
 			if (FF2_RandomSound("sound_headshot", sound, PLATFORM_MAX_PATH, att_index))
 			{
@@ -445,7 +464,7 @@ public Action Event_PlayerDeath(Event hEvent, const char[] strName, bool bDontBr
 			}
 		}
 	}
-	
+
 	if(DiedRapture[iVictim] > GetEngineTime())
 	{
 		hEvent.SetString("weapon_logclassname", "alien_abduction");
@@ -466,10 +485,10 @@ public Action Event_PlayerHurt(Event hEvent, const char[] strName, bool bDontBro
 
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
 	int iAttacker = GetClientOfUserId(hEvent.GetInt("attacker"));
-	
+
 	if(!IsValidClient(iClient, true) || !IsValidClient(iAttacker, true, true) || iClient == iAttacker)
 		return Plugin_Continue;
-	
+
 	if(MLG[iAttacker])
 	{
 		if(MLGRageTime[iAttacker] >= GetEngineTime())
@@ -501,9 +520,9 @@ public Action Event_Jarate(UserMsg msg_id, BfRead msg, const int[] players, int 
 }
 
 public Action OnTakeRocketDamage(int iClient, int &iAttacker, int &iInflictor, float &flDamage, int &iDmgType, int &iWeapon, float vDmgForce[3], float vDmgPos[3], int iDmgCstm)
-{	
+{
 	if (!IsValidClient(iAttacker, true))
-		return Plugin_Continue;	
+		return Plugin_Continue;
 
 	int iBoss = FF2_GetBossIndex(iAttacker);
 	if (FF2_HasAbility(iBoss, this_plugin_name, "charge_projectile") && GetClientTeam(iClient) == MercTeam)
@@ -519,10 +538,10 @@ public Action OnTakeRocketDamage(int iClient, int &iAttacker, int &iInflictor, f
 }
 
 public Action OnTakeDamage(int iClient, int &iAttacker, int &iInflictor, float &flDamage, int &iDmgType, int &iWep, float flDmgForce[3], float flDmgPos[3], int iDmgCstm)
-{	
+{
 	if (!IsValidClient(iAttacker) || GetClientTeam(iAttacker)!=BossTeam)
-		return Plugin_Continue;	
-	
+		return Plugin_Continue;
+
 	int iBoss = FF2_GetBossIndex(iAttacker);
 	if(FF2_HasAbility(iBoss, this_plugin_name, "special_spellattack"))
 	{
@@ -536,12 +555,12 @@ public Action TraceAttack(int iVictim, int &iAttacker, int &iInflictor, float &f
 {
 	if(!IsValidClient(iVictim, true) || !IsValidClient(iAttacker, true, true))
 		return Plugin_Continue;
-		
+
 	if(iHitBox == 0)	// bip_head is usually 0
 	{
 		float position[3]; char sound[PLATFORM_MAX_PATH];
 		int iBoss = FF2_GetBossIndex(iAttacker);
-		
+
 		GetEntPropVector(iAttacker, Prop_Data, "m_vecOrigin", position);
 		if (FF2_RandomSound("sound_headshot", sound, PLATFORM_MAX_PATH, iBoss))
 		{
@@ -556,7 +575,7 @@ public Action TraceAttack(int iVictim, int &iAttacker, int &iInflictor, float &f
 			}
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -567,13 +586,13 @@ public Action CheckEnvironmentalDamage(int iClient, int &iAttacker, int &iInflic
 
 	if (iAttacker == 0 && iInflictor == 0 && (iDmgType & DMG_FALL) != 0)
 		return Plugin_Continue;
-		
+
 	// ignore damage from players
 	if (iAttacker >= 1 && iAttacker <= MaxClients)
 		return Plugin_Continue;
-	
+
 	int iBoss = FF2_GetBossIndex(iClient);
-	
+
 	if (FF2_HasAbility(iBoss, this_plugin_name, "charge_magicjump") || FF2_HasAbility(iBoss, this_plugin_name, "special_jumpmanager"))
 	{
 		if (flDmg > 50.0)
@@ -591,7 +610,7 @@ public Action CheckEnvironmentalDamage(int iClient, int &iAttacker, int &iInflic
 			MT_OnCooldownUntil[iClient] = -1.0;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -599,7 +618,7 @@ public Action NKBOnTakeDamage(int iClient, int &iAttacker, int &iInflictor, floa
 {
 	if(!IsValidClient(iAttacker, true))
 		return Plugin_Continue;
-	
+
 	if(IsValidClient(iClient, true, true))
 	{
 		iDmgType |= DMG_PREVENT_PHYSICS_FORCE;
@@ -620,7 +639,7 @@ public Action WeaponSwitch(int iClient, int iWeapon)
 		if(GetPlayerWeaponSlot(iClient, TFWeaponSlot_Secondary) == iWeapon)
 			DD_SetDisabled(iClient, false, true, true, false);
 	}
-	
+
 	if(MedicTeleWeaponPreference[iClient])
 	{
 		if(GetPlayerWeaponSlot(iClient, TFWeaponSlot_Secondary) == iWeapon)
@@ -639,27 +658,27 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 {
 	if(!IsValidClient(iClient, true, true))
 		return Plugin_Continue;
-	
+
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState() != 1)
 		return Plugin_Continue;
-	
+
 	int iBoss = FF2_GetBossIndex(iClient);
 	if(FF2_HasAbility(iBoss, this_plugin_name, "rage_heffe"))
 	{
 		if(!FF2_IsFF2Enabled() || FF2_GetRoundState() != 1)
 			return Plugin_Continue;
-		
+
 		int Button;
 		switch(g_iButtonType)
 		{
 			case 1: Button = IN_RELOAD;
 			case 2: Button = IN_ATTACK3;
 		}
-		
+
 		if((iButtons & Button) && g_iSmiteNumber > 0)
 		{
 			float vPos1[3], vPos2[3], flDist;
-   
+
 			GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", vPos1);
 			for(int i=MaxClients; i>0; i--)
 			{
@@ -679,7 +698,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 			}
 		}
 	}
-	
+
 	if(FF2_HasAbility(iBoss, this_plugin_name, "dot_heffe_jump"))
 	{
 		if(iButtons & IN_ATTACK2)
@@ -692,11 +711,11 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 			else g_bButtonPressed = false;
 		}
 	}
-	
+
 	if(FF2_HasAbility(iBoss, this_plugin_name, "special_jumpmanager"))
 	{
 		JM_Tick(iClient, iButtons, GetEngineTime());
-		
+
 		int Button;
 		switch(JM_ButtonType)
 		{
@@ -704,25 +723,25 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 			case 2: Button = IN_ATTACK3;
 			case 3: Button = IN_ATTACK2;
 		}
-		
+
 		if(iButtons & Button)
 		{
-			if(!JM_AbilitySwitched[iClient]) 
+			if(!JM_AbilitySwitched[iClient])
 				JM_AbilitySwitched[iClient] = true;
 			else JM_AbilitySwitched[iClient] = false;
 		}
 	}
-	
+
 	if(FF2_HasAbility(iBoss, this_plugin_name, "charge_magicjump"))
 	{
 		MJ_Tick(iClient, iButtons, GetEngineTime());
 	}
-	
+
 	if(FF2_HasAbility(iBoss, this_plugin_name, "charge_magictele"))
-	{	
+	{
 		MT_Tick(iClient, iButtons, GetEngineTime());
 	}
-	
+
 	if(FF2_HasAbility(iBoss, this_plugin_name, "special_spellattack"))
 	{
 		if(iButtons & IN_ATTACK)
@@ -731,10 +750,10 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 			{
 				ShootProjectile(iClient, "tf_projectile_spellfireball");
 				SS_CoolDown[iClient] = GetEngineTime() + FF2_GetAbilityArgumentFloat(iBoss, this_plugin_name, "special_spellattack", 1);
-				
+
 				float position[3];
 				GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", position);
-				
+
 				char sound[PLATFORM_MAX_PATH];
 				if (FF2_RandomSound("sound_ability", sound, PLATFORM_MAX_PATH, iBoss, 4))
 				{
@@ -754,7 +773,7 @@ public Action OnPlayerRunCmd(int iClient, int &iButtons, int &iImpulse, float vV
 			else iButtons &= ~IN_ATTACK;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -763,24 +782,24 @@ public Action FF2_OnLoseLife(int iIndex)
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iIndex));
 	if(iIndex == -1 || !IsValidClient(iClient, true, true))
 		return Plugin_Continue;
-	
+
 	if(FF2_HasAbility(iIndex, this_plugin_name, "heffe_reincarn_rapture"))
 	{
 		Handle data;
 		CreateDataTimer(RaptureTimer, Timer_Abduction, data, TIMER_FLAG_NO_MAPCHANGE);
 		WritePackCell(data, iClient);
 		WritePackCell(data, RaptureIteration);		   // iterations
-		
+
 		for(int i = 1; i <= MaxClients; i++)
 		{
 			if(IsClientInGame(i) && IsPlayerAlive(i) && GetClientTeam(i) != BossTeam)
 				PerformBlind(i, RaptureBlindTime);
 		}
-		
+
 		TF2_AddCondition(iClient, TFCond_Ubercharged, RaptureDuration);
 		TF2_StunPlayer(iClient, RaptureDuration, 0.0, TF_STUNFLAG_BONKSTUCK|TF_STUNFLAG_NOSOUNDOREFFECT);
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -793,7 +812,7 @@ public Action FF2_OnLoseLife(int iIndex)
 void Rage_Wanker(int iBoss)
 {
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iBoss));
-	
+
 	TF2_RemoveWeaponSlot(iClient, TFWeaponSlot_Secondary);
 	if(!WankerPissMode[iClient])				//Whether it's jarate and bleed, or just bleed; 1 = just bleed
 		SpawnWeapon(iClient, "tf_weapon_jar", 58, 100, 5, "149 ; 15.0 ; 134 ; 12.0 ; 175 ; 15.0", true, true);
@@ -809,11 +828,27 @@ void Rage_Wanker(int iBoss)
 
 void Rage_Heffe(int iBoss, const char[] ability_name)
 {
+	if (Heffe_TriggerAMS[iBoss]) // Prevent normal 100% RAGE activation if using AMS
+	{
+		if (!LibraryExists("FF2AMS")) // Fail state?
+		{
+			Heffe_TriggerAMS[iBoss]=false;
+		}
+		else
+		{
+			return;
+		}
+	}
+	HEFFE_Invoke(iBoss, -1, ability_name); // Activate RAGE normally, if ability is configured to be used as a normal RAGE.
+}
+
+public void HEFFE_Invoke(int iBoss, int index, const char[] ability_name)
+{
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iBoss));
 	g_iSmiteNumber = FF2_GetAbilityArgument(iBoss, this_plugin_name, ability_name, 3, 3);			// Number of available smite abilities per rage
-	
+
 	float flPos1[3], flPos2[3], flDist;
-   
+
 	GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", flPos1);
 	TF2_StunPlayer(iClient, HeffeStunDuration, 0.0, TF_STUNFLAG_BONKSTUCK|TF_STUNFLAG_NOSOUNDOREFFECT, iClient);
 	for(int i=1; i<=MaxClients; i++)
@@ -846,7 +881,7 @@ void Rage_Mine(int iBoss)
 {
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iBoss));
 	float flPos[3], flPos2[3], flDistance;
-   
+
 	GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", flPos);
 	for(int i = 1; i <= MaxClients; i++)
 	{
@@ -873,7 +908,7 @@ void Rage_Mine(int iBoss)
 				else if (GetPlayerWeaponSlot(i, 0) == -1)
 					SwitchtoSlot(i, TFWeaponSlot_Secondary);
 			}
-		}	 
+		}
 	}
 	int iSentry = -1;
 	while((iSentry = FindEntityByClassname(iSentry, "obj_sentrygun")) != -1)
@@ -898,7 +933,7 @@ void Rage_SkeleSummon(int iBoss, const char[] ability_name)
 {
 	int iClient = GetClientOfUserId(FF2_GetBossUserId(iBoss));
 	SkeleNumberOfSpawns[iClient] = FF2_GetAbilityArgument(iBoss, this_plugin_name, ability_name, 1);
-	
+
 	SDKHook(ShootProjectile(iClient, "tf_projectile_spellspawnhorde"), SDKHook_StartTouch, Projectile_Touch);
 }
 
@@ -937,7 +972,7 @@ void Charge_RocketSpawn(int iBoss, int iSlot, int iAction)	// Shamelessly stolen
 			ShowSyncHudText(iClient, chargeHUD, "Your charged ability will be available in %i second(s).", RoundFloat(flCharge*100/RocketCharge[iClient]));
 		}
 		default:
-		{		
+		{
 			if (flCharge <= 0.2)
 			{
 				SetHudTextParams(-1.0, 0.93, 0.15, 255, 255, 255, 255);
@@ -950,35 +985,35 @@ void Charge_RocketSpawn(int iBoss, int iSlot, int iAction)	// Shamelessly stolen
 				GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", pos);
 				GetClientEyeAngles(iClient, rot);
 				pos[2]+=63;
-				
+
 				int iProj = CreateEntityByName("tf_projectile_rocket");
 				SetVariantInt(BossTeam);
 				AcceptEntityInput(iProj, "TeamNum", -1, -1, 0);
 				SetVariantInt(BossTeam);
-				AcceptEntityInput(iProj, "SetTeam", -1, -1, 0); 
+				AcceptEntityInput(iProj, "SetTeam", -1, -1, 0);
 				SetEntPropEnt(iProj, Prop_Send, "m_hOwnerEntity", iClient);
-				
+
 				vel[0] = Cosine(DegToRad(rot[0]))*Cosine(DegToRad(rot[1]))*RocketSpeed[iClient];
 				vel[1] = Cosine(DegToRad(rot[0]))*Sine(DegToRad(rot[1]))*RocketSpeed[iClient];
 				vel[2] = Sine(DegToRad(rot[0]))*RocketSpeed[iClient];
 				vel[2]*=-1;
-				
+
 				TeleportEntity(iProj, pos, rot, vel);
 				SetEntProp(iProj, Prop_Send, "m_bCritical", 1);
 				SetEntDataFloat(iProj, FindSendPropInfo("CTFProjectile_Rocket", "m_iDeflected") + 4, RocketDamage[iClient], true);
 				DispatchSpawn(iProj);
-				
+
 				if(strlen(RocketModel[iClient]) > 5)
 					SetEntityModel(iProj, RocketModel[iClient]);
 				if(strlen(RocketParticle[iClient]) > 2)
 					CreateTimer(15.0, RemoveEnt, EntIndexToEntRef(AttachParticle(iProj, RocketParticle[iClient], _, true)));
-				
+
 				char s[PLATFORM_MAX_PATH];
 				if(FF2_RandomSound("sound_ability", s, PLATFORM_MAX_PATH, iBoss, iSlot))
 				{
 					EmitSoundToAll(s, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, pos, NULL_VECTOR, true, 0.0);
 					EmitSoundToAll(s, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, pos, NULL_VECTOR, true, 0.0);
-				
+
 					for(int i=1; i<=MaxClients; i++)
 						if(IsClientInGame(i) && i != iClient)
 						{
@@ -986,7 +1021,7 @@ void Charge_RocketSpawn(int iBoss, int iSlot, int iAction)	// Shamelessly stolen
 							EmitSoundToClient(i, s, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, pos, NULL_VECTOR, true, 0.0);
 						}
 				}
-				
+
 				Handle hData;
 				CreateDataTimer(0.2, Timer_StartCD, hData);
 				WritePackCell(hData, iBoss);
@@ -1026,7 +1061,7 @@ public Action Timer_ResetMoveType(Handle hTimer, any iClient) {
 }
 
 public Action Timer_NoPiss(Handle hTimer, any iClient) {
-	if (IsValidClient(iClient)) 
+	if (IsValidClient(iClient))
 		TF2_RemoveCondition(iClient, TFCond_Jarated);
 }
 
@@ -1074,47 +1109,47 @@ public Action Timer_HeffeTick(Handle hTimer, any iClient)
 			GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", flPos);
 			GetEntPropVector(iClient, Prop_Data, "m_vecVelocity", flVel);
 			GetClientEyeAngles(iClient, flRot);
-			
+
 			flVel[0] += Cosine(DegToRad(flRot[0]))*Cosine(DegToRad(flRot[1]))*FlapForce;
 			flVel[1] += Cosine(DegToRad(flRot[0]))*Sine(DegToRad(flRot[1]))*FlapForce;
 			flVel[2] = (750.0+175.0*FlapForce/70);
-			
+
 			TeleportEntity(iClient, NULL_VECTOR, NULL_VECTOR, flVel);
 //			FlapRate =  GetEngineTime() + FF2_GetAbilityArgumentFloat(Boss, this_plugin_name, "dot_heffe_jump", 2, 1.5);
-			
+
 			if(!IsEmptyString(FlapSound))
 				EmitAmbientSound(FlapSound, flPos, iClient);
 		}
 	}
-	
+
 	if(FF2_GetRoundState() != 1)	// So I don't need an event_round_end
 		return Plugin_Stop;
-	
+
 	return Plugin_Continue;
 }
 
 public Action Timer_DrainTick(Handle hTimer, any iClient)
 {
 	int Boss = FF2_GetBossIndex(iClient);
-		
+
 	float flRage = FF2_GetBossCharge(Boss, 0);
 	flRage -= FlapDrain;
-	
+
 	if (flRage < 0.0)
 	{
 		g_bButtonPressed = false;
 		flRage = 0.0;
 		PrintCenterText(iClient, "Out of rage!");
 	}
-	
+
 	FF2_SetBossCharge(Boss, 0, flRage);
-	
+
 	if(!g_bButtonPressed)
 		return Plugin_Stop;
-	
+
 	if(FF2_GetRoundState() != 1)	// So I don't need an event_round_end
 		return Plugin_Stop;
-	
+
 	return Plugin_Continue;
 }
 
@@ -1144,7 +1179,7 @@ public Action Timer_RemovePod(Handle hTimer, any ref)
 	if(ent != INVALID_ENT_REFERENCE)
 	{
 		AcceptEntityInput(ent, "Disable");
-		
+
 		CreateTimer(0.1, RemoveEnt, ref, TIMER_FLAG_NO_MAPCHANGE);
 	}
 }
@@ -1193,7 +1228,7 @@ public void Heffe_HUD(int iClient)
 {
 	if(GetClientButtons(iClient) & IN_SCORE)
 		return;
-	
+
 	if (GetEngineTime() >= HeffeUpdateHUD[iClient])
 	{
 		if(g_iSmiteNumber > 0)
@@ -1201,17 +1236,17 @@ public void Heffe_HUD(int iClient)
 			SetHudTextParams(-1.0, 0.62, 0.21, 255, 255, 255, 192);
 			ShowSyncHudText(iClient, heffeHUD, "Smite number remaining: %d", g_iSmiteNumber);
 		}
-	
+
 		int Boss = FF2_GetBossIndex(iClient);
 		if(FF2_HasAbility(Boss, this_plugin_name, "dot_heffe_jump"))
 		{
 			SetHudTextParams(-1.0, 0.88, 0.21, 255, 255, 255, 192);
 			ShowSyncHudText(iClient, jumpHUD, "Flying is %sabled, press Secondary Fire to toggle", g_bButtonPressed ? "En" : "Dis");
 		}
-		
+
 		HeffeUpdateHUD[iClient] = GetEngineTime() + 0.2;
 	}
-	
+
 	if(FF2_GetRoundState() != 1)	// So I don't need an event_round_end
 		SDKUnhook(iClient, SDKHook_PreThink, Heffe_HUD);
 }
@@ -1238,7 +1273,7 @@ public Action OnRockTouch(int Boss, int iEntity)
 		{
 			SDKHooks_TakeDamage(iEntity, Boss, Boss, 15.0, DMG_CRUSH|DMG_PREVENT_PHYSICS_FORCE|DMG_ALWAYSGIB);	// Make boss get credit for the kill
 			FakeClientCommandEx(iEntity, "explode");
-		}		
+		}
 	}
 }
 
@@ -1247,10 +1282,10 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 	int Boss = FF2_GetBossIndex(iClient);
 	if(FF2_HasAbility(Boss, this_plugin_name, "special_jumpmanager"))	// Prevent possible double up conflicts
 		return;
-	
+
 	if (flTime >= MJ_OnCooldownUntil[iClient] && MJ_OnCooldownUntil[iClient] != -1.0)
 		MJ_OnCooldownUntil[iClient] = -1.0;
-		
+
 	float flCharge = 0.0;
 	if (MJ_OnCooldownUntil[iClient] == -1.0)
 	{
@@ -1262,7 +1297,7 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 			else
 				flCharge = fmin((flTime - MJ_CrouchOrAltFireDownSince[iClient]) / MJ_ChargeTime[iClient], 1.0) * 100.0;
 		}
-			
+
 		char Button;
 		switch(MJT_ButtonType)
 		{
@@ -1270,24 +1305,24 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 			case 2: Button = IN_RELOAD;
 			case 3: Button = IN_ATTACK3;
 		}
-		
+
 		// do we start the charging now?
 		if (MJ_CrouchOrAltFireDownSince[iClient] == -1.0 && (iButtons & Button) != 0)
 			MJ_CrouchOrAltFireDownSince[iClient] = flTime;
-			
+
 		// has key been released?
 		if (MJ_CrouchOrAltFireDownSince[iClient] != -1.0 && (iButtons & Button) == 0)
 		{
 			if (!IsInInvalidCondition(iClient))
 			{
 				MJ_OnCooldownUntil[iClient] = flTime + MJ_Cooldown[iClient];
-					
+
 				// taken from default_abilities, modified only lightly
 				float position[3];
 				float velocity[3];
 				GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", position);
 				GetEntPropVector(iClient, Prop_Data, "m_vecVelocity", velocity);
-				
+
 				int spellbook = FindSpellBook(iClient);
 				SetEntProp(spellbook, Prop_Send, "m_iSelectedSpellIndex", 4);
 				SetEntProp(spellbook, Prop_Send, "m_iSpellCharges", 1);
@@ -1324,12 +1359,12 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 					}
 				}
 			}
-			
+
 			// regardless of outcome, cancel the charge.
 			MJ_CrouchOrAltFireDownSince[iClient] = -1.0;
 		}
 	}
-		
+
 	// draw the HUD if it's time
 	if (flTime >= WitchDoctorUpdateHUD[iClient])
 	{
@@ -1351,7 +1386,7 @@ public void MJ_Tick(int iClient, int iButtons, float flTime)
 				ShowSyncHudText(iClient, witchdoctorHUD, "Magic Jump is not ready. %.1f seconds remaining.", MJ_OnCooldownUntil[iClient] - flTime);
 			}
 		}
-		
+
 		WitchDoctorUpdateHUD[iClient] = flTime + 0.2;
 	}
 }
@@ -1361,10 +1396,10 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 	int Boss = FF2_GetBossIndex(iClient);
 	if(FF2_HasAbility(Boss, this_plugin_name, "special_jumpmanager"))	// Prevent possible double up conflicts
 		return;
-		
+
 	if (flTime >= MT_OnCooldownUntil[iClient] && MT_OnCooldownUntil[iClient] != -1.0)
 		MT_OnCooldownUntil[iClient] = -1.0;
-		
+
 	float flCharge = 0.0;
 	if (MT_OnCooldownUntil[iClient] == -1.0)
 	{
@@ -1376,7 +1411,7 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 			else
 				flCharge = fmin((flTime - MT_CrouchOrAltFireDownSince[iClient]) / MT_ChargeTime[iClient], 1.0) * 100.0;
 		}
-			
+
 		char Button;
 		switch(MJT_ButtonType)
 		{
@@ -1384,11 +1419,11 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 			case 2: Button = IN_RELOAD;
 			case 3: Button = IN_ATTACK3;
 		}
-		
+
 		// do we start the charging now?
 		if (MT_CrouchOrAltFireDownSince[iClient] == -1.0 && (iButtons & Button) != 0)
 			MT_CrouchOrAltFireDownSince[iClient] = flTime;
-			
+
 		// has key been released?
 		if (MT_CrouchOrAltFireDownSince[iClient] != -1.0 && (iButtons & Button) == 0)
 		{
@@ -1409,10 +1444,10 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 						MT_EmergencyReady[iClient] = false;
 					}
 				}
-				
+
 				float position[3];
 				GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", position);
-				
+
 				char sound[PLATFORM_MAX_PATH];
 				if (FF2_RandomSound("sound_magtele", sound, PLATFORM_MAX_PATH, Boss))
 				{
@@ -1429,12 +1464,12 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 					}
 				}
 			}
-			
+
 			// regardless of outcome, cancel the charge.
 			MT_CrouchOrAltFireDownSince[iClient] = -1.0;
 		}
 	}
-		
+
 	// draw the HUD if it's time
 	if (flTime >= WitchDoctorUpdateHUD[iClient])
 	{
@@ -1456,7 +1491,7 @@ public void MT_Tick(int iClient, int iButtons, float flTime)
 				ShowSyncHudText(iClient, witchdoctorHUD, "Magic Tele is not ready. %.1f seconds remaining.", MT_OnCooldownUntil[iClient] - flTime);
 			}
 		}
-		
+
 		WitchDoctorUpdateHUD[iClient] = flTime + 0.2;
 	}
 }
@@ -1467,7 +1502,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 	{
 		if (flTime >= MJ_OnCooldownUntil[iClient] && MJ_OnCooldownUntil[iClient] != -1.0)
 			MJ_OnCooldownUntil[iClient] = -1.0;
-		
+
 		float flCharge = 0.0;
 		if (MJ_OnCooldownUntil[iClient] == -1.0)
 		{
@@ -1479,7 +1514,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 				else
 					flCharge = fmin((flTime - MJ_CrouchOrAltFireDownSince[iClient]) / MJ_ChargeTime[iClient], 1.0) * 100.0;
 			}
-			
+
 			char Button;
 			switch(MJT_ButtonType)
 			{
@@ -1487,25 +1522,25 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 				case 2: Button = IN_RELOAD;
 				case 3: Button = IN_ATTACK3;
 			}
-		
+
 			// do we start the charging now?
 			if (MJ_CrouchOrAltFireDownSince[iClient] == -1.0 && (iButtons & Button) != 0)
 				MJ_CrouchOrAltFireDownSince[iClient] = flTime;
-			
+
 			// has key been released?
 			if (MJ_CrouchOrAltFireDownSince[iClient] != -1.0 && (iButtons & Button) == 0)
 			{
 				if (!IsInInvalidCondition(iClient))
 				{
 					MJ_OnCooldownUntil[iClient] = flTime + MJ_Cooldown[iClient];
-					
+
 					// taken from default_abilities, modified only lightly
 					int Boss = FF2_GetBossIndex(iClient);
 					float position[3];
 					float velocity[3];
 					GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", position);
 					GetEntPropVector(iClient, Prop_Data, "m_vecVelocity", velocity);
-				
+
 					int spellbook = FindSpellBook(iClient);
 					SetEntProp(spellbook, Prop_Send, "m_iSelectedSpellIndex", 4);
 					SetEntProp(spellbook, Prop_Send, "m_iSpellCharges", 1);
@@ -1531,7 +1566,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 					{
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
 						EmitSoundToAll(sound, iClient, _, SNDLEVEL_TRAFFIC, SND_NOFLAGS, SNDVOL_NORMAL, 100, iClient, position, NULL_VECTOR, true, 0.0);
-	
+
 						for (int enemy = 1; enemy < MaxClients; enemy++)
 						{
 							if (IsClientInGame(enemy) && enemy != iClient)
@@ -1542,12 +1577,12 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 						}
 					}
 				}
-			
+
 				// regardless of outcome, cancel the charge.
 				MJ_CrouchOrAltFireDownSince[iClient] = -1.0;
 			}
 		}
-		
+
 		// draw the HUD if it's time
 		if (flTime >= WitchDoctorUpdateHUD[iClient])
 		{
@@ -1569,7 +1604,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 					ShowSyncHudText(iClient, witchdoctorHUD, "Magic Jump is not ready. %.1f seconds remaining.\nPress %s to change.", MJ_OnCooldownUntil[iClient] - flTime, GetJMButton());
 				}
 			}
-		
+
 			WitchDoctorUpdateHUD[iClient] = flTime + 0.2;
 		}
 	}
@@ -1577,7 +1612,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 	{
 		if (flTime >= MT_OnCooldownUntil[iClient] && MT_OnCooldownUntil[iClient] != -1.0)
 			MT_OnCooldownUntil[iClient] = -1.0;
-		
+
 		float flCharge = 0.0;
 		if (MT_OnCooldownUntil[iClient] == -1.0)
 		{
@@ -1589,7 +1624,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 				else
 					flCharge = fmin((flTime - MT_CrouchOrAltFireDownSince[iClient]) / MT_ChargeTime[iClient], 1.0) * 100.0;
 			}
-			
+
 			char Button;
 			switch(MJT_ButtonType)
 			{
@@ -1597,11 +1632,11 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 				case 2: Button = IN_RELOAD;
 				case 3: Button = IN_ATTACK3;
 			}
-		
+
 			// do we start the charging now?
 			if (MT_CrouchOrAltFireDownSince[iClient] == -1.0 && (iButtons & Button) != 0)
 				MT_CrouchOrAltFireDownSince[iClient] = flTime;
-			
+
 			// has key been released?
 			if (MT_CrouchOrAltFireDownSince[iClient] != -1.0 && (iButtons & Button) == 0)
 			{
@@ -1622,10 +1657,10 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 							MT_EmergencyReady[iClient] = false;
 						}
 					}
-				
+
 					float position[3];
 					GetEntPropVector(iClient, Prop_Send, "m_vecOrigin", position);
-				
+
 					int Boss = FF2_GetBossIndex(iClient);
 					char sound[PLATFORM_MAX_PATH];
 					if (FF2_RandomSound("sound_magtele", sound, PLATFORM_MAX_PATH, Boss))
@@ -1643,12 +1678,12 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 						}
 					}
 				}
-			
+
 				// regardless of outcome, cancel the charge.
 				MT_CrouchOrAltFireDownSince[iClient] = -1.0;
 			}
 		}
-		
+
 		// draw the HUD if it's time
 		if (flTime >= WitchDoctorUpdateHUD[iClient])
 		{
@@ -1670,7 +1705,7 @@ public void JM_Tick(int iClient, int iButtons, float flTime)
 					ShowSyncHudText(iClient, witchdoctorHUD, "Magic Tele is not ready. %.1f seconds remaining.\nPress %s to change.", MT_OnCooldownUntil[iClient] - flTime, GetJMButton());
 				}
 			}
-		
+
 			WitchDoctorUpdateHUD[iClient] = flTime + 0.2;
 		}
 	}
@@ -1684,7 +1719,7 @@ public void AimThink(int iClient)
 
 	float flClosestLocation[3], flClientEyePosition[3], flVector[3], flCamAngle[3];
 	GetClientEyePosition(iClient, flClientEyePosition);
-	
+
 	GetClientEyePosition(iClosest, flClosestLocation);
 	flClosestLocation[2] -= 2.0;
 
@@ -1695,7 +1730,7 @@ public void AimThink(int iClient)
 
 	ClampAngle(flCamAngle);
 	TeleportEntity(iClient, NULL_VECTOR, flCamAngle, NULL_VECTOR);
-	
+
 	if(GetEngineTime() >= MLGRageTime[iClient] || FF2_GetRoundState() != 1)
 		SDKUnhook(iClient, SDKHook_PreThink, AimThink);
 }
@@ -1722,7 +1757,7 @@ void Abduct(int iClient)
 	if(trigger != -1)
 	{
 		CreateTimer(RaptureDuration, Timer_RemovePod, EntIndexToEntRef(trigger), TIMER_FLAG_NO_MAPCHANGE);
-		 
+
 		DispatchKeyValueVector(trigger, "origin", flPos);
 		DispatchKeyValue(trigger, "speed", RapturePush);
 		DispatchKeyValue(trigger, "StartDisabled", "0");
@@ -1730,11 +1765,11 @@ void Abduct(int iClient)
 		DispatchKeyValueVector(trigger, "pushdir", view_as<float>({-90.0, 0.0, 0.0}));
 		DispatchKeyValue(trigger, "alternateticksfix", "0");
 		DispatchSpawn(trigger);
-		
+
 		ActivateEntity(trigger);
 
 		AcceptEntityInput(trigger, "Enable");
-		
+
 		SetEntityModel(trigger, MODEL_TRIGGER);
 
 		SetEntPropVector(trigger, Prop_Send, "m_vecMins", RAPTURE_BEAM_MINS);
@@ -1755,7 +1790,7 @@ public Action OnStartTouchBeam(int brush, int entity)
 	if(entity > 0 && entity <= MaxClients && IsClientInGame(entity) && GetClientTeam(entity) != BossTeam)
 	{
 		SetEntityGravity(entity, 0.001);
-		
+
 		return Plugin_Continue;
 	}
 	return Plugin_Handled;
@@ -1807,12 +1842,12 @@ public Action OnTouchBeam(int brush, int entity)
 			flClPos[2] = RaptureVel;
 
 			TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, flClPos);
-			
+
 			g_Update[entity] = 0;
 		}
 		else if(g_Update[entity] == 1)
 		{
-			TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0,0.0,0.0})); 
+			TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, view_as<float>({0.0,0.0,0.0}));
 		}
 		g_Update[entity]++;
 
@@ -1837,19 +1872,19 @@ public Action Projectile_Touch(int iProj, int iOther)
 
 			int iTeam = GetClientTeam(iClient);
 			int iSpell = CreateEntityByName("tf_projectile_spellspawnhorde");
-	
+
 			if(!IsValidEntity(iSpell))
 				return Plugin_Continue;
-	
+
 			SetEntPropEnt(iSpell, Prop_Send, "m_hOwnerEntity", iClient);
 			SetEntProp(iSpell, Prop_Send, "m_iTeamNum", iTeam, 1);
 			SetEntProp(iSpell, Prop_Send, "m_nSkin", (iTeam-2));
-	
+
 			SetVariantInt(iTeam);
 			AcceptEntityInput(iSpell, "TeamNum", -1, -1, 0);
 			SetVariantInt(iTeam);
-			AcceptEntityInput(iSpell, "SetTeam", -1, -1, 0); 
-	
+			AcceptEntityInput(iSpell, "SetTeam", -1, -1, 0);
+
 			DispatchSpawn(iSpell);
 			TeleportEntity(iSpell, flPos, flAng, flAng);
 		}
@@ -1869,13 +1904,13 @@ stock void RemoveWeapons(int iClient)
 	{
 		if(GetPlayerWeaponSlot(iClient, 0) != -1)
 			TF2_RemoveWeaponSlot(iClient, TFWeaponSlot_Primary);
-		
+
 		if(GetPlayerWeaponSlot(iClient, 1) != -1)
 			TF2_RemoveWeaponSlot(iClient, TFWeaponSlot_Secondary);
-		
+
 		if(GetPlayerWeaponSlot(iClient, 2) != -1)
 			TF2_RemoveWeaponSlot(iClient, TFWeaponSlot_Melee);
-		
+
 		SwitchtoSlot(iClient, TFWeaponSlot_Melee);
 	}
 }
@@ -1917,13 +1952,13 @@ void PerformBlind(int iClient, int iDuration)
 	{
 		BfWriteShort(message, 900);
 		BfWriteShort(message, 900);
-		BfWriteShort(message, 0x0002);		
+		BfWriteShort(message, 0x0002);
 		BfWriteByte(message, 255);
 		BfWriteByte(message, 200);
 		BfWriteByte(message, 0);
 		BfWriteByte(message, 175);
 	}
-	
+
 	EndMessage();
 }
 
@@ -1933,31 +1968,31 @@ void PerformSmite(int iClient, int iTarget)
 	GetClientAbsOrigin(iTarget, flEnd);
 	flCeil = GetMapCeiling(flCeil);
 	flEnd[2] -= 26; // increase y-axis by 26 to strike at player's chest instead of the ground
-	
+
 	// define where the lightning strike starts
 	flStart[0] = flEnd[0] + GetRandomFloat(-500.0, 500.0);
 	flStart[1] = flEnd[1] + GetRandomFloat(-500.0, 500.0);
 	flStart[2] = flCeil[2];
-	
+
 	int iColor[4] = { 255, 255, 255, 255 };
-	
+
 	// define the direction of the sparks
 	float flDir[3] = { 0.0, 0.0, 0.0 };
-	
+
 	TE_SetupBeamPoints(flStart, flEnd, g_LightningSprite, 0, 0, 0, 0.2, 20.0, 10.0, 0, 1.0, iColor, 3);
 	TE_SendToAll();
-	
+
 	TE_SetupSparks(flEnd, flDir, 5000, 1000);
 	TE_SendToAll();
-	
+
 	TE_SetupEnergySplash(flEnd, flDir, false);
 	TE_SendToAll();
-	
+
 	TE_SetupSmoke(flEnd, g_SmokeSprite, 5.0, 10);
 	TE_SendToAll();
-	
+
 	EmitAmbientSound(SOUND_THUNDER, flStart, iClient, SNDLEVEL_RAIDSIREN);
-	
+
 	SDKHooks_TakeDamage(iTarget, iClient, iClient, 9001.0, DMG_PREVENT_PHYSICS_FORCE, -1);
 	PrintCenterText(iTarget, "Thou hast been smitten!");
 	g_iSmiteNumber -= 1;
@@ -1967,7 +2002,7 @@ public void ProjectBeams(float flStart[3], float flDuration, const Color[4])
 {
 	float flEnd[3], flCeil[3];
 	flCeil = GetMapCeiling(flCeil);
-	
+
 	flEnd[0] = flStart[0];
 	flEnd[1] = flStart[1];
 	flEnd[2] = flCeil[2];
@@ -1984,13 +2019,13 @@ public void ProjectBeams(float flStart[3], float flDuration, const Color[4])
 float GetMapCeiling(float flPos[3])
 {
 	Handle hTrace = TR_TraceRayEx(flPos, view_as<float>({-90.0, 0.0, 0.0}), MASK_SHOT, RayType_Infinite);
-	
-	if (TR_DidHit(hTrace)) 
+
+	if (TR_DidHit(hTrace))
 		TR_GetEndPosition(flPos, hTrace);
-	else 
+	else
 		flPos[2] = 1500.0;
 	delete hTrace;
-	
+
 	return flPos;
 }
 
@@ -2029,10 +2064,10 @@ stock bool IsValidClient(int iClient, bool bAlive = false, bool bTeam = false)
 
 	if(IsClientSourceTV(iClient) || IsClientReplay(iClient))
 		return false;
-	
+
 	if(bAlive && !IsPlayerAlive(iClient))
 		return false;
-	
+
 	if(bTeam && GetClientTeam(iClient) != BossTeam)
 		return false;
 
@@ -2055,17 +2090,17 @@ stock int SpawnWeapon(int iClient, char[] sClassname, int iIndex, int iLevel, in
 	Handle hWeapon = TF2Items_CreateItem(OVERRIDE_ALL|FORCE_GENERATION);
 	if (hWeapon == null)
 		return -1;
-		
+
 	TF2Items_SetClassname(hWeapon, sClassname);
 	TF2Items_SetItemIndex(hWeapon, iIndex);
 	TF2Items_SetLevel(hWeapon, iLevel);
 	TF2Items_SetQuality(hWeapon, iQuality);
-	
+
 	char sAttributes[32][32];
 	int count=ExplodeString(sAttribute, ";", sAttributes, 32, 32);
 	if (count % 2)
 		--count;
-		
+
 	if (count > 0)
 	{
 		TF2Items_SetNumAttributes(hWeapon, count/2);
@@ -2085,20 +2120,20 @@ stock int SpawnWeapon(int iClient, char[] sClassname, int iIndex, int iLevel, in
 	}
 	else
 		TF2Items_SetNumAttributes(hWeapon, 0);
-		
+
 	int iEntity = TF2Items_GiveNamedItem(iClient, hWeapon);
 	EquipPlayerWeapon(iClient, iEntity);
 	delete hWeapon;
-	
+
 	if(bEquip)
 		SetEntPropEnt(iClient, Prop_Send, "m_hActiveWeapon", iEntity);
-	
+
 	if (!bShow)
 	{
 		SetEntProp(iEntity, Prop_Send, "m_iWorldModelIndex", -1);
 		SetEntPropFloat(iEntity, Prop_Send, "m_flModelScale", 0.001);
 	}
-	
+
 	return iEntity;
 }
 
@@ -2127,7 +2162,7 @@ void Dissolve(int iEnt, int iMode=3)
 	{
 		char dname[12];
 		FormatEx(dname, 12, "dis_%d", iEnt);
-		
+
 		DispatchKeyValue(iEnt, "targetname", dname);
 		switch(iMode <0 ? GetRandomInt(0, 3) : iMode)	  //"0 ragdoll rises as it dissolves, 1 and 2 dissolve on ground, 3 is fast dissolve"
 		{
@@ -2148,37 +2183,37 @@ int ShootProjectile(int iClient, char strEntname[48] = "")
 	float flPos[3]; // original
 	GetClientEyeAngles(iClient, flAng);
 	GetClientEyePosition(iClient, flPos);
-	
+
 	int iTeam = GetClientTeam(iClient);
 	int iSpell = CreateEntityByName(strEntname);
-	
+
 	if(!IsValidEntity(iSpell))
 		return -1;
-	
+
 	float flVel1[3];
 	float flVel2[3];
-	
+
 	GetAngleVectors(flAng, flVel2, NULL_VECTOR, NULL_VECTOR);
-	
+
 	flVel1[0] = flVel2[0]*1100.0; //Speed of a tf2 rocket.
 	flVel1[1] = flVel2[1]*1100.0;
 	flVel1[2] = flVel2[2]*1100.0;
-	
+
 	SetEntPropEnt(iSpell, Prop_Send, "m_hOwnerEntity", iClient);
 	SetEntProp(iSpell, Prop_Send, "m_bCritical", (GetRandomInt(0, 100) <= 5)? 1 : 0, 1);
 	SetEntProp(iSpell, Prop_Send, "m_iTeamNum", iTeam, 1);
 	SetEntProp(iSpell, Prop_Send, "m_nSkin", (iTeam-2));
-	
+
 	TeleportEntity(iSpell, flPos, flAng, NULL_VECTOR);
-	
+
 	SetVariantInt(iTeam);
 	AcceptEntityInput(iSpell, "TeamNum", -1, -1, 0);
 	SetVariantInt(iTeam);
-	AcceptEntityInput(iSpell, "SetTeam", -1, -1, 0); 
-	
+	AcceptEntityInput(iSpell, "SetTeam", -1, -1, 0);
+
 	DispatchSpawn(iSpell);
 	TeleportEntity(iSpell, NULL_VECTOR, NULL_VECTOR, flVel1);
-	
+
 	return iSpell;
 }
 
@@ -2225,7 +2260,7 @@ stock int FindSpellBook(int iClient)
 			if(!GetEntProp(spellbook, Prop_Send, "m_bDisguiseWeapon"))
 				return spellbook;
 	}
-	
+
 	return -1;
 }
 
@@ -2247,7 +2282,7 @@ stock bool CylinderCollision(float cylinderOrigin[3], float colliderOrigin[3], f
 	tmpVec2[0] = colliderOrigin[0];
 	tmpVec2[1] = colliderOrigin[1];
 	tmpVec2[2] = 0.0;
-	
+
 	return GetVectorDistance(tmpVec1, tmpVec2, true) <= maxDistance * maxDistance;
 }
 
