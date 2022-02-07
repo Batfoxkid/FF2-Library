@@ -27,7 +27,7 @@ enum Operators
 #define NIGHTMARE "nightmare_rage"
 float EndNightmareAt;
 float EndFFAt;
-bool SniperFF=false; // We use this in case FF is set from RAGE, and not from round events like end-of-round friendly fire 
+bool SniperFF=false; // We use this in case FF is set from RAGE, and not from round events like end-of-round friendly fire
 bool NoVoice[MAXPLAYERS+1]=false; // Block voices while RAGE is active
 TFClassType LastClass[MAXPLAYERS+1];
 char NightmareModel[PLATFORM_MAX_PATH], NightmareClassname[64], NightmareAttributes[124];
@@ -55,7 +55,7 @@ public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] a
     //Make sure that RAGE is only allowed to be used when a FF2 round is active
 	if(!FF2_IsFF2Enabled() || FF2_GetRoundState()!=1)
 		return Plugin_Continue;
-		
+
 	int client=GetClientOfUserId(FF2_GetBossUserId(index));
 	if(!strcmp(ability_name,NIGHTMARE))	// Defenses
 	{
@@ -63,7 +63,7 @@ public Action FF2_OnAbility2(int index, const char[] plugin_name, const char[] a
 		{
 			Nightmare_TriggerAMS[client]=false;
 		}
-		
+
 		if(!Nightmare_TriggerAMS[client])
 			NIGH_Invoke(client, -1);
 	}
@@ -78,7 +78,7 @@ public AMSResult NIGH_CanInvoke(int client, int index)
 public void NIGH_Invoke(int client, int index)
 {
 	int boss=FF2_GetBossIndex(client);
-	
+
 	char NightmareHealth[768];
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 3, NightmareModel, sizeof(NightmareModel)); // Model that the players gets
 	NightmareClass=FF2_GetAbilityArgument(boss, this_plugin_name, NIGHTMARE, 4); // class name
@@ -87,36 +87,36 @@ public void NIGH_Invoke(int client, int index)
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 7, NightmareAttributes, sizeof(NightmareAttributes));
 	NightmareVoice=FF2_GetAbilityArgument(boss, this_plugin_name, NIGHTMARE, 8) != 0;
 	FF2_GetAbilityArgumentString(boss, this_plugin_name, NIGHTMARE, 9, NightmareHealth, sizeof(NightmareHealth));
-	
+
 	if(Nightmare_TriggerAMS[client])
 	{
 		char sound[PLATFORM_MAX_PATH];
 		if(FF2_RandomSound("sound_nightmare_rage", sound, sizeof(sound), boss))
 		{
 			EmitSoundToAll(sound, client);
-			EmitSoundToAll(sound, client);	
+			EmitSoundToAll(sound, client);
 		}
 	}
-	
+
 	FindConVar("mp_friendlyfire").AddChangeHook(HideCvarNotify);
-	
+
 	// And now proceed to rage
-	for (int i = 1; i <= MaxClients; i++) 
+	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidLivingPlayer(i) && GetClientTeam(i)!=FF2_GetBossTeam())
 		{
 			//First, Remove all weapons
 			TF2_RemoveAllWeapons(i);
-				
+
 			//Then set the class to whatever class you want and give them a custom weapon (it should be the bosses weapon and class, otherwise it would kinda destroy the purpose of this RAGE)
 			LastClass[i]=TF2_GetPlayerClass(i);
 			if(TF2_GetPlayerClass(i)!=view_as<TFClassType>(NightmareClass))
 			{
 				TF2_SetPlayerClass(i, view_as<TFClassType>(NightmareClass));
 			}
-			
+
 			SpawnWeapon(i, NightmareClassname, NightmareIndex, 5, 8, NightmareAttributes);
-				
+
 			//Then Remove all Wearables
 			int entity, owner;
 			while((entity=FindEntityByClassname(entity, "tf_wearable"))!=-1)
@@ -128,13 +128,13 @@ public void NIGH_Invoke(int client, int index)
 			while((entity=FindEntityByClassname(entity, "tf_powerup_bottle"))!=-1)
 				if((owner=GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity"))<=MaxClients && owner>0 && GetClientTeam(owner)!=FF2_GetBossTeam())
 					TF2_RemoveWearable(owner, entity);
-				
+
 			//Now setting the Model for the victims (should be the model of the boss, otherwise this RAGE is kinda useless)
 			PrecacheModel(NightmareModel);
 			SetVariantString(NightmareModel);
 			AcceptEntityInput(i, "SetCustomModel");
 			SetEntProp(i, Prop_Send, "m_bUseClassAnimations", 1);
-			
+
 			int playing=0;
 			for(int player=1;player<=MaxClients;player++)
 			{
@@ -145,15 +145,15 @@ public void NIGH_Invoke(int client, int index)
 					playing++;
 				}
 			}
-			
+
 			int health=RoundToCeil(ParseFormula(NightmareHealth, playing));
 			if(health)
 			{
 				SetEntityHealth(i, health);
 			}
-				
+
 			//Now set a timer for the Rage, because the rage should not last forever
-			EndNightmareAt=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, NIGHTMARE, 1, 10.0);
+			EndNightmareAt=GetGameTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, NIGHTMARE, 1, 10.0);
 
 			//Since it should confuse players, we need FriendlyFire aswell
 			if(!FindConVar("mp_friendlyfire").BoolValue)
@@ -161,14 +161,14 @@ public void NIGH_Invoke(int client, int index)
 				FindConVar("mp_friendlyfire").BoolValue = true;
 			}
 			SniperFF=true;
-			
+
 			if(NightmareVoice)
 			{
 				NoVoice[i]=true;
 			}
-			
-			EndFFAt=GetEngineTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, NIGHTMARE, 2, 10.0);
-				
+
+			EndFFAt=GetGameTime()+FF2_GetAbilityArgumentFloat(boss, this_plugin_name, NIGHTMARE, 2, 10.0);
+
 			SDKHook(i, SDKHook_PreThink, Nightmare_Prethink);
 		}
 	}
@@ -200,11 +200,11 @@ public void NightmareTick(int client, float gTime)
 				SetVariantString("");
 				AcceptEntityInput(i, "SetCustomModel");
 				SetEntProp(i, Prop_Send, "m_bUseClassAnimations", 1);
-				
+
 				TF2_SetPlayerClass(i, LastClass[i]);
-			
+
 				TF2_RegeneratePlayer(i);
-				
+
 				NoVoice[i]=false;
 			}
 		}
@@ -230,12 +230,12 @@ public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 		FindConVar("mp_friendlyfire").BoolValue = false;
 		FindConVar("mp_friendlyfire").RemoveChangeHook(HideCvarNotify);
 	}
-	
+
 	if(SniperFF)
 	{
 		SniperFF=false;
 	}
-	
+
 	for(int i=1;i<=MaxClients;i++)
 	{
 		if(IsValidClient(i))
@@ -249,7 +249,7 @@ public Action OnRoundEnd(Event event, const char[] name, bool dontBroadcast)
 			NoVoice[i]=false;
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -257,7 +257,7 @@ stock bool IsValidLivingPlayer(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
-		
+
 	return IsClientInGame(client) && IsPlayerAlive(client);
 }
 
@@ -265,7 +265,7 @@ stock bool IsValidClient(int client)
 {
 	if (client <= 0 || client > MaxClients)
 		return false;
-		
+
 	return IsClientInGame(client);
 }
 
@@ -294,7 +294,7 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, c
 		return -1;
 	int entity = TF2Items_GiveNamedItem(client, hWeapon);
 	delete hWeapon;
-	
+
 	if(!isVisible)
 	{
 		SetEntProp(entity, Prop_Send, "m_iWorldModelIndex", -1);
@@ -305,8 +305,8 @@ stock int SpawnWeapon(int client, char[] name, int index, int level, int qual, c
 	{
 		PrepareWeapon(entity);
 	}
-	#endif	
-	
+	#endif
+
 	EquipPlayerWeapon(client, entity);
 	return entity;
 }
@@ -319,7 +319,7 @@ public Action SoundHook(int clients[MAXPLAYERS], int& numClients, char vl[PLATFO
 	{
 		if(NoVoice[client]) // Block voice lines.
 		{
-			if (StrContains(vl, "vo/", false) == -1) 
+			if (StrContains(vl, "vo/", false) == -1)
 				return Plugin_Stop;
 			else if (!(StrContains(vl, "vo/", false) == -1)) // Just in case
 				return Plugin_Stop;
