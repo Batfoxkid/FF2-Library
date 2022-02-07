@@ -4,6 +4,7 @@
 #include <tf2_stocks>
 #include <freak_fortress_2>
 #include <ff2_ams2>
+#include <vsh2>
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -100,6 +101,7 @@ bool PlayingRightNow;
 #define LIFELOSTHEMECHANGE "special_lifelose_theme"
 char LIFELOSETHEME[PLATFORM_MAX_PATH];
 int StopMusic_LifeLoseVersion;
+bool IsLifeLoseModelChanged[MAXPLAYERS+1];
 
 #define LASTPLAYERSTHEME "special_lastman_theme"
 char FEWPLAYERSTHEME[PLATFORM_MAX_PATH];
@@ -131,6 +133,29 @@ public void OnPluginStart2()
 	PrecacheSound(ZEPH_SND,true);
 }
 
+//sorry but here are some vsh2 stuff to haldle vsh2's modeltimer
+public void OnLibraryAdded(const char[] name)
+{
+  if (StrEqual(name, "VSH2")) {
+    VSH2_Hook(OnBossModelTimer, Boss_OnModelTimer);
+  }
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+  if (StrEqual(name, "VSH2")) {
+    VSH2_Unhook(OnBossModelTimer, Boss_OnModelTimer);
+  }
+}
+
+Action Boss_OnModelTimer (const VSH2Player player)
+{
+	int client = player.index;
+	if (IsLifeLoseModelChanged[client])	//check if the boss has used the lifelose_model
+		return Plugin_Handled;
+	else
+		return Plugin_Continue;
+}
 
 public Action event_round_start(Event event, const char[] name, bool dontBroadcast)
 {
@@ -167,6 +192,9 @@ public void PrepareAbilities()
 			// for Healing and Reviving abilities
 			ReviveBosses_TriggerAMS[client]=false;
 			HealBosses_TriggerAMS[client]=false;
+
+			//for lifelose_transformation
+			IsLifeLoseModelChanged[client] = false;
 
 			VOMode[client]=VoiceMode_Normal;
 
@@ -1011,6 +1039,7 @@ public Action FF2_OnLoseLife(int index, int& lives, int maxlives)
 	SetVariantString(lifelose_model);
 	AcceptEntityInput(client, "SetCustomModel");
 	SetEntProp(client, Prop_Send, "m_bUseClassAnimations", 1);
+	IsLifeLoseModelChanged[client] = true;
 
 	if(FF2_HasAbility(index, this_plugin_name, LIFELOSTHEMECHANGE))
 	{

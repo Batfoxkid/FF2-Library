@@ -53,7 +53,7 @@ public OnLibraryRemoved(const String:name[])
 	}
 }
 
-public Action:FF2_OnBossModelTimer(const VSH2Player:player)
+Action:FF2_OnBossModelTimer(const VSH2Player:player)
 {
 	if (g_ModelChanged)
 		return Plugin_Handled;
