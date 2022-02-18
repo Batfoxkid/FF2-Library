@@ -7,7 +7,7 @@ enum AMSType: {
 	AMSTypes
 };
 
-enum AMSResult 
+enum AMSResult
 {
 	AMS_INVALID = -1,
 	AMS_Ignore,
@@ -39,12 +39,12 @@ enum struct Function_t {
 methodmap AMSMap < StringMap
 {
 	public AMSMap(
-		FF2Player player, 
-		Handle plugin, const char[] pl_name, const char[] ab_name, 
+		FF2Player player,
+		Handle plugin, const char[] pl_name, const char[] ab_name,
 		Function can_invoke = INVALID_FUNCTION,
 		Function invoke = INVALID_FUNCTION,
 		Function overwrite = INVALID_FUNCTION,
-		Function on_end = INVALID_FUNCTION 
+		Function on_end = INVALID_FUNCTION
 	) {
 		StringMap map = new StringMap();
 
@@ -149,8 +149,8 @@ methodmap AMSSettings < ArrayList {
 	}
 
 	public int Register(
-		const FF2Player player, 
-		Handle plugin, const char[] pl_name, const char[] ab_name, 
+		const FF2Player player,
+		Handle plugin, const char[] pl_name, const char[] ab_name,
 		Function can_invoke = INVALID_FUNCTION,
 		Function invoke = INVALID_FUNCTION,
 		Function overwrite = INVALID_FUNCTION,
@@ -189,7 +189,7 @@ enum struct AMSData_t {
 AMSData_t AMSData[MAXCLIENTS];
 
 
-methodmap AMSUser < FF2Player 
+methodmap AMSUser < FF2Player
 {
 	public AMSUser(const int index, bool userid = false) {
 		return view_as<AMSUser>(FF2Player(index, userid));
@@ -280,7 +280,13 @@ bool CreateAMS(int client, const AMSUser player)
 
 bool CreateAMS_Old(int client, const AMSUser player)
 {
-	ArrayList abilities = player.HookedAbilities;
+	FF2Identity identity;
+	identity.VSH2ID = player.GetPropInt("iBossType");
+	FF2GameMode.QueryBoss(identity, FF2GAMEMODEQ_ABILITIES);
+	if (!identity.isFound)
+		return false;
+
+	ArrayList abilities = identity.abilityList;
 
 	int ability_count = abilities.Length;
 	bool got_config;
@@ -305,7 +311,7 @@ bool CreateAMS_Old(int client, const AMSUser player)
 		break;
 	}
 
-	FF2Player.ReleaseHookedAbilities(abilities);
+	identity.Release();
 	return got_config;
 }
 
