@@ -283,7 +283,7 @@ bool CreateAMS_Old(int client, const AMSUser player)
 	FF2Identity identity;
 	identity.VSH2ID = player.GetPropInt("iBossType");
 	FF2GameMode.QueryBoss(identity, FF2GAMEMODEQ_ABILITIES);
-	if (!identity.isFound)
+	if (!FF2GameMode.QueryBoss(FF2GAMEMODEQ_ABILITIES, identity.VSH2ID, .ability_list = identity.abilityList))
 		return false;
 
 	ArrayList abilities = identity.abilityList;
